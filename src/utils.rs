@@ -27,7 +27,7 @@ pub fn compute(a: i32, op: char, b: i32) -> i32 {
             }
         }
         _ => {
-            unsafe { STATUS_CODE = 3; }
+            unsafe { STATUS_CODE = 2; }
             0
         }
     }
@@ -66,7 +66,7 @@ pub fn compute_range(
                     1 => res = max(res, *val),
                     2 => res = min(res, *val),
                     3 | 4 | 5 => res += *val,
-                    _ => unsafe { STATUS_CODE = 3; },
+                    _ => unsafe { STATUS_CODE = 2; },
                 },
             }
         }
