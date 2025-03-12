@@ -1,9 +1,9 @@
 mod utils;
 mod scrolling;
-mod parser;
-use utils::*;
+// mod parser;
+use utils::to_indices;
 use scrolling::*;
-use parser::*;
+// use parser::*;
 use std::collections::BTreeMap;
 use std::env;
 use std::io::{self, Write};

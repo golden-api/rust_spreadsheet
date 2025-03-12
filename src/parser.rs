@@ -1,5 +1,4 @@
 use crate::utils::*;
-
 #[derive(Debug, Clone, PartialEq)]
 enum FormulaType {
     SleepConst,

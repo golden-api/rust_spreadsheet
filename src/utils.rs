@@ -2,6 +2,10 @@ use std::cmp::{max, min};
 use std::f64;
 use std::thread::sleep;
 use std::time::Duration;
+use crate::Cell;
+use crate::CellValue;
+pub static mut EVAL_ERROR: bool = false;
+pub static mut STATUS_CODE: i32 = 0;
 pub fn to_indices(s: &str) -> (usize, usize) {
     let split_pos = s.find(|c: char| c.is_ascii_digit()).unwrap_or(s.len());
     let col = s[..split_pos]
