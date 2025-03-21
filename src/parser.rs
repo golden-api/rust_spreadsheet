@@ -133,7 +133,6 @@ pub fn detect_formula(form: &str) -> ParsedFormula {
     }
 }
 
-
 pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: &str) -> CellValue {
     unsafe {
         EVAL_ERROR = false;
@@ -225,7 +224,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
                             return err_value;
                         }
                     };
-                    let (res, err) = compute_range(
+                    let res = compute_range(
                         sheet,
                         r1.min(r2),
                         r1.max(r2),
@@ -233,12 +232,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
                         c1.max(c2),
                         choice,
                     );
-                    if err {
-                        unsafe { EVAL_ERROR = true; }
-                        -1
-                    } else {
-                        res
-                    }
+                    res
                 }
             } else {
                 0

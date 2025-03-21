@@ -16,7 +16,6 @@ pub fn to_indices(s: &str) -> (usize, usize) {
     (row - 1, col - 1)
 }
 
-
 pub fn compute(a: i32, op: Option<char>, b: i32) -> i32 {
     match op {
         Some('+') => a + b,
@@ -48,8 +47,7 @@ pub fn compute_range(
     c_min: usize,
     c_max: usize,
     choice: i32,
-) -> (i32, bool) {
-    let mut err = false;
+) -> i32 {
     let width = (c_max - c_min + 1) as i32;
     let height = (r_max - r_min + 1) as i32;
     let area = width * height;
@@ -63,8 +61,8 @@ pub fn compute_range(
         for c in c_min..=c_max {
             match &sheet[r][c].value {
                 CellValue::Str(_) => {
-                    err = true;
-                    return (0, true);
+                    unsafe { EVAL_ERROR = true; }
+                    return 0;
                 }
                 CellValue::Int(val) => match choice {
                     1 => res = max(res, *val),
@@ -76,7 +74,7 @@ pub fn compute_range(
         }
     }
     if choice == 3 {
-        return (res / area, err);
+        return res / area;
     }
     if choice == 5 {
         let n = area;
@@ -89,7 +87,7 @@ pub fn compute_range(
             }
         }
         variance /= n as f64;
-        return (variance.sqrt().round() as i32, err);
+        return variance.sqrt().round() as i32;
     }
-    (res, err)
+    res
 }

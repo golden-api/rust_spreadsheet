@@ -90,7 +90,7 @@ fn main() {
     let mut status_code = 0;
     let mut enable_output = true;
 
-    let mut prompt = |elapsed: f64, status: &str| {
+    let prompt = |elapsed: f64, status: &str| {
         print!("[{:.1}] ({}) > ", elapsed, status);
         io::stdout().flush().unwrap();
     };
