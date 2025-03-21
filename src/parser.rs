@@ -1,10 +1,9 @@
-use sscanf::sscanf;
 use crate::utils::{to_indices, compute, sleepy, compute_range, EVAL_ERROR, STATUS_CODE};
 use crate::Cell;
 use crate::CellValue;
 
 #[derive(Debug, PartialEq)]
-enum FormulaType {
+pub enum FormulaType {
     SleepConst,
     SleepRef,
     Constant,
@@ -34,44 +33,70 @@ pub struct ParsedFormula {
     pub val2: Option<i32>,
 }
 
+use regex::Regex;
+
 pub fn detect_formula(form: &str) -> ParsedFormula {
     let form = form.trim();
+
     // 1. SLEEP_CONST: "SLEEP(<int>)"
-    if let Ok(val1) = sscanf!(form, "SLEEP({})", i32) {
-        return ParsedFormula {
-            formula_type: FormulaType::SleepConst,
-            val1: Some(val1),
-            ..Default::default()
-        };
+    let re_sleep_const = Regex::new(r"^SLEEP\((\d+)\)$").unwrap();
+    if let Some(caps) = re_sleep_const.captures(form) {
+        if let Some(m) = caps.get(1) {
+            if let Ok(val) = m.as_str().parse::<i32>() {
+                return ParsedFormula {
+                    formula_type: FormulaType::SleepConst,
+                    val1: Some(val),
+                    ..Default::default()
+                };
+            }
+        }
     }
-    // 2. SLEEP_REF: "SLEEP(<ref>)"
-    if let Ok(ref1) = sscanf!(form, "SLEEP({})", String) {
-        return ParsedFormula {
-            formula_type: FormulaType::SleepRef,
-            ref1: Some(ref1),
-            ..Default::default()
-        };
-    }
-    // 3. CONSTANT: a lone integer
-    if let Ok(val1) = sscanf!(form, "{}", i32) {
-        return ParsedFormula {
-            formula_type: FormulaType::Constant,
-            val1: Some(val1),
-            ..Default::default()
-        };
-    }
-    // 4. REFERENCE: a cell reference (e.g., "A1")
-    if let Ok(ref1) = sscanf!(form, "{}", String) {
-        if ref1.chars().all(|c| c.is_ascii_alphanumeric()) {
+
+    // 2. SLEEP_REF: "SLEEP(<ref>)" where <ref> is e.g. A1
+    let re_sleep_ref = Regex::new(r"^SLEEP\(([A-Z]+[0-9]+)\)$").unwrap();
+    if let Some(caps) = re_sleep_ref.captures(form) {
+        if let Some(m) = caps.get(1) {
+            let cell_ref = m.as_str().to_string();
             return ParsedFormula {
-                formula_type: FormulaType::Reference,
-                ref1: Some(ref1),
+                formula_type: FormulaType::SleepRef,
+                ref1: Some(cell_ref),
                 ..Default::default()
             };
         }
     }
-    // 5. CONSTANT_CONSTANT: "<int> <op> <int>"
-    if let Ok((val1, op, val2)) = sscanf!(form, "{}{}{}", i32, char, i32) {
+
+    // 3. CONSTANT: a lone integer
+    let re_constant = Regex::new(r"^(\d+)$").unwrap();
+    if let Some(caps) = re_constant.captures(form) {
+        if let Some(m) = caps.get(1) {
+            if let Ok(val) = m.as_str().parse::<i32>() {
+                return ParsedFormula {
+                    formula_type: FormulaType::Constant,
+                    val1: Some(val),
+                    ..Default::default()
+                };
+            }
+        }
+    }
+
+    // 4. REFERENCE: a cell reference (e.g., "A1")
+    let re_reference = Regex::new(r"^([A-Z]+[0-9]+)$").unwrap();
+    if let Some(caps) = re_reference.captures(form) {
+        if let Some(m) = caps.get(1) {
+            return ParsedFormula {
+                formula_type: FormulaType::Reference,
+                ref1: Some(m.as_str().to_string()),
+                ..Default::default()
+            };
+        }
+    }
+
+    // 5. CONSTANT_CONSTANT: "<int><op><int>"
+    let re_const_const = Regex::new(r"^(\d+)([-+*/])(\d+)$").unwrap();
+    if let Some(caps) = re_const_const.captures(form) {
+        let val1: i32 = caps.get(1).unwrap().as_str().parse().unwrap();
+        let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
+        let val2: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
         return ParsedFormula {
             formula_type: FormulaType::ConstantConstant,
             val1: Some(val1),
@@ -80,45 +105,58 @@ pub fn detect_formula(form: &str) -> ParsedFormula {
             ..Default::default()
         };
     }
-    // 6. CONSTANT_REFERENCE: "<int> <op> <ref>"
-    if let Ok((val1, op, ref2)) = sscanf!(form, "{}{}{}", i32, char, String) {
-        if ref2.chars().all(|c| c.is_ascii_alphanumeric()) {
-            return ParsedFormula {
-                formula_type: FormulaType::ConstantReference,
-                val1: Some(val1),
-                ref2: Some(ref2),
-                op: Some(op),
-                ..Default::default()
-            };
-        }
+
+    // 6. CONSTANT_REFERENCE: "<int><op><ref>"
+    let re_const_ref = Regex::new(r"^(\d+)([-+*/])([A-Z]+[0-9]+)$").unwrap();
+    if let Some(caps) = re_const_ref.captures(form) {
+        let val1: i32 = caps.get(1).unwrap().as_str().parse().unwrap();
+        let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
+        let ref2 = caps.get(3).unwrap().as_str().to_string();
+        return ParsedFormula {
+            formula_type: FormulaType::ConstantReference,
+            val1: Some(val1),
+            ref2: Some(ref2),
+            op: Some(op),
+            ..Default::default()
+        };
     }
-    // 7. REFERENCE_CONSTANT: "<ref> <op> <int>"
-    if let Ok((ref1, op, val1)) = sscanf!(form, "{}{}{}", String, char, i32) {
-        if ref1.chars().all(|c| c.is_ascii_alphanumeric()) {
-            return ParsedFormula {
-                formula_type: FormulaType::ReferenceConstant,
-                ref1: Some(ref1),
-                val1: Some(val1),
-                op: Some(op),
-                ..Default::default()
-            };
-        }
+
+    // 7. REFERENCE_CONSTANT: "<ref><op><int>"
+    let re_ref_const = Regex::new(r"^([A-Z]+[0-9]+)([-+*/])(\d+)$").unwrap();
+    if let Some(caps) = re_ref_const.captures(form) {
+        let ref1 = caps.get(1).unwrap().as_str().to_string();
+        let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
+        let val1: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
+        return ParsedFormula {
+            formula_type: FormulaType::ReferenceConstant,
+            ref1: Some(ref1),
+            val1: Some(val1),
+            op: Some(op),
+            ..Default::default()
+        };
     }
-    // 8. REFERENCE_REFERENCE: "<ref> <op> <ref>"
-    if let Ok((ref1, op, ref2)) = sscanf!(form, "{}{}{}", String, char, String) {
-        if ref1.chars().all(|c| c.is_ascii_alphanumeric()) &&
-           ref2.chars().all(|c| c.is_ascii_alphanumeric()) {
-            return ParsedFormula {
-                formula_type: FormulaType::ReferenceReference,
-                ref1: Some(ref1),
-                ref2: Some(ref2),
-                op: Some(op),
-                ..Default::default()
-            };
-        }
+
+    // 8. REFERENCE_REFERENCE: "<ref><op><ref>"
+    let re_ref_ref = Regex::new(r"^([A-Z]+[0-9]+)([-+*/])([A-Z]+[0-9]+)$").unwrap();
+    if let Some(caps) = re_ref_ref.captures(form) {
+        let ref1 = caps.get(1).unwrap().as_str().to_string();
+        let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
+        let ref2 = caps.get(3).unwrap().as_str().to_string();
+        return ParsedFormula {
+            formula_type: FormulaType::ReferenceReference,
+            ref1: Some(ref1),
+            ref2: Some(ref2),
+            op: Some(op),
+            ..Default::default()
+        };
     }
+
     // 9. RANGE_FUNCTION: "<func>(<ref1>:<ref2>)"
-    if let Ok((func, ref1, ref2)) = sscanf!(form, "{}({}:{})", String, String, String) {
+    let re_range_func = Regex::new(r"^([A-Z]+)\(([A-Z]+[0-9]+):([A-Z]+[0-9]+)\)$").unwrap();
+    if let Some(caps) = re_range_func.captures(form) {
+        let func = caps.get(1).unwrap().as_str().to_string();
+        let ref1 = caps.get(2).unwrap().as_str().to_string();
+        let ref2 = caps.get(3).unwrap().as_str().to_string();
         return ParsedFormula {
             formula_type: FormulaType::RangeFunction,
             func: Some(func),
@@ -127,6 +165,8 @@ pub fn detect_formula(form: &str) -> ParsedFormula {
             ..Default::default()
         };
     }
+
+    // If none of the patterns matched, return an invalid formula.
     ParsedFormula {
         formula_type: FormulaType::InvalidFormula,
         ..Default::default()
@@ -140,7 +180,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
     }
     let err_value = CellValue::Str("error".to_string());
     let parsed = detect_formula(form);
-
+    
     let get_cell_val = |reference: &String| -> Option<i32> {
         let (r, c) = to_indices(reference);
         if r >= total_rows || c >= total_cols {
@@ -220,7 +260,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
                         "SUM" => 4,
                         "STDEV" => 5,
                         _ => {
-                            unsafe { STATUS_CODE = 3; }
+                            unsafe { STATUS_CODE = 2; }
                             return err_value;
                         }
                     };
@@ -256,12 +296,12 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
             }
         }
         FormulaType::InvalidFormula => {
-            unsafe { STATUS_CODE = 3; }
+            unsafe { STATUS_CODE = 2; }
             0
         }
     };
     
-    if unsafe { EVAL_ERROR } || unsafe { STATUS_CODE } != 0 {
+    if unsafe { EVAL_ERROR }{
         err_value
     } else {
         CellValue::Int(result)

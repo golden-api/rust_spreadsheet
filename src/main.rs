@@ -2,14 +2,10 @@ mod utils;
 mod scrolling;
 mod parser;
 
-use utils::to_indices;
+use utils::{to_indices, STATUS_CODE};
 use scrolling::*;
 use parser::eval;
-use std::collections::HashSet;
-use std::env;
-use std::io::{self, Write};
-use std::process;
-use std::time::Instant;
+use std::{collections::HashSet, env, io::{self, Write}, process, time::Instant};
 
 const MAX_ROWS:u8 = 10;
 const MAX_COLS:u8 = 10;
@@ -87,7 +83,6 @@ fn main() {
         value: CellValue::Int(0), dependents: HashSet::new(), formula: None }; total_cols]; total_rows];
 
     let (mut start_row, mut start_col) = (0, 0);
-    let mut status_code = 0;
     let mut enable_output = true;
 
     let prompt = |elapsed: f64, status: &str| {
@@ -97,7 +92,7 @@ fn main() {
 
     let start_time = Instant::now();
     printsheet(&spreadsheet, start_row, start_col, total_rows, total_cols);
-    prompt(start_time.elapsed().as_secs_f64(), STATUS[status_code]);
+    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
 
     loop {
         let mut input = String::new();
@@ -107,7 +102,7 @@ fn main() {
         println!();
         let start_time = Instant::now();
         let input = input.trim();
-        status_code = 0;
+        unsafe { STATUS_CODE = 0; }
 
         match input {
             "w" => w(&mut start_row),
@@ -122,13 +117,15 @@ fn main() {
                     let (row, col) = to_indices(cell_ref);
                     if row < total_rows && col < total_cols {
                         let value = eval(&spreadsheet, total_rows, total_cols, formula);
-                        if let CellValue::Int(val) = value {
-                            spreadsheet[row][col].value = CellValue::Int(val);
-                        } else if let CellValue::Str(val) = value {
-                            spreadsheet[row][col].value = CellValue::Str(val);
+                        if unsafe { STATUS_CODE } == 0 {
+                            if let CellValue::Int(val) = value {
+                                spreadsheet[row][col].value = CellValue::Int(val);
+                            } else if let CellValue::Str(val) = value {
+                                spreadsheet[row][col].value = CellValue::Str(val);
+                            }
                         }
                     } else {
-                        status_code = 1;
+                        unsafe { STATUS_CODE = 1; }
                     }
                 }
             }
@@ -138,16 +135,16 @@ fn main() {
                     || !cell_ref.chars().next().unwrap().is_alphabetic()
                     || scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, cell_ref).is_err()
                 {
-                    status_code = 1;
+                    unsafe { STATUS_CODE = 1; }
                 }
             }
             "disable_output" => enable_output = false,
             "enable_output" => enable_output = true,
-            _ => status_code = 2,
+            _ => unsafe { STATUS_CODE = 2; },
         }
         if enable_output {
             printsheet(&spreadsheet, start_row, start_col, total_rows, total_cols);
         }
-        prompt(start_time.elapsed().as_secs_f64(), STATUS[status_code]);
+        prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
     }
 }
