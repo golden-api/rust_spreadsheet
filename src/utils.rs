@@ -17,12 +17,12 @@ pub fn to_indices(s: &str) -> (usize, usize) {
 }
 
 
-pub fn compute(a: i32, op: char, b: i32) -> i32 {
+pub fn compute(a: i32, op: Option<char>, b: i32) -> i32 {
     match op {
-        '+' => a + b,
-        '-' => a - b,
-        '*' => a * b,
-        '/' => {
+        Some('+') => a + b,
+        Some('-') => a - b,
+        Some('*') => a * b,
+        Some('/') => {
             if b == 0 {
                 unsafe { EVAL_ERROR = true; }
                 0
