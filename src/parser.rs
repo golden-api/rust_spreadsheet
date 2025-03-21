@@ -183,7 +183,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
     
     let get_cell_val = |reference: &String| -> Option<i32> {
         let (r, c) = to_indices(reference);
-        if r >= total_rows || c >= total_cols {
+        if r >= total_rows || c >= total_cols || unsafe { STATUS_CODE } == 1{
             unsafe { STATUS_CODE = 1; }
             None
         } else {

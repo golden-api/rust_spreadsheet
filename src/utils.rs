@@ -8,7 +8,10 @@ pub fn to_indices(s: &str) -> (usize, usize) {
         .bytes()
         .fold(0, |acc, b| acc * 26 + (b - b'A' + 1) as usize);
     let row = s[split_pos..].parse::<usize>().unwrap_or(1);
-
+    if row == 0 || col == 0 {
+        unsafe { STATUS_CODE = 1; }
+        return (0, 0);
+    }
     (row - 1, col - 1)
 }
 
