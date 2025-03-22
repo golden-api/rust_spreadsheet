@@ -1,5 +1,7 @@
 use std::{cmp::{max, min}, f64, thread::sleep, time::Duration};
 use crate::{Cell, CellValue};
+use crate::parser::{detect_formula, FormulaType, ParsedFormula};
+
 pub static mut EVAL_ERROR: bool = false;
 pub static mut STATUS_CODE: usize = 0;
 pub fn to_indices(s: &str) -> (usize, usize) {
@@ -89,4 +91,145 @@ pub fn compute_range(
         return variance.sqrt().round() as i32;
     }
     res
+}
+
+pub fn remove_reference(dep_cell: &mut Cell, target: (usize, usize)) {
+    
+    let target_u8 = (target.0 as u8, target.1 as u8);
+    dep_cell.dependents.remove(&target_u8);
+}
+
+pub fn add_range_dependencies(
+    sheet: &mut Vec<Vec<Cell>>,
+    start_ref: &str,
+    end_ref: &str,
+    r: usize,
+    c: usize,
+) {
+    let (start_row, start_col) = to_indices(start_ref);
+    let (end_row, end_col) = to_indices(end_ref);
+    let min_row = start_row.min(end_row);
+    let max_row = start_row.max(end_row);
+    let min_col = start_col.min(end_col);
+    let max_col = start_col.max(end_col);
+    for row in min_row..=max_row {
+        for col in min_col..=max_col {
+            sheet[row][col].dependents.insert((r as u8, c as u8));
+        }
+    }
+}
+
+
+
+pub fn update_cell(
+    sheet: &mut Vec<Vec<Cell>>,
+    total_rows: usize,
+    total_cols: usize,
+    r: usize,
+    c: usize,
+    formula: &str,
+) {
+    
+    let backup = sheet[r][c].formula.clone();
+
+    
+    let parsed: ParsedFormula = detect_formula(formula);
+
+    
+    match parsed.formula_type {
+        FormulaType::Reference | FormulaType::SleepRef | FormulaType::ReferenceConstant => {
+            if let Some(ref r1) = parsed.ref1 {
+                let (row, col) = to_indices(r1);
+                if row >= total_rows || col >= total_cols {
+                    return; // invalid reference; in C code, statusCode would be set.
+                }
+            }
+        }
+        FormulaType::ConstantReference => {
+            if let Some(ref r2) = parsed.ref2 {
+                let (row, col) = to_indices(r2);
+                if row >= total_rows || col >= total_cols {
+                    return;
+                }
+            }
+        }
+        FormulaType::ReferenceReference | FormulaType::RangeFunction => {
+            if let Some(ref r1) = parsed.ref1 {
+                let (row, col) = to_indices(r1);
+                if row >= total_rows || col >= total_cols {
+                    return;
+                }
+            }
+            if let Some(ref r2) = parsed.ref2 {
+                let (row, col) = to_indices(r2);
+                if row >= total_rows || col >= total_cols {
+                    return;
+                }
+            }
+        }
+        FormulaType::InvalidFormula => {
+            
+            return;
+        }
+        _ => {}
+    }
+
+    // Remove old dependencies if the cell had a previous formula.
+    if let Some(ref old_formula) = sheet[r][c].formula {
+        let old_parsed = detect_formula(old_formula);
+        match old_parsed.formula_type {
+            FormulaType::RangeFunction => {
+                if let (Some(ref old_r1), Some(ref old_r2)) = (old_parsed.ref1, old_parsed.ref2) {
+                    let (start_row, start_col) = to_indices(old_r1);
+                    let (end_row, end_col) = to_indices(old_r2);
+                    let min_row = start_row.min(end_row);
+                    let max_row = start_row.max(end_row);
+                    let min_col = start_col.min(end_col);
+                    let max_col = start_col.max(end_col);
+                    for i in min_row..=max_row {
+                        for j in min_col..=max_col {
+                            remove_reference(&mut sheet[i][j], (r, c));
+                        }
+                    }
+                }
+            }
+            _ => {
+                if let Some(ref old_r1) = old_parsed.ref1 {
+                    let (idx_row, idx_col) = to_indices(old_r1);
+                    remove_reference(&mut sheet[idx_row][idx_col], (r, c));
+                }
+                if let Some(ref old_r2) = old_parsed.ref2 {
+                    let (idx_row, idx_col) = to_indices(old_r2);
+                    remove_reference(&mut sheet[idx_row][idx_col], (r, c));
+                }
+            }
+        }
+    }
+
+    
+    sheet[r][c].formula = Some(formula.to_string());
+
+    // Add new dependencies based on the new formula.
+    match parsed.formula_type {
+        FormulaType::RangeFunction => {
+            if let (Some(ref new_r1), Some(ref new_r2)) = (parsed.ref1, parsed.ref2) {
+                add_range_dependencies(sheet, new_r1, new_r2, r, c);
+            }
+        }
+        _ => {
+            if let Some(ref new_r1) = parsed.ref1 {
+                let (dep_row, dep_col) = to_indices(new_r1);
+                // Add dependency: the cell at (dep_row, dep_col) now depends on cell (r, c)
+                sheet[dep_row][dep_col].dependents.insert((r as u8, c as u8));
+            }
+            if let Some(ref new_r2) = parsed.ref2 {
+                let (dep_row, dep_col) = to_indices(new_r2);
+                sheet[dep_row][dep_col].dependents.insert((r as u8, c as u8));
+            }
+        }
+    }
+
+   
+        
+    
 }

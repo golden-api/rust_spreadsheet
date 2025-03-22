@@ -2,9 +2,9 @@ mod utils;
 mod scrolling;
 mod parser;
 
-use utils::{to_indices, STATUS_CODE};
+use utils::{to_indices, STATUS_CODE,update_cell};
 use scrolling::*;
-use parser::eval;
+use parser::recalc;
 use std::{collections::HashSet, env, io::{self, Write}, process, time::Instant};
 
 const MAX_ROWS:u8 = 10;
@@ -116,13 +116,10 @@ fn main() {
                     let (cell_ref, formula) = (parts[0], parts[1]);
                     let (row, col) = to_indices(cell_ref);
                     if row < total_rows && col < total_cols {
-                        let value = eval(&spreadsheet, total_rows, total_cols, formula);
+                        //let value = eval(&spreadsheet, total_rows, total_cols, formula);
+                        update_cell(&mut spreadsheet, total_rows, total_cols, row, col, formula);
                         if unsafe { STATUS_CODE } == 0 {
-                            if let CellValue::Int(val) = value {
-                                spreadsheet[row][col].value = CellValue::Int(val);
-                            } else if let CellValue::Str(val) = value {
-                                spreadsheet[row][col].value = CellValue::Str(val);
-                            }
+                            recalc(&mut spreadsheet, total_rows, total_cols, row, col);
                         }
                     } else {
                         unsafe { STATUS_CODE = 1; }
