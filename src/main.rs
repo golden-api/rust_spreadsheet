@@ -1,7 +1,7 @@
 mod utils;
 mod scrolling;
 mod parser;
-
+mod gui;
 use utils::{to_indices, STATUS_CODE,update_cell};
 use scrolling::*;
 use parser::recalc;
@@ -12,16 +12,26 @@ const MAX_COLS:u8 = 10;
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 
 #[derive(Clone)]
-enum CellValue {
+pub enum CellValue {
     Int(i32),
     Str(String),
 }
 
 #[derive(Clone)]
-struct Cell {
-    value: CellValue,
-    formula: Option<String>,
-    dependents: HashSet<(u8, u8)>,
+pub struct Cell {
+    pub value: CellValue,
+    pub formula: Option<String>,
+    pub dependents: HashSet<(u8, u8)>,
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            value: CellValue::Int(0),
+            formula: None,
+            dependents: HashSet::new(),
+        }
+    }
 }
 
 fn col_name(col: usize) -> String {
@@ -48,10 +58,14 @@ fn printsheet(spreadsheet: &[Vec<Cell>], start_row: usize, start_col: usize, tot
     for i in 0..view_rows {
         print!("{:4}  ", start_row + i + 1);
         for j in 0..view_cols {
-            let cell = &spreadsheet[start_row + i][start_col + j];
-            match &cell.value {
-                CellValue::Int(v) => print!("{:<10}  ", v),
-                CellValue::Str(s) => print!("{:<10}  ", s),
+            if start_row + i < spreadsheet.len() && start_col + j < spreadsheet[start_row + i].len() {
+                let cell = &spreadsheet[start_row + i][start_col + j];
+                match &cell.value {
+                    CellValue::Int(v) => print!("{:<10}  ", v),
+                    CellValue::Str(s) => print!("{:<10}  ", s),
+                }
+            } else {
+                print!("{:<10}  ", 0);
             }
         }
         println!();
@@ -69,8 +83,15 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     }
     Ok((total_rows, total_cols))
 }
+
 fn main() {
     let args: Vec<String> = env::args().collect();
+    if args.len() >= 3 && args[1] == "--gui" {
+        let rows = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(20);
+        let cols = args.get(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(50);
+        gui::run_gui(rows, cols);
+        return;
+    }
     let (total_rows, total_cols) = match parse_dimensions(args) {
         Ok(dim) => dim,
         Err(e) => {
