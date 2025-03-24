@@ -51,7 +51,7 @@ pub fn detect_formula(form: &str) -> ParsedFormula {
                 };
             }
         }
-    }
+    }   
 
     // 2. SLEEP_REF: "SLEEP(<ref>)" where <ref> is e.g. A1
     let re_sleep_ref = Regex::new(r"^SLEEP\(([A-Z]+[0-9]+)\)$").unwrap();
@@ -310,87 +310,58 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
 }
 
 
-
-
 type Coord = (usize, usize);
 
-/// Recalculate the cells that depend (directly or indirectly) on the cell at (start_row, start_col).
-pub fn recalc(
-    sheet: &mut Vec<Vec<Cell>>,
-    total_rows: usize,
-    total_cols: usize,
-    start_row: usize,
-    start_col: usize,
-) {
-    
+pub fn recalc(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, start_row: usize, start_col: usize) {
     let mut affected: Vec<Coord> = Vec::with_capacity(50);
     let mut vis: HashMap<usize, usize> = HashMap::with_capacity(20);
     let mut bfs: VecDeque<Coord> = VecDeque::with_capacity(50);
 
-    
     let key = start_row * total_cols + start_col;
     vis.insert(key, 0);
     affected.push((start_row, start_col));
     bfs.push_back((start_row, start_col));
 
     while let Some((r, c)) = bfs.pop_front() {
-        
         for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
             let dep_r = dep_r_u8 as usize;
             let dep_c = dep_c_u8 as usize;
             let key = dep_r * total_cols + dep_c;
-            if !vis.contains_key(&key) {
-                
-                let idx = affected.len();
-                vis.insert(key, idx);
-                affected.push((dep_r, dep_c));
-                bfs.push_back((dep_r, dep_c));
+            if vis.contains_key(&key) {
+                continue;
             }
+            let idx = affected.len();
+            vis.insert(key, idx);
+            affected.push((dep_r, dep_c));
+            bfs.push_back((dep_r, dep_c));
         }
     }
-    
+
     let affected_count = affected.len();
     let mut in_degree = vec![0; affected_count];
-
-    for (i, &(r, c)) in affected.iter().enumerate() {
+    for &(r, c) in &affected {
         for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
-            let dep_r = dep_r_u8 as usize;
-            let dep_c = dep_c_u8 as usize;
-            let key = dep_r * total_cols + dep_c;
+            let key = (dep_r_u8 as usize) * total_cols + (dep_c_u8 as usize);
             if let Some(&dep_idx) = vis.get(&key) {
                 in_degree[dep_idx] += 1;
             }
         }
     }
 
-    
-    let mut zero_queue: Vec<usize> = Vec::with_capacity(affected_count);
-    for i in 0..affected_count {
-        if in_degree[i] == 0 {
-            zero_queue.push(i);
-        }
-    }
+    let mut zero_queue: Vec<usize> = (0..affected_count)
+        .filter(|&i| in_degree[i] == 0)
+        .collect();
 
-    
-    let mut q_front = 0;
-    while q_front < zero_queue.len() {
-        let idx = zero_queue[q_front];
-        q_front += 1;
+    let mut i = 0;
+    while i < zero_queue.len() {
+        let idx = zero_queue[i];
+        i += 1;
         let (r, c) = affected[idx];
-
-        
         if let Some(ref formula) = sheet[r][c].formula {
-            
-            let new_val = eval(&sheet, total_rows, total_cols, formula);
-            
-            sheet[r][c].value = new_val;
+            sheet[r][c].value = eval(&sheet, total_rows, total_cols, formula);
         }
-
-        
         for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
-            let dep_r = dep_r_u8 as usize;
-            let dep_c = dep_c_u8 as usize;
-            let key = dep_r * total_cols + dep_c;
+            let key = (dep_r_u8 as usize) * total_cols + (dep_c_u8 as usize);
             if let Some(&dep_idx) = vis.get(&key) {
                 in_degree[dep_idx] -= 1;
                 if in_degree[dep_idx] == 0 {
@@ -399,5 +370,4 @@ pub fn recalc(
             }
         }
     }
-   
 }

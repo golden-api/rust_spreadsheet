@@ -16,6 +16,7 @@ enum CellValue {
     Int(i32),
     Str(String),
 }
+
 #[derive(Clone)]
 struct Cell {
     value: CellValue,
@@ -68,7 +69,6 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     }
     Ok((total_rows, total_cols))
 }
-
 fn main() {
     let args: Vec<String> = env::args().collect();
     let (total_rows, total_cols) = match parse_dimensions(args) {
@@ -78,6 +78,7 @@ fn main() {
             process::exit(1);
         }
     };
+    let mut visited = vec![0u8; total_rows * total_cols];
 
     let mut spreadsheet = vec![vec![Cell { 
         value: CellValue::Int(0), dependents: HashSet::new(), formula: None }; total_cols]; total_rows];
@@ -116,8 +117,7 @@ fn main() {
                     let (cell_ref, formula) = (parts[0], parts[1]);
                     let (row, col) = to_indices(cell_ref);
                     if row < total_rows && col < total_cols {
-                        //let value = eval(&spreadsheet, total_rows, total_cols, formula);
-                        update_cell(&mut spreadsheet, total_rows, total_cols, row, col, formula);
+                        update_cell(&mut spreadsheet, total_rows, total_cols, row, col, formula, &mut visited);
                         if unsafe { STATUS_CODE } == 0 {
                             recalc(&mut spreadsheet, total_rows, total_cols, row, col);
                         }
