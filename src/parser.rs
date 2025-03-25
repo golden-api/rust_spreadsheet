@@ -262,7 +262,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
                         "STDEV" => 5,
                         _ => {
                             unsafe { STATUS_CODE = 2; }
-                            return err_value;
+                            0
                         }
                     };
                     let res = compute_range(

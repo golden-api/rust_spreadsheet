@@ -176,26 +176,26 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
         FormulaType::Reference | FormulaType::SleepRef | FormulaType::ReferenceConstant => {
             if let Some(ref r1) = parsed.ref1 {
                 let (row, col) = to_indices(r1);
-                if row >= total_rows || col >= total_cols { return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
             }
         }
         FormulaType::ConstantReference => {
             if let Some(ref r2) = parsed.ref2 {
                 let (row, col) = to_indices(r2);
-                if row >= total_rows || col >= total_cols { return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
             }
         }
         FormulaType::ReferenceReference | FormulaType::RangeFunction => {
             if let Some(ref r1) = parsed.ref1 {
                 let (row, col) = to_indices(r1);
-                if row >= total_rows || col >= total_cols { return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
             }
             if let Some(ref r2) = parsed.ref2 {
                 let (row, col) = to_indices(r2);
-                if row >= total_rows || col >= total_cols { return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
             }
         }
-        FormulaType::InvalidFormula => { unsafe { STATUS_CODE = 3; } return; }
+        FormulaType::InvalidFormula => { unsafe { STATUS_CODE = 2; } return; }
         _ => {}
     }
     if let Some(old_formula) = sheet[r][c].formula.take() {

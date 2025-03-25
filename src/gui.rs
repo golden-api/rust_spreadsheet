@@ -6,20 +6,20 @@ use iced::executor;
 
 use crate::{Cell, CellValue};
 use crate::utils::update_cell;
-use crate::parser::detect_formula;
 
 pub fn run_gui(num_rows: usize, num_cols: usize) {
+    // Force software rendering to avoid hardware acceleration issues
+    // std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+    
     let settings = Settings {
-        flags: (num_rows, num_cols), // Pass the row/col tuple here
+        flags: (num_rows, num_cols),
         window: iced::window::Settings {
             size: (800, 600),
             ..Default::default()
         },
-        // You can configure more settings here as needed
         ..Default::default()
     };
 
-    // Now pass these settings into `Spreadsheet::run`
     let _ = Spreadsheet::run(settings);
 }
 

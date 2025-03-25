@@ -48,13 +48,11 @@ fn col_name(col: usize) -> String {
 fn printsheet(spreadsheet: &[Vec<Cell>], start_row: usize, start_col: usize, total_rows: usize, total_cols: usize) {
     let view_rows = total_rows.saturating_sub(start_row).min(MAX_ROWS as usize);
     let view_cols = total_cols.saturating_sub(start_col).min(MAX_COLS as usize);
-
     print!("{:<5}", "");
     for j in 0..view_cols {
         print!("{:>10}  ", col_name(start_col + j));
     }
     println!();
-
     for i in 0..view_rows {
         print!("{:4}  ", start_row + i + 1);
         for j in 0..view_cols {
@@ -86,7 +84,7 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() >= 3 && args[1] == "--gui" {
+    if args.len() >= 3 && args[1] == "gui" {
         let rows = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(20);
         let cols = args.get(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(50);
         gui::run_gui(rows, cols);
