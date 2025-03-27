@@ -38,7 +38,7 @@ pub fn compute(a: i32, op: Option<char>, b: i32) -> i32 {
 }
 pub fn sleepy(x: i32) {
     if x > 0 {
-        sleep(Duration::from_secs(x as u64));
+        sleep(Duration::from_secs(x as u64))
     }
 }
 pub fn compute_range(sheet: &Vec<Vec<Cell>>, r_min: usize, r_max: usize, c_min: usize, c_max: usize, choice: i32) -> i32 {
@@ -55,8 +55,7 @@ pub fn compute_range(sheet: &Vec<Vec<Cell>>, r_min: usize, r_max: usize, c_min: 
         for c in c_min..=c_max {
             match &sheet[r][c].value {
                 CellValue::Str(_) => {
-                    unsafe { EVAL_ERROR = true; }
-                    return 0;
+                    unsafe { EVAL_ERROR = true}
                 }
                 CellValue::Int(val) => match choice {
                     1 => res = max(res, *val),
@@ -87,7 +86,7 @@ pub fn compute_range(sheet: &Vec<Vec<Cell>>, r_min: usize, r_max: usize, c_min: 
 }
 
 pub fn remove_reference(dep_cell: &mut Cell, target: (usize, usize)) {
-    let target_u8 = (target.0 as u8, target.1 as u8);
+    let target_u8 = (target.0 as u16, target.1 as u16);
     dep_cell.dependents.remove(&target_u8);
 }
 
@@ -100,7 +99,7 @@ pub fn add_range_dependencies(sheet: &mut Vec<Vec<Cell>>, start_ref: &str, end_r
     let max_col = start_col.max(end_col);
     for row in min_row..=max_row {
         for col in min_col..=max_col {
-            sheet[row][col].dependents.insert((r as u8, c as u8));
+            sheet[row][col].dependents.insert((r as u16, c as u16));
         }
     }
 }
@@ -176,23 +175,23 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
         FormulaType::Reference | FormulaType::SleepRef | FormulaType::ReferenceConstant => {
             if let Some(ref r1) = parsed.ref1 {
                 let (row, col) = to_indices(r1);
-                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1}}
             }
         }
         FormulaType::ConstantReference => {
             if let Some(ref r2) = parsed.ref2 {
                 let (row, col) = to_indices(r2);
-                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1}}
             }
         }
         FormulaType::ReferenceReference | FormulaType::RangeFunction => {
             if let Some(ref r1) = parsed.ref1 {
                 let (row, col) = to_indices(r1);
-                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1 }}
             }
             if let Some(ref r2) = parsed.ref2 {
                 let (row, col) = to_indices(r2);
-                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1; }return; }
+                if row >= total_rows || col >= total_cols { unsafe { STATUS_CODE = 1 }}
             }
         }
         FormulaType::InvalidFormula => { unsafe { STATUS_CODE = 2; } return; }
@@ -229,8 +228,7 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
     sheet[r][c].formula = Some(formula.to_string());
     if run_cycle_detection(sheet, r, c, total_rows, total_cols, visited) {
         unsafe { STATUS_CODE = 3; }
-        sheet[r][c].formula = backup;
-        return;
+        sheet[r][c].formula = backup
     }
     match parsed.formula_type {
         FormulaType::RangeFunction => {
@@ -241,11 +239,11 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
         _ => {
             if let Some(ref new_r1) = parsed.ref1 {
                 let (dep_row, dep_col) = to_indices(new_r1);
-                sheet[dep_row][dep_col].dependents.insert((r as u8, c as u8));
+                sheet[dep_row][dep_col].dependents.insert((r as u16, c as u16));
             }
             if let Some(ref new_r2) = parsed.ref2 {
                 let (dep_row, dep_col) = to_indices(new_r2);
-                sheet[dep_row][dep_col].dependents.insert((r as u8, c as u8));
+                sheet[dep_row][dep_col].dependents.insert((r as u16, c as u16));
             }
         }
     }

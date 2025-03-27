@@ -21,7 +21,7 @@ pub enum CellValue {
 pub struct Cell {
     pub value: CellValue,
     pub formula: Option<String>,
-    pub dependents: HashSet<(u8, u8)>,
+    pub dependents: HashSet<(u16, u16)>,
 }
 
 impl Default for Cell {
@@ -116,9 +116,8 @@ fn main() {
 
     loop {
         let mut input = String::new();
-        if io::stdin().read_line(&mut input).is_err() {
-            break;
-        }
+        let bytes_read = io::stdin().read_line(&mut input).unwrap();
+        if bytes_read == 0 {break; }
         println!();
         let start_time = Instant::now();
         let input = input.trim();

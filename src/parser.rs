@@ -40,7 +40,7 @@ pub fn detect_formula(form: &str) -> ParsedFormula {
     let form = form.trim();
 
     // 1. SLEEP_CONST: "SLEEP(<int>)"
-    let re_sleep_const = Regex::new(r"^SLEEP\((\d+)\)$").unwrap();
+    let re_sleep_const = Regex::new(r"^SLEEP\((-?\d+)\)$").unwrap();
     if let Some(caps) = re_sleep_const.captures(form) {
         if let Some(m) = caps.get(1) {
             if let Ok(val) = m.as_str().parse::<i32>() {
@@ -67,18 +67,18 @@ pub fn detect_formula(form: &str) -> ParsedFormula {
     }
 
     // 3. CONSTANT: a lone integer
-    let re_constant = Regex::new(r"^(\d+)$").unwrap();
+    let re_constant = Regex::new(r"^(-?\d+)$").unwrap();
     if let Some(caps) = re_constant.captures(form) {
         if let Some(m) = caps.get(1) {
             if let Ok(val) = m.as_str().parse::<i32>() {
                 return ParsedFormula {
-                    formula_type: FormulaType::Constant,
-                    val1: Some(val),
-                    ..Default::default()
-                };
-            }
+                formula_type: FormulaType::Constant,
+                val1: Some(val),
+                ..Default::default()
+            };
         }
     }
+}
 
     // 4. REFERENCE: a cell reference (e.g., "A1")
     let re_reference = Regex::new(r"^([A-Z]+[0-9]+)$").unwrap();
@@ -179,7 +179,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, form: 
         EVAL_ERROR = false;
         STATUS_CODE = 0;
     }
-    let err_value = CellValue::Str("error".to_string());
+    let err_value = CellValue::Str("ERR".to_string());
     let parsed = detect_formula(form);
     
     let get_cell_val = |reference: &String| -> Option<i32> {
@@ -358,6 +358,7 @@ pub fn recalc(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, 
         i += 1;
         let (r, c) = affected[idx];
         if let Some(ref formula) = sheet[r][c].formula {
+            // println!("{} {}", r,c);
             sheet[r][c].value = eval(&sheet, total_rows, total_cols, formula);
         }
         for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
