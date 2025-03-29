@@ -162,18 +162,27 @@ pub fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,
         Some(FormulaType::CoC) => {
             let v1 = match parsed.value {
                 Valtype::Int(val) => val,
-                Valtype::Str(_) => 0,
+                Valtype::Str(_) => {
+                    unsafe { EVAL_ERROR = true; } 
+                    0
+                }
             };
             let v2 = match parsed.value2 {
                 Valtype::Int(val) => val,
-                Valtype::Str(_) => 0,
+                Valtype::Str(_) => {
+                    unsafe { EVAL_ERROR = true; } 
+                    0
+                }
             };
             compute(v1, parsed.op_code, v2)
         }
         Some(FormulaType::CoR) => {
             let v1 = match parsed.value {
                 Valtype::Int(val) => val,
-                Valtype::Str(_) => 0,
+                Valtype::Str(_) => {
+                    unsafe { EVAL_ERROR = true; } 
+                    0
+                }
             };
             if let Some(reference) = parsed.cell2 {
                 if let Some(v2) = get_cell_val(&reference) {
