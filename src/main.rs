@@ -1,66 +1,72 @@
-mod utils;
-mod scrolling;
-mod parser;
-mod gui;
-use utils::{to_indices, STATUS_CODE,update_cell};
-use scrolling::*;
-use parser::recalc;
 use std::{collections::HashSet, env, io::{self, Write}, process, time::Instant};
-
-const MAX_ROWS:u8 = 10;
-const MAX_COLS:u8 = 10;
+mod scrolling;
+mod utils;
+mod parser;
+mod dependency;
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
+pub static mut STATUS_CODE:usize=0;
 
 #[derive(Clone)]
-pub enum CellValue {
-    Int(i32),
-    Str(String),
-}
+pub enum FormulaType {SleepC,SleepR,Const,Ref,CoR,CoC,RoR,Range,Invalid}
+#[derive(Clone)]
+pub enum Valtype {Int(i32),Str(String)}
 
 #[derive(Clone)]
 pub struct Cell {
-    pub value: CellValue,
-    pub formula: Option<String>,
-    pub dependents: HashSet<(u16, u16)>,
+    value: Valtype,formula :Option<FormulaType>, value2 : Valtype,
+    op_code : Option<char>,
+    cell1 : Option<String>,cell2 : Option<String>,
+    dependents: HashSet<(usize, usize)>
 }
+impl Cell {
+    pub fn reset(&mut self) {
+        let current_dependents = std::mem::take(&mut self.dependents);
+        *self = Self {
+            value: Valtype::Int(0),value2: Valtype::Int(0),
+            formula: None,op_code: None,cell1: None,cell2: None,
+            dependents: current_dependents,
+        };}
 
-impl Default for Cell {
-    fn default() -> Self {
+    pub fn my_clone(&self) -> Self {
         Self {
-            value: CellValue::Int(0),
-            formula: None,
+            value: self.value.clone(),
+            value2: self.value2.clone(),
+            formula: self.formula.clone(),
+            op_code: self.op_code.clone(),
+            cell1: self.cell1.clone(),
+            cell2: self.cell2.clone(),
             dependents: HashSet::new(),
+            }
         }
-    }
 }
 
-fn col_name(col: usize) -> String {
-    let mut n = col + 1;
-    let mut result = String::new();
-    while n > 0 {
-        let rem = (n - 1) % 26;
-        result.push((b'A' + rem as u8) as char);
-        n = (n - 1) / 26;
-    }
-    result.chars().rev().collect()
-}
-
-fn printsheet(spreadsheet: &[Vec<Cell>], start_row: usize, start_col: usize, total_rows: usize, total_cols: usize) {
-    let view_rows = total_rows.saturating_sub(start_row).min(MAX_ROWS as usize);
-    let view_cols = total_cols.saturating_sub(start_col).min(MAX_COLS as usize);
+fn print_sheet(spreadsheet: &[Vec<Cell>], pointer: &(usize, usize), dimension: &(usize, usize)) {
+    let view_rows = dimension.0.saturating_sub(pointer.0).min(10);
+    let view_cols = dimension.1.saturating_sub(pointer.1).min(10);
+    
     print!("{:<5}", "");
     for j in 0..view_cols {
-        print!("{:>10}  ", col_name(start_col + j));
+        let col = pointer.1 + j;
+        let mut name = String::new();
+        let mut n = col + 1;
+        while n > 0 {
+            let rem = (n - 1) % 26;
+            name.push((b'A' + rem as u8) as char);
+            n = (n - 1) / 26;
+        }
+        print!("{:>10}  ", name.chars().rev().collect::<String>());
     }
     println!();
+    
     for i in 0..view_rows {
-        print!("{:4}  ", start_row + i + 1);
+        print!("{:4}  ", pointer.0 + i + 1);
         for j in 0..view_cols {
-            if start_row + i < spreadsheet.len() && start_col + j < spreadsheet[start_row + i].len() {
-                let cell = &spreadsheet[start_row + i][start_col + j];
-                match &cell.value {
-                    CellValue::Int(v) => print!("{:<10}  ", v),
-                    CellValue::Str(s) => print!("{:<10}  ", s),
+            let row = pointer.0 + i;
+            let col = pointer.1 + j;
+            if row < dimension.0 && col < spreadsheet[row].len() {
+                match &spreadsheet[row][col].value {
+                    Valtype::Int(v) => print!("{:<10}  ", v),
+                    Valtype::Str(s) => print!("{:<10}  ", s),
                 }
             } else {
                 print!("{:<10}  ", 0);
@@ -84,12 +90,6 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() >= 3 && args[1] == "gui" {
-        let rows = args.get(2).and_then(|s| s.parse::<usize>().ok()).unwrap_or(20);
-        let cols = args.get(3).and_then(|s| s.parse::<usize>().ok()).unwrap_or(50);
-        gui::run_gui(rows, cols);
-        return;
-    }
     let (total_rows, total_cols) = match parse_dimensions(args) {
         Ok(dim) => dim,
         Err(e) => {
@@ -97,12 +97,12 @@ fn main() {
             process::exit(1);
         }
     };
-    let mut visited = vec![0u8; total_rows * total_cols];
+    let mut visited = vec![0u8; (total_rows  )* (total_cols )];
 
-    let mut spreadsheet = vec![vec![Cell { 
-        value: CellValue::Int(0), dependents: HashSet::new(), formula: None }; total_cols]; total_rows];
-
-    let (mut start_row, mut start_col) = (0, 0);
+    let mut spreadsheet= vec![vec![Cell { 
+        value: Valtype::Int(0),value2:Valtype::Int(0),dependents: HashSet::new(), formula: None,op_code: None,cell1: None,cell2: None
+    };total_cols]; total_rows];
+    let (mut start_row, mut start_col) = (0,0);
     let mut enable_output = true;
 
     let prompt = |elapsed: f64, status: &str| {
@@ -111,8 +111,8 @@ fn main() {
     };
 
     let start_time = Instant::now();
-    printsheet(&spreadsheet, start_row, start_col, total_rows, total_cols);
-    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+    print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
+    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe {STATUS_CODE}]);
 
     loop {
         let mut input = String::new();
@@ -122,22 +122,23 @@ fn main() {
         let start_time = Instant::now();
         let input = input.trim();
         unsafe { STATUS_CODE = 0; }
-
         match input {
-            "w" => w(&mut start_row),
-            "s" => s(&mut start_row, total_rows),
-            "a" => a(&mut start_col),
-            "d" => d(&mut start_col, total_cols),
+            "w" => scrolling::w(&mut start_row),
+            "s" => scrolling::s(&mut start_row, total_rows),
+            "a" => scrolling::a(&mut start_col),
+            "d" => scrolling::d(&mut start_col, total_cols),
             "q" => break,
             _ if input.contains('=') => {
                 let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
                 if parts.len() == 2 {
                     let (cell_ref, formula) = (parts[0], parts[1]);
-                    let (row, col) = to_indices(cell_ref);
+                    let (row, col) = utils::to_indices(cell_ref);
                     if row < total_rows && col < total_cols {
-                        update_cell(&mut spreadsheet, total_rows, total_cols, row, col, formula, &mut visited);
+                        let old_cell=spreadsheet[row][col].my_clone();
+                        parser::detect_formula(&mut spreadsheet[row][col],formula);
+                        dependency::update_cell(&mut spreadsheet, total_rows, total_cols, row, col, &mut visited,old_cell);
                         if unsafe { STATUS_CODE } == 0 {
-                            recalc(&mut spreadsheet, total_rows, total_cols, row, col);
+                            parser::recalc(&mut spreadsheet, total_rows, total_cols, row, col);
                         }
                     } else {
                         unsafe { STATUS_CODE = 1; }
@@ -148,7 +149,7 @@ fn main() {
                 let cell_ref = input.trim_start_matches("scroll_to ").trim();
                 if cell_ref.is_empty()
                     || !cell_ref.chars().next().unwrap().is_alphabetic()
-                    || scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, cell_ref).is_err()
+                    || scrolling::scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, cell_ref).is_err()
                 {
                     unsafe { STATUS_CODE = 1; }
                 }
@@ -158,7 +159,7 @@ fn main() {
             _ => unsafe { STATUS_CODE = 2; },
         }
         if enable_output {
-            printsheet(&spreadsheet, start_row, start_col, total_rows, total_cols);
+            print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
         }
         prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
     }
