@@ -74,7 +74,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let ref2 = caps.get(3).unwrap().as_str().to_string();
         block.value = Valtype::Int(val1);
-        block.cell1 = Some(ref2);
+        block.cell2 = Some(ref2);
         block.op_code = Some(op);
         block.formula = Some(FormulaType::CoR);
         return;
@@ -89,7 +89,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         block.cell1 = Some(ref1);
         block.value = Valtype::Int(val1);
         block.op_code = Some(op);
-        block.formula = Some(FormulaType::CoR);
+        block.formula = Some(FormulaType::RoC);
         return;
     }
     // 8. REFERENCE_REFERENCE: "<ref><op><ref>"
@@ -187,6 +187,24 @@ pub fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,
             if let Some(reference) = parsed.cell2 {
                 if let Some(v2) = get_cell_val(&reference) {
                     compute(v1, parsed.op_code, v2)
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        }
+        Some(FormulaType::RoC) => {
+            let v1 = match parsed.value {
+                Valtype::Int(val) => val,
+                Valtype::Str(_) => {
+                    unsafe { EVAL_ERROR = true; } 
+                    0
+                }
+            };
+            if let Some(reference) = parsed.cell1 {
+                if let Some(v2) = get_cell_val(&reference) {
+                    compute(v2, parsed.op_code, v1)
                 } else {
                     0
                 }

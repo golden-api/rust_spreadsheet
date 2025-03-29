@@ -7,7 +7,7 @@ const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle det
 pub static mut STATUS_CODE:usize=0;
 
 #[derive(Clone)]
-pub enum FormulaType {SleepC,SleepR,Const,Ref,CoR,CoC,RoR,Range,Invalid}
+pub enum FormulaType {SleepC,SleepR,Const,Ref,CoR,RoC,CoC,RoR,Range,Invalid}
 #[derive(Clone)]
 pub enum Valtype {Int(i32),Str(String)}
 
