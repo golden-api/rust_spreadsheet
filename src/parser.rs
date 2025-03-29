@@ -199,7 +199,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,
                 if let Valtype::Str(func) = parsed.value2 {
                     let (r1, c1) = to_indices(&r1_str);
                     let (r2, c2) = to_indices(&r2_str);
-                    if r1 < total_rows && c1 < total_cols && r2 < total_rows && c2 < total_cols {
+                    if r1 < total_rows && c1 < total_cols && r2 < total_rows && c2 < total_cols && r1 <= r2 && c1 <= c2 {
                         let choice = match func.to_uppercase().as_str() {
                             "MAX" => 1,
                             "MIN" => 2,
