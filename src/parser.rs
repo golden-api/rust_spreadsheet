@@ -73,7 +73,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let val1: i32 = caps.get(1).unwrap().as_str().parse().unwrap();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let ref2 = caps.get(3).unwrap().as_str().to_string();
-        block.value = Valtype::Int(val1);
+        block.value2 = Valtype::Int(val1);
         block.cell2 = Some(ref2);
         block.op_code = Some(op);
         block.formula = Some(FormulaType::CoR);
@@ -87,7 +87,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let val1: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
         block.cell1 = Some(ref1);
-        block.value = Valtype::Int(val1);
+        block.value2 = Valtype::Int(val1);
         block.op_code = Some(op);
         block.formula = Some(FormulaType::RoC);
         return;
@@ -177,7 +177,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,
             compute(v1, parsed.op_code, v2)
         }
         Some(FormulaType::CoR) => {
-            let v1 = match parsed.value {
+            let v1 = match parsed.value2 {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
                     unsafe { EVAL_ERROR = true; } 
@@ -195,7 +195,7 @@ pub fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,
             }
         }
         Some(FormulaType::RoC) => {
-            let v1 = match parsed.value {
+            let v1 = match parsed.value2 {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
                     unsafe { EVAL_ERROR = true; } 
