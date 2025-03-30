@@ -97,8 +97,6 @@ fn main() {
             process::exit(1);
         }
     };
-    let mut visited = vec![0u8; (total_rows  )* (total_cols )];
-
     let mut spreadsheet= vec![vec![Cell { 
         value: Valtype::Int(0),value2:Valtype::Int(0),dependents: HashSet::new(), formula: None,op_code: None,cell1: None,cell2: None
     };total_cols]; total_rows];
@@ -113,11 +111,14 @@ fn main() {
     let start_time = Instant::now();
     print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
     prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe {STATUS_CODE}]);
-
+    
+    // let start = std::time::Instant::now();
     loop {
         let mut input = String::new();
         let bytes_read = io::stdin().read_line(&mut input).unwrap();
-        if bytes_read == 0 {break; }
+        if bytes_read == 0 {
+            // println!("Eval time: {:?}", start.elapsed());
+            break; }
         println!();
         let start_time = Instant::now();
         let input = input.trim();
@@ -136,7 +137,7 @@ fn main() {
                     if row < total_rows && col < total_cols {
                         let old_cell=spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col],formula);
-                        dependency::update_cell(&mut spreadsheet, total_rows, total_cols, row, col, &mut visited,old_cell);
+                        dependency::update_cell(&mut spreadsheet, total_rows, total_cols, row, col,old_cell);
                         if unsafe { STATUS_CODE } == 0 {
                             parser::recalc(&mut spreadsheet, total_rows, total_cols, row, col);
                         }
