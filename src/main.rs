@@ -112,12 +112,12 @@ fn main() {
     print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
     prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe {STATUS_CODE}]);
     
-    // let start = std::time::Instant::now();
+    let start = std::time::Instant::now();
     loop {
         let mut input = String::new();
         let bytes_read = io::stdin().read_line(&mut input).unwrap();
         if bytes_read == 0 {
-            // println!("Eval time: {:?}", start.elapsed());
+            println!("Eval time: {:?}", start.elapsed());
             break; }
         println!();
         let start_time = Instant::now();
