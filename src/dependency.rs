@@ -1,19 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use crate::{Cell, FormulaType, utils::to_indices, STATUS_CODE};
 
-/// Remove a dependency link from a dependent cell.
-pub fn remove_reference(dep_cell: &mut Cell, target: (usize, usize)) {
-    dep_cell.dependents.remove(&target);
-}
-
-/// For range formulas, add dependencies from every cell in the specified range to cell (r, c).
-pub fn add_range_dependencies(
-    sheet: &mut Vec<Vec<Cell>>,
-    start_ref: &str,
-    end_ref: &str,
-    r: usize,
-    c: usize,
-) {
+fn add_range_dependencies(sheet: &mut Vec<Vec<Cell>>,start_ref: &str,end_ref: &str,r: usize,c: usize,) {
     let (start_row, start_col) = to_indices(start_ref);
     let (end_row, end_col) = to_indices(end_ref);
     for row in start_row..=end_row {
@@ -22,7 +10,7 @@ pub fn add_range_dependencies(
         }
     }
 }
-pub fn detect_cycle(cell: &Cell, row: usize, col: usize,cell_check: &Cell,sheet: &Vec<Vec<Cell>>) -> bool {
+fn detect_cycle(cell: &Cell, row: usize, col: usize,cell_check: &Cell,sheet: &Vec<Vec<Cell>>) -> bool {
     if let Some(formula) = &cell.formula {
         match formula {
             FormulaType::Range => {
@@ -57,7 +45,7 @@ pub fn detect_cycle(cell: &Cell, row: usize, col: usize,cell_check: &Cell,sheet:
     false
 }
 
-pub fn run_cycle_detection(sheet: &Vec<Vec<Cell>>, start_row: usize, start_col: usize) -> bool {
+fn run_cycle_detection(sheet: &Vec<Vec<Cell>>, start_row: usize, start_col: usize) -> bool {
     let cell = &sheet[start_row][start_col];
     if let Some(formula) = &cell.formula {
         match formula {
@@ -120,16 +108,13 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
         return;
     }
 
-    // Use Tarjan's algorithm to detect a cycle.
     if detect_cycle(sheet, (r, c), total_rows, total_cols) {
         unsafe { STATUS_CODE = 3; }
-        // Restore backup (swap dependents from backup).
         std::mem::swap(&mut backup.dependents, &mut sheet[r][c].dependents);
         sheet[r][c] = backup;
         return;
     }
 
-    // Remove old dependencies from the backup cell.
     {
         match &backup.formula {
             Some(FormulaType::Range) => {
@@ -138,7 +123,7 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
                     let (end_row, end_col) = to_indices(old_r2);
                     for i in start_row..=end_row {
                         for j in start_col..=end_col {
-                            remove_reference(&mut sheet[i][j], (r, c));
+                            sheeet[i][j].dependents.remove(&(r,c));
                         }
                     }
                 }
@@ -146,17 +131,16 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
             _ => {
                 if let Some(old_r1) = backup.cell1.as_ref() {
                     let (i, j) = to_indices(old_r1);
-                    remove_reference(&mut sheet[i][j], (r, c));
+                    sheeet[i][j].dependents.remove(&(r,c));
                 }
                 if let Some(old_r2) = backup.cell2.as_ref() {
                     let (i, j) = to_indices(old_r2);
-                    remove_reference(&mut sheet[i][j], (r, c));
+                    sheeet[i][j].dependents.remove(&(r,c));
                 }
             }
         }
     }
 
-    // Add new dependencies.
     {
         match &sheet[r][c].formula {
             Some(FormulaType::Range) => {
