@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet, VecDeque};
 use crate::{Cell, FormulaType, utils::to_indices, STATUS_CODE};
 
 fn add_range_dependencies(sheet: &mut Vec<Vec<Cell>>,start_ref: &str,end_ref: &str,r: usize,c: usize,) {
@@ -108,7 +107,7 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
         return;
     }
 
-    if detect_cycle(sheet, (r, c), total_rows, total_cols) {
+    if run_cycle_detection(sheet, r,c) {
         unsafe { STATUS_CODE = 3; }
         std::mem::swap(&mut backup.dependents, &mut sheet[r][c].dependents);
         sheet[r][c] = backup;
@@ -123,7 +122,7 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
                     let (end_row, end_col) = to_indices(old_r2);
                     for i in start_row..=end_row {
                         for j in start_col..=end_col {
-                            sheeet[i][j].dependents.remove(&(r,c));
+                            sheet[i][j].dependents.remove(&(r,c));
                         }
                     }
                 }
@@ -131,11 +130,11 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
             _ => {
                 if let Some(old_r1) = backup.cell1.as_ref() {
                     let (i, j) = to_indices(old_r1);
-                    sheeet[i][j].dependents.remove(&(r,c));
+                    sheet[i][j].dependents.remove(&(r,c));
                 }
                 if let Some(old_r2) = backup.cell2.as_ref() {
                     let (i, j) = to_indices(old_r2);
-                    sheeet[i][j].dependents.remove(&(r,c));
+                    sheet[i][j].dependents.remove(&(r,c));
                 }
             }
         }

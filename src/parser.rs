@@ -121,7 +121,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     block.formula = Some(FormulaType::Invalid);
 }
 
-pub fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: usize,) -> Valtype {
+fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: usize,) -> Valtype {
     unsafe {
         EVAL_ERROR = false;
         STATUS_CODE = 0;
