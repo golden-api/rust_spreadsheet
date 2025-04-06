@@ -1,0 +1,11 @@
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/libarboard-929479e24ca71023.rmeta: /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/lib.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/common.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/mod.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/mod.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/x11.rs
+
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/libarboard-929479e24ca71023.rlib: /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/lib.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/common.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/mod.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/mod.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/x11.rs
+
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/arboard-929479e24ca71023.d: /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/lib.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/common.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/mod.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/mod.rs /home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/x11.rs
+
+/home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/lib.rs:
+/home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/common.rs:
+/home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/mod.rs:
+/home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/mod.rs:
+/home/sankalp/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.5.0/src/platform/linux/x11.rs:

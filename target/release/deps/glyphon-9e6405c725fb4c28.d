@@ -1,0 +1,11 @@
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/libglyphon-9e6405c725fb4c28.rmeta: /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/lib.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/error.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_atlas.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_render.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/shader.wgsl
+
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/libglyphon-9e6405c725fb4c28.rlib: /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/lib.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/error.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_atlas.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_render.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/shader.wgsl
+
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/glyphon-9e6405c725fb4c28.d: /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/lib.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/error.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_atlas.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_render.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/shader.wgsl
+
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/lib.rs:
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/error.rs:
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_atlas.rs:
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/text_render.rs:
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glyphon-0.5.0/src/shader.wgsl:

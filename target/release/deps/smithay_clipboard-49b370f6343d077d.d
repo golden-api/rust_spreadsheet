@@ -1,0 +1,10 @@
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/libsmithay_clipboard-49b370f6343d077d.rmeta: /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/lib.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/mime.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/state.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/worker.rs
+
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/libsmithay_clipboard-49b370f6343d077d.rlib: /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/lib.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/mime.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/state.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/worker.rs
+
+/mnt/d/OneDrive/Desktop/rust_spreadsheet/target/release/deps/smithay_clipboard-49b370f6343d077d.d: /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/lib.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/mime.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/state.rs /home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/worker.rs
+
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/lib.rs:
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/mime.rs:
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/state.rs:
+/home/sankalp12/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smithay-clipboard-0.7.2/src/worker.rs:
