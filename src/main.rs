@@ -1,31 +1,56 @@
 use std::{collections::HashSet, env, io::{self, Write}, process, time::Instant};
+use eframe::egui;
 mod scrolling;
 mod utils;
 mod parser;
 mod dependency;
-const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
-pub static mut STATUS_CODE:usize=0;
+mod gui;
 
+const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
+pub static mut STATUS_CODE: usize = 0;
+
+#[derive(Clone, Debug)]
+pub enum FormulaType {
+    SleepC,
+    SleepR,
+    Const,
+    Ref,
+    CoR,
+    RoC,
+    CoC,
+    RoR,
+    Range,
+    Invalid,
+}
 #[derive(Clone)]
-pub enum FormulaType {SleepC,SleepR,Const,Ref,CoR,RoC,CoC,RoR,Range,Invalid}
-#[derive(Clone)]
-pub enum Valtype {Int(i32),Str(String)}
+pub enum Valtype {
+    Int(i32),
+    Str(String),
+}
 
 #[derive(Clone)]
 pub struct Cell {
-    value: Valtype,formula :Option<FormulaType>, value2 : Valtype,
-    op_code : Option<char>,
-    cell1 : Option<String>,cell2 : Option<String>,
-    dependents: HashSet<(usize, usize)>
+    value: Valtype,
+    formula: Option<FormulaType>,
+    value2: Valtype,
+    op_code: Option<char>,
+    cell1: Option<String>,
+    cell2: Option<String>,
+    dependents: HashSet<(usize, usize)>,
 }
 impl Cell {
     pub fn reset(&mut self) {
         let current_dependents = std::mem::take(&mut self.dependents);
         *self = Self {
-            value: Valtype::Int(0),value2: Valtype::Int(0),
-            formula: None,op_code: None,cell1: None,cell2: None,
+            value: Valtype::Int(0),
+            value2: Valtype::Int(0),
+            formula: None,
+            op_code: None,
+            cell1: None,
+            cell2: None,
             dependents: current_dependents,
-        };}
+        };
+    }
 
     pub fn my_clone(&self) -> Self {
         Self {
@@ -35,15 +60,16 @@ impl Cell {
             op_code: self.op_code.clone(),
             cell1: self.cell1.clone(),
             cell2: self.cell2.clone(),
+            // Note: intentionally do not clone dependents.
             dependents: HashSet::new(),
-            }
         }
+    }
 }
 
 fn print_sheet(spreadsheet: &[Vec<Cell>], pointer: &(usize, usize), dimension: &(usize, usize)) {
     let view_rows = dimension.0.saturating_sub(pointer.0).min(10);
     let view_cols = dimension.1.saturating_sub(pointer.1).min(10);
-    
+
     print!("{:<5}", "");
     for j in 0..view_cols {
         let col = pointer.1 + j;
@@ -57,7 +83,7 @@ fn print_sheet(spreadsheet: &[Vec<Cell>], pointer: &(usize, usize), dimension: &
         print!("{:>10}  ", name.chars().rev().collect::<String>());
     }
     println!();
-    
+
     for i in 0..view_rows {
         print!("{:4}  ", pointer.0 + i + 1);
         for j in 0..view_cols {
@@ -88,19 +114,18 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     Ok((total_rows, total_cols))
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let (total_rows, total_cols) = match parse_dimensions(args) {
-        Ok(dim) => dim,
-        Err(e) => {
-            eprintln!("{}", e);
-            process::exit(1);
-        }
-    };
-    let mut spreadsheet= vec![vec![Cell { 
-        value: Valtype::Int(0),value2:Valtype::Int(0),dependents: HashSet::new(), formula: None,op_code: None,cell1: None,cell2: None
-    };total_cols]; total_rows];
-    let (mut start_row, mut start_col) = (0,0);
+fn interactive_mode(total_rows: usize, total_cols: usize) {
+    let mut spreadsheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        value2: Valtype::Int(0),
+        dependents: HashSet::new(),
+        formula: None,
+        op_code: None,
+        cell1: None,
+        cell2: None,
+    }; total_cols]; total_rows];
+
+    let (mut start_row, mut start_col) = (0, 0);
     let mut enable_output = true;
 
     let prompt = |elapsed: f64, status: &str| {
@@ -110,15 +135,16 @@ fn main() {
 
     let start_time = Instant::now();
     print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
-    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe {STATUS_CODE}]);
-    
-    let start = std::time::Instant::now();
+    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+
+    let start = Instant::now();
     loop {
         let mut input = String::new();
         let bytes_read = io::stdin().read_line(&mut input).unwrap();
         if bytes_read == 0 {
             println!("Eval time: {:?}", start.elapsed());
-            break; }
+            break;
+        }
         println!();
         let start_time = Instant::now();
         let input = input.trim();
@@ -135,9 +161,9 @@ fn main() {
                     let (cell_ref, formula) = (parts[0], parts[1]);
                     let (row, col) = utils::to_indices(cell_ref);
                     if row < total_rows && col < total_cols {
-                        let old_cell=spreadsheet[row][col].my_clone();
-                        parser::detect_formula(&mut spreadsheet[row][col],formula);
-                        dependency::update_cell(&mut spreadsheet, total_rows, total_cols, row, col,old_cell);
+                        let old_cell = spreadsheet[row][col].my_clone();
+                        parser::detect_formula(&mut spreadsheet[row][col], formula);
+                        dependency::update_cell(&mut spreadsheet, total_rows, total_cols, row, col, old_cell);
                         if unsafe { STATUS_CODE } == 0 {
                             parser::recalc(&mut spreadsheet, total_rows, total_cols, row, col);
                         }
@@ -163,5 +189,32 @@ fn main() {
             print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
         }
         prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+    }
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 && args[1] == "gui" {
+        let options = eframe::NativeOptions {
+            // initial_window_size is deprecated/removed
+            ..Default::default()
+        };
+    
+        eframe::run_native(
+            "Rust Spreadsheet GUI",
+            options,
+            Box::new(|_cc| Box::new(crate::gui::SpreadsheetApp::new())),
+        );
+        
+    } else {
+        // Otherwise, we expect two arguments: <num_rows> and <num_columns>.
+        let (total_rows, total_cols) = match parse_dimensions(args.clone()) {
+            Ok(dim) => dim,
+            Err(e) => {
+                eprintln!("{}", e);
+                process::exit(1);
+            }
+        };
+        interactive_mode(total_rows, total_cols);
     }
 }
