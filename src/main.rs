@@ -1,10 +1,16 @@
-use std::{collections::HashSet, env, io::{self, Write}, process, time::Instant};
 use eframe::egui;
-mod scrolling;
-mod utils;
-mod parser;
+use std::{
+    collections::HashSet,
+    env,
+    io::{self, Write},
+    process,
+    time::Instant,
+};
 mod dependency;
 mod gui;
+mod parser;
+mod scrolling;
+mod utils;
 
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
@@ -115,15 +121,21 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 }
 
 fn interactive_mode(total_rows: usize, total_cols: usize) {
-    let mut spreadsheet = vec![vec![Cell {
-        value: Valtype::Int(0),
-        value2: Valtype::Int(0),
-        dependents: HashSet::new(),
-        formula: None,
-        op_code: None,
-        cell1: None,
-        cell2: None,
-    }; total_cols]; total_rows];
+    let mut spreadsheet = vec![
+        vec![
+            Cell {
+                value: Valtype::Int(0),
+                value2: Valtype::Int(0),
+                dependents: HashSet::new(),
+                formula: None,
+                op_code: None,
+                cell1: None,
+                cell2: None,
+            };
+            total_cols
+        ];
+        total_rows
+    ];
 
     let (mut start_row, mut start_col) = (0, 0);
     let mut enable_output = true;
@@ -134,8 +146,15 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
     };
 
     let start_time = Instant::now();
-    print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
-    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+    print_sheet(
+        &spreadsheet,
+        &(start_row, start_col),
+        &(total_rows, total_cols),
+    );
+    prompt(
+        start_time.elapsed().as_secs_f64(),
+        STATUS[unsafe { STATUS_CODE }],
+    );
 
     let start = Instant::now();
     loop {
@@ -148,7 +167,9 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
         println!();
         let start_time = Instant::now();
         let input = input.trim();
-        unsafe { STATUS_CODE = 0; }
+        unsafe {
+            STATUS_CODE = 0;
+        }
         match input {
             "w" => scrolling::w(&mut start_row),
             "s" => scrolling::s(&mut start_row, total_rows),
@@ -163,12 +184,21 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                     if row < total_rows && col < total_cols {
                         let old_cell = spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col], formula);
-                        dependency::update_cell(&mut spreadsheet, total_rows, total_cols, row, col, old_cell);
+                        dependency::update_cell(
+                            &mut spreadsheet,
+                            total_rows,
+                            total_cols,
+                            row,
+                            col,
+                            old_cell,
+                        );
                         if unsafe { STATUS_CODE } == 0 {
                             parser::recalc(&mut spreadsheet, total_rows, total_cols, row, col);
                         }
                     } else {
-                        unsafe { STATUS_CODE = 1; }
+                        unsafe {
+                            STATUS_CODE = 1;
+                        }
                     }
                 }
             }
@@ -176,19 +206,37 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                 let cell_ref = input.trim_start_matches("scroll_to ").trim();
                 if cell_ref.is_empty()
                     || !cell_ref.chars().next().unwrap().is_alphabetic()
-                    || scrolling::scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, cell_ref).is_err()
+                    || scrolling::scroll_to(
+                        &mut start_row,
+                        &mut start_col,
+                        total_rows,
+                        total_cols,
+                        cell_ref,
+                    )
+                    .is_err()
                 {
-                    unsafe { STATUS_CODE = 1; }
+                    unsafe {
+                        STATUS_CODE = 1;
+                    }
                 }
             }
             "disable_output" => enable_output = false,
             "enable_output" => enable_output = true,
-            _ => unsafe { STATUS_CODE = 2; },
+            _ => unsafe {
+                STATUS_CODE = 2;
+            },
         }
         if enable_output {
-            print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
+            print_sheet(
+                &spreadsheet,
+                &(start_row, start_col),
+                &(total_rows, total_cols),
+            );
         }
-        prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+        prompt(
+            start_time.elapsed().as_secs_f64(),
+            STATUS[unsafe { STATUS_CODE }],
+        );
     }
 }
 
@@ -199,13 +247,12 @@ fn main() {
             // initial_window_size is deprecated/removed
             ..Default::default()
         };
-    
+
         eframe::run_native(
             "Rust Spreadsheet GUI",
             options,
             Box::new(|_cc| Box::new(crate::gui::SpreadsheetApp::new())),
         );
-        
     } else {
         // Otherwise, we expect two arguments: <num_rows> and <num_columns>.
         let (total_rows, total_cols) = match parse_dimensions(args.clone()) {

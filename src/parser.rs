@@ -1,5 +1,5 @@
-use crate::utils::{to_indices, compute, sleepy, compute_range, EVAL_ERROR};
-use crate::{Cell,Valtype,FormulaType,STATUS_CODE};
+use crate::utils::{EVAL_ERROR, compute, compute_range, sleepy, to_indices};
+use crate::{Cell, FormulaType, STATUS_CODE, Valtype};
 use std::collections::{HashMap, VecDeque};
 
 use regex::Regex;
@@ -63,7 +63,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         block.value = Valtype::Int(val1);
         block.op_code = Some(op);
         block.formula = Some(FormulaType::CoC);
-        block.value2= Valtype::Int(val2);
+        block.value2 = Valtype::Int(val2);
         return;
     }
     // 6. CONSTANT_REFERENCE: "<int><op><ref>"
@@ -121,7 +121,13 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     block.formula = Some(FormulaType::Invalid);
 }
 
-fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: usize,) -> Valtype {
+fn eval(
+    sheet: &Vec<Vec<Cell>>,
+    total_rows: usize,
+    total_cols: usize,
+    r: usize,
+    c: usize,
+) -> Valtype {
     unsafe {
         EVAL_ERROR = false;
         STATUS_CODE = 0;
@@ -134,12 +140,16 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
             match &cell.value {
                 Valtype::Int(val) => Some(*val),
                 Valtype::Str(_) => {
-                    unsafe { EVAL_ERROR = true; }
+                    unsafe {
+                        EVAL_ERROR = true;
+                    }
                     None
                 }
             }
         } else {
-            unsafe { STATUS_CODE = 1; }
+            unsafe {
+                STATUS_CODE = 1;
+            }
             None
         }
     };
@@ -148,7 +158,9 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
         Some(FormulaType::Const) => match parsed.value {
             Valtype::Int(val) => val,
             Valtype::Str(_) => {
-                unsafe { EVAL_ERROR = true; }
+                unsafe {
+                    EVAL_ERROR = true;
+                }
                 0
             }
         },
@@ -163,14 +175,18 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
             let v1 = match parsed.value {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
-                    unsafe { EVAL_ERROR = true; } 
+                    unsafe {
+                        EVAL_ERROR = true;
+                    }
                     0
                 }
             };
             let v2 = match parsed.value2 {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
-                    unsafe { EVAL_ERROR = true; } 
+                    unsafe {
+                        EVAL_ERROR = true;
+                    }
                     0
                 }
             };
@@ -180,7 +196,9 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
             let v1 = match parsed.value2 {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
-                    unsafe { EVAL_ERROR = true; } 
+                    unsafe {
+                        EVAL_ERROR = true;
+                    }
                     0
                 }
             };
@@ -198,7 +216,9 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
             let v1 = match parsed.value2 {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
-                    unsafe { EVAL_ERROR = true; } 
+                    unsafe {
+                        EVAL_ERROR = true;
+                    }
                     0
                 }
             };
@@ -226,7 +246,13 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
                 if let Valtype::Str(func) = parsed.value2 {
                     let (r1, c1) = to_indices(&r1_str);
                     let (r2, c2) = to_indices(&r2_str);
-                    if r1 < total_rows && c1 < total_cols && r2 < total_rows && c2 < total_cols && r1 <= r2 && c1 <= c2 {
+                    if r1 < total_rows
+                        && c1 < total_cols
+                        && r2 < total_rows
+                        && c2 < total_cols
+                        && r1 <= r2
+                        && c1 <= c2
+                    {
                         let choice = match func.to_uppercase().as_str() {
                             "MAX" => 1,
                             "MIN" => 2,
@@ -234,13 +260,17 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
                             "SUM" => 4,
                             "STDEV" => 5,
                             _ => {
-                                unsafe { STATUS_CODE = 2; }
+                                unsafe {
+                                    STATUS_CODE = 2;
+                                }
                                 0
                             }
                         };
                         compute_range(sheet, r1, r2, c1, c2, choice)
                     } else {
-                        unsafe { STATUS_CODE = 1; }
+                        unsafe {
+                            STATUS_CODE = 1;
+                        }
                         0
                     }
                 } else {
@@ -270,7 +300,9 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
             }
         }
         Some(FormulaType::Invalid) => {
-            unsafe { STATUS_CODE = 2; }
+            unsafe {
+                STATUS_CODE = 2;
+            }
             0
         }
         None => 0,
@@ -282,10 +314,16 @@ fn eval(sheet: &Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,r: usize,c: u
     }
 }
 
-pub fn recalc(sheet: &mut Vec<Vec<Cell>>,total_rows: usize,total_cols: usize,start_row: usize,start_col: usize,) {
+pub fn recalc(
+    sheet: &mut Vec<Vec<Cell>>,
+    total_rows: usize,
+    total_cols: usize,
+    start_row: usize,
+    start_col: usize,
+) {
     type Coord = (usize, usize);
     let mut affected: Vec<Coord> = Vec::with_capacity(50);
-    let mut index_map: HashMap<usize, usize> =HashMap::with_capacity(20);
+    let mut index_map: HashMap<usize, usize> = HashMap::with_capacity(20);
     let mut queue: VecDeque<Coord> = VecDeque::with_capacity(50);
 
     let key = start_row * total_cols + start_col;

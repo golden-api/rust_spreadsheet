@@ -1,6 +1,9 @@
-use eframe::{egui, egui::{Button, CentralPanel, TextEdit, ScrollArea}};
-use crate::{Cell, Valtype, FormulaType};
 use crate::dependency::update_cell;
+use crate::{Cell, FormulaType, Valtype};
+use eframe::{
+    egui,
+    egui::{Button, CentralPanel, ScrollArea, TextEdit},
+};
 use std::collections::HashSet;
 
 pub struct SpreadsheetApp {
@@ -38,7 +41,8 @@ impl SpreadsheetApp {
 
 impl eframe::App for SpreadsheetApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        
+        use crate::parser::detect_formula;
+        use crate::parser::recalc;
         CentralPanel::default().show(ctx, |ui| {
             // Top formula input
             ui.horizontal(|ui| {
@@ -47,8 +51,14 @@ impl eframe::App for SpreadsheetApp {
                     let (r, c) = self.selected;
                     let total_rows = self.sheet.len();
                     let total_cols = self.sheet[0].len();
-                    let backup = self.sheet[r][c].clone();
-                    update_cell(&mut self.sheet, total_rows, total_cols, r, c, backup);
+
+                    // Set formula into the cell
+                    let cell = &mut self.sheet[r][c];
+                    cell.reset(); // optional, but safe
+                    detect_formula(cell, &self.formula_input); // parse and update cell
+
+                    // Recalculate all dependent cells
+                    recalc(&mut self.sheet, total_rows, total_cols, r, c);
                 }
             });
 

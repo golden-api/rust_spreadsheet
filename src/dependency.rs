@@ -1,6 +1,12 @@
-use crate::{Cell, FormulaType, utils::to_indices, STATUS_CODE};
+use crate::{Cell, FormulaType, STATUS_CODE, utils::to_indices};
 
-fn add_range_dependencies(sheet: &mut Vec<Vec<Cell>>,start_ref: &str,end_ref: &str,r: usize,c: usize,) {
+fn add_range_dependencies(
+    sheet: &mut Vec<Vec<Cell>>,
+    start_ref: &str,
+    end_ref: &str,
+    r: usize,
+    c: usize,
+) {
     let (start_row, start_col) = to_indices(start_ref);
     let (end_row, end_col) = to_indices(end_ref);
     for row in start_row..=end_row {
@@ -9,7 +15,13 @@ fn add_range_dependencies(sheet: &mut Vec<Vec<Cell>>,start_ref: &str,end_ref: &s
         }
     }
 }
-fn detect_cycle(cell: &Cell, row: usize, col: usize,cell_check: &Cell,sheet: &Vec<Vec<Cell>>) -> bool {
+fn detect_cycle(
+    cell: &Cell,
+    row: usize,
+    col: usize,
+    cell_check: &Cell,
+    sheet: &Vec<Vec<Cell>>,
+) -> bool {
     if let Some(formula) = &cell.formula {
         match formula {
             FormulaType::Range => {
@@ -18,9 +30,15 @@ fn detect_cycle(cell: &Cell, row: usize, col: usize,cell_check: &Cell,sheet: &Ve
                     let (end_row, end_col) = to_indices(r2);
                     for i in start_row..=end_row {
                         for j in start_col..=end_col {
-                            if (i, j) == (row, col) {return true;}
-                            if cell_check.dependents.contains(&(i,j)){return true;}
-                            if detect_cycle(&sheet[i][j],start_row,start_col,cell_check,sheet){return true;}
+                            if (i, j) == (row, col) {
+                                return true;
+                            }
+                            if cell_check.dependents.contains(&(i, j)) {
+                                return true;
+                            }
+                            if detect_cycle(&sheet[i][j], start_row, start_col, cell_check, sheet) {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -28,15 +46,27 @@ fn detect_cycle(cell: &Cell, row: usize, col: usize,cell_check: &Cell,sheet: &Ve
             _ => {
                 if let Some(r1) = &cell.cell1 {
                     let (ref_row, ref_col) = to_indices(r1);
-                    if (ref_row,ref_col)==(row,col){return true;}
-                    if cell_check.dependents.contains(&(ref_row,ref_col)){return true;}
-                    if detect_cycle(&sheet[ref_row][ref_col],row,col,cell_check,sheet){return true;}
+                    if (ref_row, ref_col) == (row, col) {
+                        return true;
+                    }
+                    if cell_check.dependents.contains(&(ref_row, ref_col)) {
+                        return true;
+                    }
+                    if detect_cycle(&sheet[ref_row][ref_col], row, col, cell_check, sheet) {
+                        return true;
+                    }
                 }
                 if let Some(r2) = &cell.cell2 {
                     let (ref_row, ref_col) = to_indices(r2);
-                    if (ref_row,ref_col)==(row,col){return true;}
-                    if cell_check.dependents.contains(&(ref_row,ref_col)){return true;}
-                    if detect_cycle(&sheet[ref_row][ref_col],row,col,cell_check,sheet){return true;}
+                    if (ref_row, ref_col) == (row, col) {
+                        return true;
+                    }
+                    if cell_check.dependents.contains(&(ref_row, ref_col)) {
+                        return true;
+                    }
+                    if detect_cycle(&sheet[ref_row][ref_col], row, col, cell_check, sheet) {
+                        return true;
+                    }
                 }
             }
         }
@@ -54,9 +84,15 @@ fn run_cycle_detection(sheet: &Vec<Vec<Cell>>, start_row: usize, start_col: usiz
                     let (end, enc) = to_indices(r2);
                     for i in st..=end {
                         for j in stc..=enc {
-                            if (i, j) == (start_row, start_col) {return true;}
-                            if cell.dependents.contains(&(i,j)){return true;}
-                            if detect_cycle(&sheet[i][j],start_row,start_col,cell,&sheet){return true;}
+                            if (i, j) == (start_row, start_col) {
+                                return true;
+                            }
+                            if cell.dependents.contains(&(i, j)) {
+                                return true;
+                            }
+                            if detect_cycle(&sheet[i][j], start_row, start_col, cell, &sheet) {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -64,15 +100,27 @@ fn run_cycle_detection(sheet: &Vec<Vec<Cell>>, start_row: usize, start_col: usiz
             _ => {
                 if let Some(r1) = &cell.cell1 {
                     let (ref_row, ref_col) = to_indices(r1);
-                    if (ref_row,ref_col)==(start_row,start_col){return true;}
-                    if cell.dependents.contains(&(ref_row,ref_col)){return true;}
-                    if detect_cycle(&sheet[ref_row][ref_col],start_row,start_col,cell,&sheet){return true;}
+                    if (ref_row, ref_col) == (start_row, start_col) {
+                        return true;
+                    }
+                    if cell.dependents.contains(&(ref_row, ref_col)) {
+                        return true;
+                    }
+                    if detect_cycle(&sheet[ref_row][ref_col], start_row, start_col, cell, &sheet) {
+                        return true;
+                    }
                 }
                 if let Some(r2) = &cell.cell2 {
                     let (ref_row, ref_col) = to_indices(r2);
-                    if (ref_row,ref_col)==(start_row,start_col){return true;}
-                    if cell.dependents.contains(&(ref_row,ref_col)){return true;}
-                    if detect_cycle(&sheet[ref_row][ref_col],start_row,start_col,cell,&sheet){return true;}
+                    if (ref_row, ref_col) == (start_row, start_col) {
+                        return true;
+                    }
+                    if cell.dependents.contains(&(ref_row, ref_col)) {
+                        return true;
+                    }
+                    if detect_cycle(&sheet[ref_row][ref_col], start_row, start_col, cell, &sheet) {
+                        return true;
+                    }
                 }
             }
         }
@@ -80,24 +128,37 @@ fn run_cycle_detection(sheet: &Vec<Vec<Cell>>, start_row: usize, start_col: usiz
     false
 }
 
-pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: usize, r: usize, c: usize, mut backup : Cell) {
+pub fn update_cell(
+    sheet: &mut Vec<Vec<Cell>>,
+    total_rows: usize,
+    total_cols: usize,
+    r: usize,
+    c: usize,
+    mut backup: Cell,
+) {
     {
         match &sheet[r][c].formula {
             Some(FormulaType::Invalid) => {
-                unsafe { STATUS_CODE = 2; }
+                unsafe {
+                    STATUS_CODE = 2;
+                }
                 return;
             }
             _ => {
                 if let Some(ref r1) = sheet[r][c].cell1 {
                     let (row_idx, col_idx) = to_indices(r1);
                     if row_idx >= total_rows || col_idx >= total_cols {
-                        unsafe { STATUS_CODE = 1; }
+                        unsafe {
+                            STATUS_CODE = 1;
+                        }
                     }
                 }
                 if let Some(ref r2) = sheet[r][c].cell2 {
                     let (row_idx, col_idx) = to_indices(r2);
                     if row_idx >= total_rows || col_idx >= total_cols {
-                        unsafe { STATUS_CODE = 1; }
+                        unsafe {
+                            STATUS_CODE = 1;
+                        }
                     }
                 }
             }
@@ -107,8 +168,10 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
         return;
     }
 
-    if run_cycle_detection(sheet, r,c) {
-        unsafe { STATUS_CODE = 3; }
+    if run_cycle_detection(sheet, r, c) {
+        unsafe {
+            STATUS_CODE = 3;
+        }
         std::mem::swap(&mut backup.dependents, &mut sheet[r][c].dependents);
         sheet[r][c] = backup;
         return;
@@ -117,12 +180,13 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
     {
         match &backup.formula {
             Some(FormulaType::Range) => {
-                if let (Some(old_r1), Some(old_r2)) = (backup.cell1.as_ref(), backup.cell2.as_ref()) {
+                if let (Some(old_r1), Some(old_r2)) = (backup.cell1.as_ref(), backup.cell2.as_ref())
+                {
                     let (start_row, start_col) = to_indices(old_r1);
                     let (end_row, end_col) = to_indices(old_r2);
                     for i in start_row..=end_row {
                         for j in start_col..=end_col {
-                            sheet[i][j].dependents.remove(&(r,c));
+                            sheet[i][j].dependents.remove(&(r, c));
                         }
                     }
                 }
@@ -130,11 +194,11 @@ pub fn update_cell(sheet: &mut Vec<Vec<Cell>>, total_rows: usize, total_cols: us
             _ => {
                 if let Some(old_r1) = backup.cell1.as_ref() {
                     let (i, j) = to_indices(old_r1);
-                    sheet[i][j].dependents.remove(&(r,c));
+                    sheet[i][j].dependents.remove(&(r, c));
                 }
                 if let Some(old_r2) = backup.cell2.as_ref() {
                     let (i, j) = to_indices(old_r2);
-                    sheet[i][j].dependents.remove(&(r,c));
+                    sheet[i][j].dependents.remove(&(r, c));
                 }
             }
         }

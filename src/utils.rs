@@ -1,5 +1,10 @@
-use std::{cmp::{max, min}, f64, thread::sleep, time::Duration};
-use crate::{Cell, Valtype,STATUS_CODE};
+use crate::{Cell, STATUS_CODE, Valtype};
+use std::{
+    cmp::{max, min},
+    f64,
+    thread::sleep,
+    time::Duration,
+};
 
 pub static mut EVAL_ERROR: bool = false;
 
@@ -10,7 +15,9 @@ pub fn to_indices(s: &str) -> (usize, usize) {
         .fold(0, |acc, b| acc * 26 + (b - b'A' + 1) as usize);
     let row = s[split_pos..].parse::<usize>().unwrap_or(0);
     if row == 0 || col == 0 {
-        unsafe { STATUS_CODE = 1; }
+        unsafe {
+            STATUS_CODE = 1;
+        }
         return (0, 0);
     }
     (row - 1, col - 1)
@@ -23,14 +30,18 @@ pub fn compute(a: i32, op: Option<char>, b: i32) -> i32 {
         Some('*') => a * b,
         Some('/') => {
             if b == 0 {
-                unsafe { EVAL_ERROR = true; }
+                unsafe {
+                    EVAL_ERROR = true;
+                }
                 0
             } else {
                 a / b
             }
         }
         _ => {
-            unsafe { STATUS_CODE = 2; }
+            unsafe {
+                STATUS_CODE = 2;
+            }
             0
         }
     }
@@ -40,7 +51,14 @@ pub fn sleepy(x: i32) {
         sleep(Duration::from_secs(x as u64))
     }
 }
-pub fn compute_range(sheet: &Vec<Vec<Cell>>, r_min: usize, r_max: usize, c_min: usize, c_max: usize, choice: i32) -> i32 {
+pub fn compute_range(
+    sheet: &Vec<Vec<Cell>>,
+    r_min: usize,
+    r_max: usize,
+    c_min: usize,
+    c_max: usize,
+    choice: i32,
+) -> i32 {
     let width = (c_max - c_min + 1) as i32;
     let height = (r_max - r_min + 1) as i32;
     let area = width * height;
@@ -53,14 +71,14 @@ pub fn compute_range(sheet: &Vec<Vec<Cell>>, r_min: usize, r_max: usize, c_min: 
     for r in r_min..=r_max {
         for c in c_min..=c_max {
             match &sheet[r][c].value {
-                Valtype::Str(_) => {
-                    unsafe { EVAL_ERROR = true}
-                }
+                Valtype::Str(_) => unsafe { EVAL_ERROR = true },
                 Valtype::Int(val) => match choice {
                     1 => res = max(res, *val),
                     2 => res = min(res, *val),
                     3 | 4 | 5 => res += *val,
-                    _ => unsafe { STATUS_CODE = 2; },
+                    _ => unsafe {
+                        STATUS_CODE = 2;
+                    },
                 },
             }
         }
