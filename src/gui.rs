@@ -1,4 +1,4 @@
-use crate::{Cell, FormulaType, Valtype, dependency, parser};
+use crate::{Cell, FormulaType, Valtype, dependency, parser,STATUS_CODE};
 use eframe::{
     egui,
     egui::{Button, CentralPanel, Color32, Frame, RichText, ScrollArea, Stroke, TextEdit, Vec2},
@@ -183,11 +183,17 @@ impl eframe::App for SpreadsheetApp {
                             let old_cell = self.sheet[r][c].my_clone();
                             parser::detect_formula(&mut self.sheet[r][c], &self.formula_input);
                             dependency::update_cell(&mut self.sheet, total_rows, total_cols, r, c, old_cell);
-                            parser::recalc(&mut self.sheet, total_rows, total_cols, r, c);
+                            if unsafe { STATUS_CODE } == 0 {
+                                parser::recalc(&mut self.sheet, total_rows, total_cols, r, c);
+                            }
                             
                             // Update status message
-                            self.status_message = format!("Updated cell {}{}", 
-                                (b'A' + (c as u8)) as char, r + 1);
+                            self.status_message = match unsafe { STATUS_CODE } {
+                                0 => format!("Updated cell {}{}", (b'A' + (c as u8)) as char, r + 1),
+                                code => format!("{}", unsafe { crate::STATUS[code] })
+                            };
+                            
+                            unsafe { STATUS_CODE = 0; }
                         }
                     });
                     
