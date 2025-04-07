@@ -244,15 +244,28 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 && args[1] == "gui" {
         let options = eframe::NativeOptions {
-            // initial_window_size is deprecated/removed
+            viewport: egui::ViewportBuilder::default()
+                .with_inner_size([1024.0, 768.0])
+                .with_resizable(true),
             ..Default::default()
         };
-
+        
+        // You can customize the style here if needed
+        // let custom_style = gui::SpreadsheetStyle {
+        //     header_bg: egui::Color32::from_rgb(40, 40, 60),
+        //     selected_cell_bg: egui::Color32::from_rgb(80, 160, 200),
+        //     // ... other customizations
+        //     ..Default::default()
+        // };
+        
         eframe::run_native(
-            "Rust Spreadsheet GUI",
+            "Rust Spreadsheet",
             options,
-            Box::new(|_cc| Box::new(crate::gui::SpreadsheetApp::new())),
-        );
+            Box::new(|_cc| Box::new(
+                gui::SpreadsheetApp::new()
+                // .with_style(custom_style) // Uncomment to use custom style
+            )),
+        ).unwrap();
     } else {
         // Otherwise, we expect two arguments: <num_rows> and <num_columns>.
         let (total_rows, total_cols) = match parse_dimensions(args.clone()) {
