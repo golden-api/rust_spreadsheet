@@ -109,15 +109,23 @@ fn print_sheet(spreadsheet: &[Vec<Cell>], pointer: &(usize, usize), dimension: &
 }
 
 fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
-    if args.len() != 3 {
+    if args.len() == 4 && args[1] == "gui" {
+        let total_rows = args[2].parse::<usize>().map_err(|_| "Invalid rows")?;
+        let total_cols = args[3].parse::<usize>().map_err(|_| "Invalid columns")?;
+        if !(1..=999).contains(&total_rows) || !(1..=18278).contains(&total_cols) {
+            return Err("Invalid dimensions.");
+        }
+        Ok((total_rows, total_cols))
+    } else if args.len() == 3 {
+        let total_rows = args[1].parse::<usize>().map_err(|_| "Invalid rows")?;
+        let total_cols = args[2].parse::<usize>().map_err(|_| "Invalid columns")?;
+        if !(1..=999).contains(&total_rows) || !(1..=18278).contains(&total_cols) {
+            return Err("Invalid dimensions.");
+        }
+        Ok((total_rows, total_cols))
+    } else {
         return Err("Usage: <program> <num_rows> <num_columns>");
     }
-    let total_rows = args[1].parse::<usize>().map_err(|_| "Invalid rows")?;
-    let total_cols = args[2].parse::<usize>().map_err(|_| "Invalid columns")?;
-    if !(1..=999).contains(&total_rows) || !(1..=18278).contains(&total_cols) {
-        return Err("Invalid dimensions.");
-    }
-    Ok((total_rows, total_cols))
 }
 
 fn interactive_mode(total_rows: usize, total_cols: usize) {
@@ -242,7 +250,15 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() > 1 && args[1] == "gui" {
+    let (total_rows, total_cols) = match parse_dimensions(args.clone()) {
+        Ok(dim) => dim,
+        Err(e) => {
+            eprintln!("{}", e);
+            process::exit(1);
+        }
+    };
+
+    if args.len() == 4 {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
                 .with_inner_size([1024.0, 768.0])
@@ -261,22 +277,10 @@ fn main() {
         eframe::run_native(
             "Rust Spreadsheet",
             options,
-            Box::new(|_cc| {
-                Box::new(
-                    gui::SpreadsheetApp::new(), // .with_style(custom_style) // Uncomment to use custom style
-                )
-            }),
+            Box::new(move |_cc| Box::new(gui::SpreadsheetApp::new(total_rows, total_cols))),
         )
         .unwrap();
     } else {
-        // Otherwise, we expect two arguments: <num_rows> and <num_columns>.
-        let (total_rows, total_cols) = match parse_dimensions(args.clone()) {
-            Ok(dim) => dim,
-            Err(e) => {
-                eprintln!("{}", e);
-                process::exit(1);
-            }
-        };
         interactive_mode(total_rows, total_cols);
     }
 }

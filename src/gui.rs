@@ -68,9 +68,8 @@ pub struct SpreadsheetApp {
 }
 
 impl SpreadsheetApp {
-    pub fn new() -> Self {
-        let rows = 999;
-        let cols = 18278;
+    pub fn new(rows:usize,cols:usize) -> Self {
+        
         // Initialize the sheet with default cells.
         let sheet = vec![
             vec![
