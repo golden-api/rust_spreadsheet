@@ -249,7 +249,7 @@ fn main() {
                 .with_resizable(true),
             ..Default::default()
         };
-        
+
         // You can customize the style here if needed
         // let custom_style = gui::SpreadsheetStyle {
         //     header_bg: egui::Color32::from_rgb(40, 40, 60),
@@ -257,15 +257,17 @@ fn main() {
         //     // ... other customizations
         //     ..Default::default()
         // };
-        
+
         eframe::run_native(
             "Rust Spreadsheet",
             options,
-            Box::new(|_cc| Box::new(
-                gui::SpreadsheetApp::new()
-                // .with_style(custom_style) // Uncomment to use custom style
-            )),
-        ).unwrap();
+            Box::new(|_cc| {
+                Box::new(
+                    gui::SpreadsheetApp::new(), // .with_style(custom_style) // Uncomment to use custom style
+                )
+            }),
+        )
+        .unwrap();
     } else {
         // Otherwise, we expect two arguments: <num_rows> and <num_columns>.
         let (total_rows, total_cols) = match parse_dimensions(args.clone()) {
