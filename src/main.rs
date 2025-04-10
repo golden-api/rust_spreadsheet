@@ -277,7 +277,7 @@ fn main() {
         eframe::run_native(
             "Rust Spreadsheet",
             options,
-            Box::new(move |_cc| Box::new(gui::SpreadsheetApp::new(total_rows, total_cols))),
+            Box::new(move |_cc| Box::new(gui::SpreadsheetApp::new(total_rows, total_cols,0,0))),
         )
         .unwrap();
     } else {

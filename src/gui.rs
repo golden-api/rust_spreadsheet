@@ -19,6 +19,42 @@ fn col_label(mut col_index: usize) -> String {
     name
 }
 
+fn parse_cell_name(name: &str) -> Option<(usize, usize)> {
+    let mut col_part = String::new();
+    let mut row_part = String::new();
+
+    for c in name.chars() {
+        if c.is_ascii_alphabetic() {
+            col_part.push(c.to_ascii_uppercase());
+        } else if c.is_ascii_digit() {
+            row_part.push(c);
+        } else {
+            return None;
+        }
+    }
+
+    if col_part.is_empty() || row_part.is_empty() {
+        return None;
+    }
+
+    let col_index = col_label_to_index(&col_part)?;
+    let row_index = row_part.parse::<usize>().ok()?.saturating_sub(1);
+
+    Some((row_index, col_index))
+}
+
+fn col_label_to_index(label: &str) -> Option<usize> {
+    let mut col = 0;
+    for (i, c) in label.chars().rev().enumerate() {
+        if !c.is_ascii_uppercase() {
+            return None;
+        }
+        col += ((c as u8 - b'A') as usize + 1) * 26_usize.pow(i as u32);
+    }
+    Some(col - 1)
+}
+
+
 // Use the definitions of Cell, FormulaType, Valtype, STATUS, STATUS_CODE,
 // dependency, and parser from your crate’s imports and DO NOT redefine them here.
 
@@ -65,11 +101,12 @@ pub struct SpreadsheetApp {
     // These are no longer used for virtual scrolling but kept if needed.
     start_row: usize,
     start_col: usize,
+    scroll_to_cell: String, // You can initialize it as String::new() in the default impl.
+    should_reset_scroll:bool
 }
 
 impl SpreadsheetApp {
-    pub fn new(rows:usize,cols:usize) -> Self {
-        
+    pub fn new(rows: usize, cols: usize, start_row: usize, start_col: usize) -> Self {
         // Initialize the sheet with default cells.
         let sheet = vec![
             vec![
@@ -94,8 +131,10 @@ impl SpreadsheetApp {
             editing_cell: false,
             style: SpreadsheetStyle::default(),
             status_message: String::new(),
-            start_row: 0,
-            start_col: 0,
+            start_row,
+            start_col,
+            scroll_to_cell: "A1".to_string(),
+            should_reset_scroll:false
         }
     }
 
@@ -198,214 +237,239 @@ impl SpreadsheetApp {
 
 impl eframe::App for SpreadsheetApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Set a dark theme.
         ctx.set_visuals(egui::Visuals::dark());
         let mut new_selection = None;
 
-        CentralPanel::default().show(ctx, |ui| {
-            // ~~~~~~~~~~~~~~ 1) Top area: Formula bar & Status ~~~~~~~~~~~~~~
-            Frame::none()
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // Formula bar (unchanged)
+            egui::Frame::none()
                 .fill(self.style.header_bg)
                 .inner_margin(5.0)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.add(
-                            TextEdit::singleline(&mut self.formula_input)
+                            egui::TextEdit::singleline(&mut self.formula_input)
                                 .hint_text("Enter formula or value...")
                                 .desired_width(ui.available_width() - 120.0)
                                 .font(egui::TextStyle::Monospace)
                                 .text_color(self.style.header_text),
                         );
-                        let enter_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
                         if ui
                             .add(
-                                Button::new(
-                                    RichText::new("Update Cell")
+                                egui::Button::new(
+                                    egui::RichText::new("Update Cell")
                                         .size(self.style.font_size)
                                         .color(self.style.header_text),
                                 )
                                 .fill(self.style.selected_cell_bg)
-                                .min_size(Vec2::new(100.0, 25.0)),
+                                .min_size(egui::Vec2::new(100.0, 25.0)),
                             )
                             .clicked()
-                            || enter_pressed
+                            || ui.input(|i| i.key_pressed(egui::Key::Enter))
                         {
                             self.update_selected_cell();
                             self.editing_cell = false;
                         }
                     });
                     if !self.status_message.is_empty() {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label(
-                                RichText::new(&self.status_message)
-                                    .size(self.style.font_size - 2.0)
-                                    .color(self.style.header_text),
-                            );
-                        });
+                        ui.label(
+                            egui::RichText::new(&self.status_message)
+                                .size(self.style.font_size - 2.0)
+                                .color(self.style.header_text),
+                        );
                     }
                 });
 
-            // ~~~~~~~~~~~~~~ 2) Main Scrollable Spreadsheet (Virtual Scrolling) ~~~~~~~~~~~~~~
-            let total_cols = self.sheet[0].len();
-            let total_rows = self.sheet.len();
+            // Scroll-to-cell feature
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new("Scroll to:")
+                        .size(self.style.font_size)
+                        .color(self.style.header_text),
+                );
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.scroll_to_cell)
+                        .hint_text("e.g. AB78")
+                        .desired_width(80.0)
+                        .font(egui::TextStyle::Monospace)
+                        .text_color(self.style.header_text),
+                );
+                if ui
+                    .add(
+                        egui::Button::new(
+                            egui::RichText::new("Go")
+                                .size(self.style.font_size)
+                                .color(self.style.header_text),
+                        )
+                        .fill(self.style.selected_cell_bg)
+                        .min_size(egui::Vec2::new(60.0, 25.0)),
+                    )
+                    .clicked()
+                {
+                    if let Some((target_row, target_col)) = parse_cell_name(&self.scroll_to_cell) {
+                        self.start_row = target_row;
+                        self.start_col = target_col;
+                        self.should_reset_scroll = true; // Trigger scroll reset
+                        self.status_message = format!(
+                            "Scrolled to cell {}{}",
+                            col_label(target_col),
+                            target_row + 1
+                        );
+                    } else {
+                        self.status_message = "Invalid cell name".to_string();
+                    }
+                }
+            });
+
+            // Main scrollable spreadsheet
             let cell_size = self.style.cell_size;
             let row_label_width = 30.0;
-            // Reserve an extra row for the column headers at the top.
-            let full_width = row_label_width + (total_cols as f32 * cell_size.x);
-            let full_height = (total_rows as f32 * cell_size.y) + cell_size.y;
-            let virtual_size = egui::vec2(full_width, full_height);
+            let header_height = cell_size.y;
 
-            ScrollArea::both()
+            // Calculate total cols and rows to render
+            let total_cols = self.sheet[0].len().min(self.start_col + 900);
+            let total_rows = self.sheet.len().min(self.start_row + 900);
+
+            // Virtual size calculation
+            let virtual_width = row_label_width + (total_cols - self.start_col) as f32 * cell_size.x;
+            let virtual_height = header_height + (total_rows - self.start_row) as f32 * cell_size.y;
+            let virtual_size = egui::vec2(virtual_width, virtual_height);
+
+            // Configure ScrollArea
+            let mut scroll_area = egui::ScrollArea::both()
+                .id_source((self.start_row, self.start_col))
                 .drag_to_scroll(true)
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    let (virtual_rect, _) =
-                        ui.allocate_exact_size(virtual_size, egui::Sense::hover());
-                    let scroll_offset = ui.clip_rect().min - virtual_rect.min;
+                .auto_shrink([false, false]);
 
-                    // Data rows start after the header row.
-                    let data_offset_y = scroll_offset.y - cell_size.y;
-                    let start_col = if scroll_offset.x > row_label_width {
-                        (((scroll_offset.x - row_label_width) / cell_size.x).floor() as usize)
-                            .min(total_cols)
-                    } else {
-                        0
-                    };
-                    let start_row = if data_offset_y < 0.0 {
-                        0
-                    } else {
-                        (data_offset_y / cell_size.y).floor() as usize
-                    };
+            // Reset scroll offset only when needed
+            if self.should_reset_scroll {
+                scroll_area = scroll_area.scroll_offset(egui::Vec2::ZERO);
+            }
 
-                    let available_size = ui.available_rect_before_wrap().size();
-                    let visible_cols = (((available_size.x - row_label_width) / cell_size.x).ceil() as usize)
-                        .max(1)
-                        + 1;
-                    let visible_rows = total_rows.min(33);
-                    // println!("{},{},{}",visible_rows,available_size.x,cell_size.y);
-                    // ~~~~~~~~~~ 2A) Render Column Headers ~~~~~~~~~~
-                    for j in start_col..(start_col + visible_cols).min(total_cols) {
-                        let header_pos = egui::pos2(
-                            virtual_rect.min.x + row_label_width + (j as f32 * cell_size.x),
-                            virtual_rect.min.y,
-                        );
-                        let header_rect = egui::Rect::from_min_size(header_pos, cell_size);
-                        ui.put(
-                            header_rect,
-                            egui::Label::new(
-                                RichText::new(col_label(j))
-                                    .size(self.style.font_size)
-                                    .color(self.style.header_text),
-                            ),
-                        );
-                    }
+            scroll_area.show(ui, |ui| {
+                let (virtual_rect, _) = ui.allocate_exact_size(virtual_size, egui::Sense::hover());
+                let scroll_offset = ui.clip_rect().min - virtual_rect.min;
 
-                    // ~~~~~~~~~~ 2B) Render Row Labels ~~~~~~~~~~
-                    for i in start_row..(start_row + visible_rows).min(total_rows) {
-                        let row_label_pos = egui::pos2(
-                            virtual_rect.min.x,
-                            virtual_rect.min.y + cell_size.y + (i as f32 * cell_size.y),
-                        );
-                        let row_label_rect = egui::Rect::from_min_size(
-                            row_label_pos,
-                            egui::vec2(row_label_width, cell_size.y),
-                        );
-                        ui.put(
-                            row_label_rect,
-                            egui::Label::new(
-                                RichText::new((i + 1).to_string())
-                                    .size(self.style.font_size)
-                                    .color(self.style.header_text),
-                            ),
-                        );
-                    }
+                // Calculate start indices based on scroll offset
+                let render_start_col = self.start_col + (scroll_offset.x / cell_size.x).floor() as usize;
+                let render_start_row = self.start_row + (scroll_offset.y / cell_size.y).floor() as usize;
 
-                    // ~~~~~~~~~~ 2C) Render Data Cells ~~~~~~~~~~
-                    for i in start_row..(start_row + visible_rows).min(total_rows) {
-                        for j in start_col..(start_col + visible_cols).min(total_cols) {
-                            let cell_pos = egui::pos2(
-                                virtual_rect.min.x + row_label_width + (j as f32 * cell_size.x),
-                                virtual_rect.min.y + cell_size.y + (i as f32 * cell_size.y),
-                            );
-                            let cell_rect = egui::Rect::from_min_size(cell_pos, cell_size);
-                            let is_selected = self.selected == (i, j);
-                            if is_selected && self.editing_cell {
-                                ui.allocate_ui_at_rect(cell_rect, |ui| {
-                                    let response = ui.add(
-                                        TextEdit::singleline(&mut self.formula_input)
-                                            .hint_text("Edit...")
-                                            .text_color(Color32::WHITE)
-                                            .font(egui::TextStyle::Monospace),
-                                    );
-                                    if response.lost_focus()
-                                        && ui.input(|i| i.key_pressed(egui::Key::Enter))
-                                    {
-                                        self.update_selected_cell();
-                                        self.editing_cell = false;
-                                    }
-                                });
+                let visible_cols = (((ui.available_rect_before_wrap().size().x - row_label_width) / cell_size.x).ceil() as usize).max(1) + 1;
+                let visible_rows = total_rows.min(33);
+
+                // Render column headers
+                for j in render_start_col..(render_start_col + visible_cols).min(total_cols) {
+                    let x = virtual_rect.min.x + row_label_width + (j - self.start_col) as f32 * cell_size.x;
+                    let header_rect = egui::Rect::from_min_size(egui::pos2(x, virtual_rect.min.y), cell_size);
+                    ui.put(
+                        header_rect,
+                        egui::Label::new(
+                            egui::RichText::new(col_label(j))
+                                .size(self.style.font_size)
+                                .color(self.style.header_text),
+                        ),
+                    );
+                }
+
+                // Render row labels
+                for i in render_start_row..(render_start_row + visible_rows).min(total_rows) {
+                    let y = virtual_rect.min.y + header_height + (i - self.start_row) as f32 * cell_size.y;
+                    let row_label_rect = egui::Rect::from_min_size(
+                        egui::pos2(virtual_rect.min.x, y),
+                        egui::vec2(row_label_width, cell_size.y),
+                    );
+                    ui.put(
+                        row_label_rect,
+                        egui::Label::new(
+                            egui::RichText::new((i + 1).to_string())
+                                .size(self.style.font_size)
+                                .color(self.style.header_text),
+                        ),
+                    );
+                }
+
+                // Render data cells
+                for i in render_start_row..(render_start_row + visible_rows).min(total_rows) {
+                    for j in render_start_col..(render_start_col + visible_cols).min(total_cols) {
+                        let x = virtual_rect.min.x + row_label_width + (j - self.start_col) as f32 * cell_size.x;
+                        let y = virtual_rect.min.y + header_height + (i - self.start_row) as f32 * cell_size.y;
+                        let cell_rect = egui::Rect::from_min_size(egui::pos2(x, y), cell_size);
+                        let is_selected = self.selected == (i, j);
+                        if is_selected && self.editing_cell {
+                            ui.allocate_ui_at_rect(cell_rect, |ui| {
+                                let response = ui.add(
+                                    egui::TextEdit::singleline(&mut self.formula_input)
+                                        .hint_text("Edit...")
+                                        .text_color(egui::Color32::WHITE)
+                                        .font(egui::TextStyle::Monospace),
+                                );
+                                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                    self.update_selected_cell();
+                                    self.editing_cell = false;
+                                }
+                            });
+                        } else {
+                            let text = match &self.sheet[i][j].value {
+                                Valtype::Int(n) => n.to_string(),
+                                Valtype::Str(s) => s.clone(),
+                            };
+                            let bg_color = if is_selected {
+                                self.style.selected_cell_bg
+                            } else if i % 2 == 0 {
+                                self.style.cell_bg_even
                             } else {
-                                let text = match &self.sheet[i][j].value {
-                                    Valtype::Int(n) => n.to_string(),
-                                    Valtype::Str(s) => s.clone(),
-                                };
-                                let bg_color = if is_selected {
-                                    self.style.selected_cell_bg
-                                } else if i % 2 == 0 {
-                                    self.style.cell_bg_even
-                                } else {
-                                    self.style.cell_bg_odd
-                                };
-                                let text_color = if is_selected {
-                                    self.style.selected_cell_text
-                                } else {
-                                    self.style.cell_text
-                                };
-
-                                ui.put(
-                                    cell_rect,
-                                    Button::new(
-                                        RichText::new(text)
-                                            .size(self.style.font_size)
-                                            .color(text_color),
-                                    )
-                                    .fill(bg_color)
-                                    .stroke(self.style.grid_line),
-                                );
-                                let response = ui.interact(
-                                    cell_rect,
-                                    ui.make_persistent_id((i, j)),
-                                    egui::Sense::click(),
-                                );
-                                if response.clicked() {
-                                    new_selection = Some((i, j));
-                                    if self.selected == (i, j) {
-                                        self.editing_cell = true;
-                                    }
+                                self.style.cell_bg_odd
+                            };
+                            let text_color = if is_selected {
+                                self.style.selected_cell_text
+                            } else {
+                                self.style.cell_text
+                            };
+                            ui.put(
+                                cell_rect,
+                                egui::Button::new(
+                                    egui::RichText::new(text)
+                                        .size(self.style.font_size)
+                                        .color(text_color),
+                                )
+                                .fill(bg_color)
+                                .stroke(self.style.grid_line),
+                            );
+                            let response = ui.interact(
+                                cell_rect,
+                                ui.make_persistent_id((i, j)),
+                                egui::Sense::click(),
+                            );
+                            if response.clicked() {
+                                new_selection = Some((i, j));
+                                if self.selected == (i, j) {
+                                    self.editing_cell = true;
                                 }
                             }
                         }
                     }
-                });
+                }
+            });
 
-            // ~~~~~~~~~~~~~~ 3) Display Selected Cell ~~~~~~~~~~~~~~
+            // Reset the flag after rendering to allow normal scrolling
+            self.should_reset_scroll = false;
+
+            // Display selected cell (unchanged)
             ui.add_space(5.0);
             let (row, col) = self.selected;
             ui.label(
-                RichText::new(format!("Selected Cell: {}{}", col_label(col), row + 1))
+                egui::RichText::new(format!("Selected Cell: {}{}", col_label(col), row + 1))
                     .size(self.style.font_size)
                     .color(self.style.header_text),
             );
         });
 
-        // Process new selection if any.
+        // Handle new selection and Escape key (unchanged)
         if let Some((i, j)) = new_selection {
             self.selected = (i, j);
             self.formula_input = self.get_cell_formula(i, j);
             self.status_message = format!("Selected cell {}{}", col_label(j), i + 1);
         }
-
-        // Handle Escape key to exit editing or clear selection.
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             if self.editing_cell {
                 self.editing_cell = false;
