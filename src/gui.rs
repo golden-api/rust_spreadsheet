@@ -386,8 +386,8 @@ impl SpreadsheetApp {
         let header_height = cell_size.y;
         
         // Calculate total cols and rows to render
-        let total_cols = self.sheet[0].len().min(self.start_col + 900);
-        let total_rows = self.sheet.len().min(self.start_row + 900);
+        let total_cols = self.sheet[0].len().min(self.start_col + 200);
+        let total_rows = self.sheet.len().min(self.start_row + 100);
         
         // Virtual size calculation
         let virtual_width = row_label_width + (total_cols - self.start_col) as f32 * cell_size.x;
