@@ -189,7 +189,7 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                 if parts.len() == 2 {
                     let (cell_ref, formula) = (parts[0], parts[1]);
                     let (row, col) = utils::to_indices(cell_ref);
-                    if row < total_rows && col < total_cols && unsafe{STATUS_CODE} == 0 {
+                    if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
                         let old_cell = spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col], formula);
                         dependency::update_cell(
@@ -268,7 +268,11 @@ fn main() {
         eframe::run_native(
             "Rust Spreadsheet",
             options,
-            Box::new(move |_cc| Ok(Box::new(gui::SpreadsheetApp::new(total_rows, total_cols, 0, 0)))),
+            Box::new(move |_cc| {
+                Ok(Box::new(gui::SpreadsheetApp::new(
+                    total_rows, total_cols, 0, 0,
+                )))
+            }),
         )
         .unwrap();
     } else {
