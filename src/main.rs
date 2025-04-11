@@ -189,7 +189,7 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                 if parts.len() == 2 {
                     let (cell_ref, formula) = (parts[0], parts[1]);
                     let (row, col) = utils::to_indices(cell_ref);
-                    if row < total_rows && col < total_cols {
+                    if row < total_rows && col < total_cols && unsafe{STATUS_CODE} == 0 {
                         let old_cell = spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col], formula);
                         dependency::update_cell(
