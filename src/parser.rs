@@ -369,7 +369,8 @@ pub fn recalc(
         let (r, c) = affected[idx];
         if sheet[r][c].formula.is_some() {
             let new_value = eval(&sheet, total_rows, total_cols, r, c);
-            temp_values.insert((r, c), new_value);
+            temp_values.insert((r, c), sheet[r][c].value.clone());
+            sheet[r][c].value = new_value.clone();
         }
         for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
             let key = (dep_r_u8 as usize) * total_cols + (dep_c_u8 as usize);
@@ -383,16 +384,14 @@ pub fn recalc(
     }
 
     // Integrate cycle detection
-    if i == n {
-        // No cycle: apply temporary values to the sheet
+    if i < n {
         for ((r, c), value) in temp_values.into_iter() {
             sheet[r][c].value = value; // Move value into sheet
         }
-    } else {
         // Cycle detected: set STATUS_CODE and do not apply updates
         unsafe {
             STATUS_CODE = 3; // Assuming STATUS_CODE is a global variable as in dependency.rs
         }
-        // Changes are not applied since temp_values is discarded
-    }
+        
+    } 
 }
