@@ -326,6 +326,7 @@ pub fn recalc(
     let mut index_map: HashMap<usize, usize> = HashMap::with_capacity(20);
     let mut queue: VecDeque<Coord> = VecDeque::with_capacity(50);
 
+    // BFS to find affected cells
     let key = start_row * total_cols + start_col;
     index_map.insert(key, 0);
     affected.push((start_row, start_col));
@@ -359,12 +360,16 @@ pub fn recalc(
 
     let mut zero_queue: Vec<usize> = (0..n).filter(|&i| in_degree[i] == 0).collect();
     let mut i = 0;
+    // Store temporary values with the correct type (Valtype)
+    let mut temp_values: HashMap<Coord, Valtype> = HashMap::new();
+
     while i < zero_queue.len() {
         let idx = zero_queue[i];
         i += 1;
         let (r, c) = affected[idx];
         if sheet[r][c].formula.is_some() {
-            sheet[r][c].value = eval(&sheet, total_rows, total_cols, r, c);
+            let new_value = eval(&sheet, total_rows, total_cols, r, c);
+            temp_values.insert((r, c), new_value);
         }
         for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
             let key = (dep_r_u8 as usize) * total_cols + (dep_c_u8 as usize);
@@ -375,5 +380,19 @@ pub fn recalc(
                 }
             }
         }
+    }
+
+    // Integrate cycle detection
+    if i == n {
+        // No cycle: apply temporary values to the sheet
+        for ((r, c), value) in temp_values.into_iter() {
+            sheet[r][c].value = value; // Move value into sheet
+        }
+    } else {
+        // Cycle detected: set STATUS_CODE and do not apply updates
+        unsafe {
+            STATUS_CODE = 3; // Assuming STATUS_CODE is a global variable as in dependency.rs
+        }
+        // Changes are not applied since temp_values is discarded
     }
 }
