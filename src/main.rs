@@ -11,7 +11,7 @@ mod gui;
 mod parser;
 mod scrolling;
 mod utils;
-
+mod utils_gui;
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
 
@@ -265,19 +265,10 @@ fn main() {
                 .with_resizable(true),
             ..Default::default()
         };
-
-        // You can customize the style here if needed
-        // let custom_style = gui::SpreadsheetStyle {
-        //     header_bg: egui::Color32::from_rgb(40, 40, 60),
-        //     selected_cell_bg: egui::Color32::from_rgb(80, 160, 200),
-        //     // ... other customizations
-        //     ..Default::default()
-        // };
-
         eframe::run_native(
             "Rust Spreadsheet",
             options,
-            Box::new(move |_cc| Box::new(gui::SpreadsheetApp::new(total_rows, total_cols,0,0))),
+            Box::new(move |_cc| Box::new(gui::SpreadsheetApp::new(total_rows, total_cols, 0, 0))),
         )
         .unwrap();
     } else {
