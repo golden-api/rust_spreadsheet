@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 regex = "1.11"
-eframe="0.27"
-egui="0.27"
+eframe="0.31.1"
+egui="0.31.1"

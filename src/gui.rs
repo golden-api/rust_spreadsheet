@@ -3,7 +3,7 @@ use crate::utils_gui::{col_label, parse_cell_name};
 
 use eframe::{
     egui,
-    egui::{Button, CentralPanel, Color32, Frame, RichText, ScrollArea, Stroke, TextEdit, Vec2},
+    egui::{Color32,Stroke, Vec2},
 };
 use std::collections::HashSet;
 
@@ -17,7 +17,6 @@ pub struct SpreadsheetStyle {
     selected_cell_bg: Color32,
     selected_cell_text: Color32,
     grid_line: Stroke,
-    cell_padding: Vec2,
     cell_size: Vec2,
     font_size: f32,
 }
@@ -33,7 +32,6 @@ impl Default for SpreadsheetStyle {
             selected_cell_bg: Color32::from_rgb(120, 120, 180),
             selected_cell_text: Color32::WHITE,
             grid_line: Stroke::new(1.0, Color32::from_rgb(70, 70, 70)),
-            cell_padding: Vec2::new(8.0, 4.0),
             cell_size: Vec2::new(60.0, 25.0),
             font_size: 14.0,
         }
@@ -55,7 +53,6 @@ pub struct SpreadsheetApp {
 
 impl SpreadsheetApp {
     pub fn new(rows: usize, cols: usize, start_row: usize, start_col: usize) -> Self {
-        // Initialize the sheet with default cells.
         let sheet = vec![
             vec![
                 Cell {
@@ -83,12 +80,6 @@ impl SpreadsheetApp {
             scroll_to_cell: "A1".to_string(),
             should_reset_scroll: false
         }
-    }
-
-    // Method to customize the style.
-    pub fn with_style(mut self, style: SpreadsheetStyle) -> Self {
-        self.style = style;
-        self
     }
 
     // Helper: Extract formula from cell
@@ -183,7 +174,7 @@ impl SpreadsheetApp {
 
     // Render the formula input bar
     fn render_formula_bar(&mut self, ui: &mut egui::Ui) {
-        egui::Frame::none()
+        egui::Frame::NONE
             .fill(self.style.header_bg)
             .inner_margin(5.0)
             .show(ui, |ui| {
@@ -396,7 +387,7 @@ impl SpreadsheetApp {
         
         // Configure ScrollArea
         let mut scroll_area = egui::ScrollArea::both()
-            .id_source((self.start_row, self.start_col))
+            .id_salt((self.start_row, self.start_col))
             .drag_to_scroll(true)
             .auto_shrink([false, false]);
         
