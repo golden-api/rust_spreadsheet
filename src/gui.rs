@@ -77,7 +77,7 @@ impl SpreadsheetApp {
             status_message: String::new(),
             start_row,
             start_col,
-            scroll_to_cell: "A1".to_string(),
+            scroll_to_cell: "..".to_string(),
             should_reset_scroll: false,
         }
     }
@@ -465,16 +465,46 @@ impl SpreadsheetApp {
 
     // Handle keyboard events like Escape key
     fn handle_keyboard_events(&mut self, ctx: &egui::Context) {
-        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            if self.editing_cell {
-                self.editing_cell = false;
-                self.formula_input = self.get_cell_formula(self.selected.0, self.selected.1);
-            } else {
-                self.selected = (0, 0);
-                self.formula_input.clear();
-                self.status_message = "Selection cleared".to_string();
+        ctx.input(|input| {
+            if input.key_pressed(egui::Key::ArrowDown) {
+                let (row, col) = self.selected ;{
+                    if row + 1 < self.sheet.len() {
+                        self.selected = (row + 1, col);
+                        self.should_reset_scroll = true; // Optional: scroll into view
+                    }
+                }
+            } else if input.key_pressed(egui::Key::ArrowUp) {
+                let (row, col) = self.selected ;{
+                    if row > 0 {
+                        self.selected = (row - 1, col);
+                        self.should_reset_scroll = true;
+                    }
+                }
+            } else if input.key_pressed(egui::Key::ArrowRight) {
+                let (row, col) = self.selected ;{
+                    if col + 1 < self.sheet[0].len() {
+                        self.selected = (row, col + 1);
+                        self.should_reset_scroll = true;
+                    }
+                }
+            } else if input.key_pressed(egui::Key::ArrowLeft) {
+                let (row, col) = self.selected ;{
+                    if col > 0 {
+                        self.selected = (row, col - 1);
+                        self.should_reset_scroll = true;
+                    }
+                }
+            } else if input.key_pressed(egui::Key::Escape) {
+                if self.editing_cell {
+                    self.editing_cell = false;
+                    self.formula_input = self.get_cell_formula(self.selected.0, self.selected.1);
+                } else {
+                    self.selected = (0,0);
+                    self.formula_input.clear();
+                    self.status_message = "Selection cleared".to_string();
+                }
             }
-        }
+        });
     }
 
     // Handle cell selection changes
@@ -492,27 +522,19 @@ impl eframe::App for SpreadsheetApp {
         ctx.set_visuals(egui::Visuals::dark());
 
         let mut new_selection = None;
+        egui::TopBottomPanel::top("formula_panel").show(ctx, |ui| {
+            self.render_formula_bar(ui);
+            self.render_scroll_to_cell(ui);
+        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Render formula bar
-            self.render_formula_bar(ui);
-
-            // Render scroll-to-cell feature
-            self.render_scroll_to_cell(ui);
-
-            // Render main spreadsheet grid
             if let Some(selection) = self.render_spreadsheet_grid(ui) {
                 new_selection = Some(selection);
             }
-
-            // Render selected cell info
             self.render_selected_cell_info(ui);
         });
 
-        // Handle selection changes
         self.handle_selection_change(new_selection);
-
-        // Handle keyboard events
         self.handle_keyboard_events(ctx);
     }
 }
