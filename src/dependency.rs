@@ -134,7 +134,7 @@ pub fn update_cell(
     total_cols: usize,
     r: usize,
     c: usize,
-    mut backup: Cell,
+    backup: Cell,
 ) {
     {
         match &sheet[r][c].formula {
