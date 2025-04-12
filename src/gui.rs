@@ -24,9 +24,9 @@ pub struct SpreadsheetStyle {
 impl Default for SpreadsheetStyle {
     fn default() -> Self {
         Self {
-            header_bg: Color32::from_rgb(60, 63, 65),
+            header_bg: Color32::from_rgb(60, 63, 100),
             header_text: Color32::from_rgb(220, 220, 220),
-            cell_bg_even: Color32::from_rgb(50, 50, 50),
+            cell_bg_even: Color32::from_rgb(65, 50, 85),
             cell_bg_odd: Color32::from_rgb(45, 45, 45),
             cell_text: Color32::LIGHT_GRAY,
             selected_cell_bg: Color32::from_rgb(120, 120, 180),
@@ -176,7 +176,7 @@ impl SpreadsheetApp {
     fn render_formula_bar(&mut self, ui: &mut egui::Ui) {
         egui::Frame::NONE
             .fill(self.style.header_bg)
-            .inner_margin(5.0)
+            .inner_margin(egui::Vec2::new(8.0, 8.0))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.add(
@@ -261,35 +261,6 @@ impl SpreadsheetApp {
         }
     }
 
-    // Render a column header
-    fn render_column_header(&self, ui: &mut egui::Ui, col_idx: usize, x: f32, y: f32) {
-        let header_rect = egui::Rect::from_min_size(egui::pos2(x, y), self.style.cell_size);
-
-        ui.put(
-            header_rect,
-            egui::Label::new(
-                egui::RichText::new(col_label(col_idx))
-                    .size(self.style.font_size)
-                    .color(self.style.header_text),
-            ),
-        );
-    }
-
-    // Render a row header
-    fn render_row_header(&self, ui: &mut egui::Ui, row_idx: usize, x: f32, y: f32, width: f32) {
-        let row_label_rect =
-            egui::Rect::from_min_size(egui::pos2(x, y), egui::vec2(width, self.style.cell_size.y));
-
-        ui.put(
-            row_label_rect,
-            egui::Label::new(
-                egui::RichText::new((row_idx + 1).to_string())
-                    .size(self.style.font_size)
-                    .color(self.style.header_text),
-            ),
-        );
-    }
-
     // Render a single cell
     fn render_cell(
         &mut self,
@@ -370,7 +341,7 @@ impl SpreadsheetApp {
         });
     }
 
-    // Render the main spreadsheet grid
+    // // Render the main spreadsheet grid
     fn render_spreadsheet_grid(&mut self, ui: &mut egui::Ui) -> Option<(usize, usize)> {
         let mut new_selection = None;
         let cell_size = self.style.cell_size;
@@ -395,11 +366,11 @@ impl SpreadsheetApp {
         // Reset scroll offset only when needed
         if self.should_reset_scroll {
             scroll_area = scroll_area.scroll_offset(egui::Vec2::ZERO);
-        }
-
+        };
+        let mut scroll_offset = egui::Vec2::ZERO;
         scroll_area.show(ui, |ui| {
             let (virtual_rect, _) = ui.allocate_exact_size(virtual_size, egui::Sense::hover());
-            let scroll_offset = ui.clip_rect().min - virtual_rect.min;
+            scroll_offset = ui.clip_rect().min - virtual_rect.min;
 
             // Calculate visible indices
             let render_start_col =
@@ -412,21 +383,6 @@ impl SpreadsheetApp {
                 .max(1)
                 + 1;
             let visible_rows = total_rows.min(33);
-
-            // Render column headers
-            for j in render_start_col..(render_start_col + visible_cols).min(total_cols) {
-                let x = virtual_rect.min.x
-                    + row_label_width
-                    + (j - self.start_col) as f32 * cell_size.x;
-                self.render_column_header(ui, j, x, virtual_rect.min.y);
-            }
-
-            // Render row labels
-            for i in render_start_row..(render_start_row + visible_rows).min(total_rows) {
-                let y =
-                    virtual_rect.min.y + header_height + (i - self.start_row) as f32 * cell_size.y;
-                self.render_row_header(ui, i, virtual_rect.min.x, y, row_label_width);
-            }
 
             // Render data cells
             for i in render_start_row..(render_start_row + visible_rows).min(total_rows) {
@@ -445,10 +401,75 @@ impl SpreadsheetApp {
                 }
             }
         });
+        let painter = ui.ctx().layer_painter(egui::LayerId::new(
+            egui::Order::Foreground,
+            egui::Id::new("pinned_headers"),
+        ));
+
+        // The reference origin from where we want to draw headers.
+        // For a minimal approach, you can use `ui.min_rect().min`.
+        let base_x = ui.min_rect().min.x;
+        let base_y = ui.min_rect().min.y;
+
+        // --- Column Headers (pinned vertically, scrolled horizontally) ---
+        for col_idx in self.start_col..total_cols {
+            // shift horizontally with the cells by subtracting scroll_offset.x
+            let header_x = base_x - scroll_offset.x
+                + (col_idx - self.start_col) as f32 * cell_size.x
+                + row_label_width; // if you want them to start after the row-label region
+
+            let header_rect = egui::Rect::from_min_size(
+                egui::pos2(header_x.max(base_x), base_y),
+                egui::vec2(cell_size.x, header_height),
+            );
+            // draw background
+            painter.rect_filled(header_rect, 0.0, self.style.header_bg);
+            // draw label text
+            painter.text(
+                header_rect.center(),
+                egui::Align2::CENTER_CENTER,
+                col_label(col_idx),
+                egui::FontId::monospace(self.style.font_size),
+                self.style.header_text,
+            );
+
+            // stroke border if needed
+            use egui::epaint::StrokeKind;
+            painter.rect_stroke(header_rect, 0.0, self.style.grid_line, StrokeKind::Middle);
+        }
+        // --- Row Labels (pinned horizontally, scrolled vertically) ---
+        for row_idx in self.start_row..total_rows {
+            // shift vertically with the cells by subtracting scroll_offset.y
+            let header_y = base_y - scroll_offset.y
+                + (row_idx - self.start_row) as f32 * cell_size.y
+                + header_height; // if you want them to start after the column-header region
+            let row_rect = egui::Rect::from_min_size(
+                egui::pos2(base_x, header_y.max(base_y)),
+                egui::vec2(row_label_width, cell_size.y),
+            );
+            painter.rect_filled(row_rect, 0.0, self.style.header_bg);
+            painter.text(
+                row_rect.center(),
+                egui::Align2::CENTER_CENTER,
+                (row_idx + 1).to_string(),
+                egui::FontId::monospace(self.style.font_size),
+                self.style.header_text,
+            );
+            use egui::epaint::StrokeKind;
+            painter.rect_stroke(row_rect, 0.0, self.style.grid_line, StrokeKind::Inside);
+        }
+
+        // --- Corner Cell (optional) ---
+        let corner_rect = egui::Rect::from_min_size(
+            egui::pos2(base_x, base_y),
+            egui::vec2(row_label_width, header_height),
+        );
+        use egui::epaint::StrokeKind;
+        painter.rect_filled(corner_rect, 0.0, self.style.header_bg);
+        painter.rect_stroke(corner_rect, 0.0, self.style.grid_line, StrokeKind::Outside);
 
         // Reset the flag after rendering to allow normal scrolling
         self.should_reset_scroll = false;
-
         new_selection
     }
 
@@ -467,28 +488,32 @@ impl SpreadsheetApp {
     fn handle_keyboard_events(&mut self, ctx: &egui::Context) {
         ctx.input(|input| {
             if input.key_pressed(egui::Key::ArrowDown) {
-                let (row, col) = self.selected ;{
+                let (row, col) = self.selected;
+                {
                     if row + 1 < self.sheet.len() {
                         self.selected = (row + 1, col);
                         self.should_reset_scroll = true; // Optional: scroll into view
                     }
                 }
             } else if input.key_pressed(egui::Key::ArrowUp) {
-                let (row, col) = self.selected ;{
+                let (row, col) = self.selected;
+                {
                     if row > 0 {
                         self.selected = (row - 1, col);
                         self.should_reset_scroll = true;
                     }
                 }
             } else if input.key_pressed(egui::Key::ArrowRight) {
-                let (row, col) = self.selected ;{
+                let (row, col) = self.selected;
+                {
                     if col + 1 < self.sheet[0].len() {
                         self.selected = (row, col + 1);
                         self.should_reset_scroll = true;
                     }
                 }
             } else if input.key_pressed(egui::Key::ArrowLeft) {
-                let (row, col) = self.selected ;{
+                let (row, col) = self.selected;
+                {
                     if col > 0 {
                         self.selected = (row, col - 1);
                         self.should_reset_scroll = true;
@@ -499,7 +524,7 @@ impl SpreadsheetApp {
                     self.editing_cell = false;
                     self.formula_input = self.get_cell_formula(self.selected.0, self.selected.1);
                 } else {
-                    self.selected = (0,0);
+                    self.selected = (0, 0);
                     self.formula_input.clear();
                     self.status_message = "Selection cleared".to_string();
                 }
