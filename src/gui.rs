@@ -40,7 +40,7 @@ impl Default for SpreadsheetStyle {
 
 pub struct SpreadsheetApp {
     sheet: Vec<Vec<Cell>>,
-    selected: (usize, usize),
+    selected: Option<(usize, usize)>,
     formula_input: String,
     editing_cell: bool,
     style: SpreadsheetStyle,
@@ -49,6 +49,8 @@ pub struct SpreadsheetApp {
     start_col: usize,
     scroll_to_cell: String,
     should_reset_scroll: bool,
+    focus_on_scroll_to: bool,
+    request_formula_focus: bool,
 }
 
 impl SpreadsheetApp {
@@ -70,7 +72,7 @@ impl SpreadsheetApp {
         ];
         Self {
             sheet,
-            selected: (0, 0),
+            selected: Some((0, 0)),
             formula_input: String::new(),
             editing_cell: false,
             style: SpreadsheetStyle::default(),
@@ -79,6 +81,8 @@ impl SpreadsheetApp {
             start_col,
             scroll_to_cell: "..".to_string(),
             should_reset_scroll: false,
+            focus_on_scroll_to: false,
+            request_formula_focus: false,
         }
     }
 
@@ -150,25 +154,26 @@ impl SpreadsheetApp {
 
     // Update the value of the currently selected cell
     fn update_selected_cell(&mut self) {
-        let (r, c) = self.selected;
         // Save these values before starting any mutable borrow.
         let total_rows = self.sheet.len();
         let total_cols = self.sheet[0].len();
 
         // Enclose the mutable operations in a block to end the borrow.
-        let old_cell = self.sheet[r][c].my_clone();
-        parser::detect_formula(&mut self.sheet[r][c], &self.formula_input);
-        dependency::update_cell(&mut self.sheet, total_rows, total_cols, r, c, old_cell);
-        if unsafe { STATUS_CODE } == 0 {
-            parser::recalc(&mut self.sheet, total_rows, total_cols, r, c);
-        }
+        if let Some((r, c)) = self.selected {
+            let old_cell = self.sheet[r][c].my_clone();
+            parser::detect_formula(&mut self.sheet[r][c], &self.formula_input);
+            dependency::update_cell(&mut self.sheet, total_rows, total_cols, r, c, old_cell);
+            if unsafe { STATUS_CODE } == 0 {
+                parser::recalc(&mut self.sheet, total_rows, total_cols, r, c);
+            }
 
-        self.status_message = match unsafe { STATUS_CODE } {
-            0 => format!("Updated cell {}{}", col_label(c), r + 1),
-            code => format!("{}", STATUS[code]),
-        };
-        unsafe {
-            STATUS_CODE = 0;
+            self.status_message = match unsafe { STATUS_CODE } {
+                0 => format!("Updated cell {}{}", col_label(c), r + 1),
+                code => format!("{}", STATUS[code]),
+            };
+            unsafe {
+                STATUS_CODE = 0;
+            }
         }
     }
 
@@ -179,14 +184,30 @@ impl SpreadsheetApp {
             .inner_margin(egui::Vec2::new(8.0, 8.0))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.add(
+                    // Choose the hint text based on whether a cell is selected.
+                    let hint = if self.selected.is_some() {
+                        "Enter formula or value..."
+                    } else {
+                        "Enter command..."
+                    };
+
+                    // Add the text edit control and capture its response
+                    let response = ui.add(
                         egui::TextEdit::singleline(&mut self.formula_input)
-                            .hint_text("Enter formula or value...")
+                            .id_salt("command bar")
+                            .hint_text(hint)
                             .desired_width(ui.available_width() - 120.0)
                             .font(egui::TextStyle::Monospace)
                             .text_color(self.style.header_text),
                     );
-                    if ui
+
+                    // Update focus state when this control gains focus
+                    if self.request_formula_focus {
+                        response.request_focus();
+                        self.request_formula_focus = false;
+                    }
+                    // Only process Enter key when formula bar has focus
+                    let process_formula = ui
                         .add(
                             egui::Button::new(
                                 egui::RichText::new("Update Cell")
@@ -197,10 +218,18 @@ impl SpreadsheetApp {
                             .min_size(egui::Vec2::new(100.0, 25.0)),
                         )
                         .clicked()
-                        || ui.input(|i| i.key_pressed(egui::Key::Enter))
-                    {
-                        self.update_selected_cell();
-                        self.editing_cell = false;
+                        || (response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)));
+
+                    if process_formula {
+                        if self.selected.is_some() {
+                            self.update_selected_cell();
+                            self.editing_cell = false;
+                        } else {
+                            // Here you can add your command processing logic later.
+                            self.status_message =
+                                format!("Command received: {}", self.formula_input);
+                            self.formula_input.clear();
+                        }
                     }
                 });
                 if !self.status_message.is_empty() {
@@ -221,14 +250,25 @@ impl SpreadsheetApp {
                     .size(self.style.font_size)
                     .color(self.style.header_text),
             );
-            ui.add(
+
+            // Store the response from the text field
+            let text_response = ui.add(
                 egui::TextEdit::singleline(&mut self.scroll_to_cell)
                     .hint_text("e.g. AB78")
                     .desired_width(80.0)
                     .font(egui::TextStyle::Monospace)
                     .text_color(self.style.header_text),
             );
-            if ui
+
+            if text_response.gained_focus() {
+                self.focus_on_scroll_to = true;
+            }
+
+            // Separate check for Enter key when text field has focus
+            let enter_pressed =
+                self.focus_on_scroll_to && ui.input(|i| i.key_pressed(egui::Key::Enter));
+
+            let button_clicked = ui
                 .add(
                     egui::Button::new(
                         egui::RichText::new("Go")
@@ -238,19 +278,20 @@ impl SpreadsheetApp {
                     .fill(self.style.selected_cell_bg)
                     .min_size(egui::Vec2::new(60.0, 25.0)),
                 )
-                .clicked()
-            {
+                .clicked();
+
+            // Process if either Enter was pressed or button was clicked
+            if enter_pressed || button_clicked {
                 self.process_scroll_to_cell();
             }
         });
     }
 
-    // Process the scroll-to-cell request
     fn process_scroll_to_cell(&mut self) {
         if let Some((target_row, target_col)) = parse_cell_name(&self.scroll_to_cell) {
             self.start_row = target_row;
             self.start_col = target_col;
-            self.should_reset_scroll = true; // Trigger scroll reset
+            self.should_reset_scroll = true;
             self.status_message = format!(
                 "Scrolled to cell {}{}",
                 col_label(target_col),
@@ -259,6 +300,7 @@ impl SpreadsheetApp {
         } else {
             self.status_message = "Invalid cell name".to_string();
         }
+        self.scroll_to_cell = String::new();
     }
 
     // Render a single cell
@@ -269,7 +311,7 @@ impl SpreadsheetApp {
         col: usize,
         rect: egui::Rect,
     ) -> Option<(usize, usize)> {
-        let is_selected = self.selected == (row, col);
+        let is_selected = self.selected == Some((row, col));
         let mut new_selection = None;
 
         if is_selected && self.editing_cell {
@@ -315,7 +357,7 @@ impl SpreadsheetApp {
 
             if response.clicked() {
                 new_selection = Some((row, col));
-                if self.selected == (row, col) {
+                if self.selected == Some((row, col)) {
                     self.editing_cell = true;
                 }
             }
@@ -476,57 +518,57 @@ impl SpreadsheetApp {
     // Display information about the selected cell
     fn render_selected_cell_info(&self, ui: &mut egui::Ui) {
         ui.add_space(5.0);
-        let (row, col) = self.selected;
-        ui.label(
-            egui::RichText::new(format!("Selected Cell: {}{}", col_label(col), row + 1))
-                .size(self.style.font_size)
-                .color(self.style.header_text),
-        );
+        if let Some((row, col)) = self.selected {
+            ui.label(
+                egui::RichText::new(format!("Selected Cell: {}{}", col_label(col), row + 1))
+                    .size(self.style.font_size)
+                    .color(self.style.header_text),
+            );
+        }
     }
 
     // Handle keyboard events like Escape key
     fn handle_keyboard_events(&mut self, ctx: &egui::Context) {
         ctx.input(|input| {
             if input.key_pressed(egui::Key::ArrowDown) {
-                let (row, col) = self.selected;
-                {
+                if let Some((row, col)) = self.selected {
                     if row + 1 < self.sheet.len() {
-                        self.selected = (row + 1, col);
+                        self.selected = Some((row + 1, col));
                         self.should_reset_scroll = true; // Optional: scroll into view
                     }
                 }
             } else if input.key_pressed(egui::Key::ArrowUp) {
-                let (row, col) = self.selected;
-                {
+                if let Some((row, col)) = self.selected {
                     if row > 0 {
-                        self.selected = (row - 1, col);
+                        self.selected = Some((row - 1, col));
                         self.should_reset_scroll = true;
                     }
                 }
             } else if input.key_pressed(egui::Key::ArrowRight) {
-                let (row, col) = self.selected;
-                {
+                if let Some((row, col)) = self.selected {
                     if col + 1 < self.sheet[0].len() {
-                        self.selected = (row, col + 1);
+                        self.selected = Some((row, col + 1));
                         self.should_reset_scroll = true;
                     }
                 }
             } else if input.key_pressed(egui::Key::ArrowLeft) {
-                let (row, col) = self.selected;
-                {
+                if let Some((row, col)) = self.selected {
                     if col > 0 {
-                        self.selected = (row, col - 1);
+                        self.selected = Some((row, col - 1));
                         self.should_reset_scroll = true;
                     }
                 }
             } else if input.key_pressed(egui::Key::Escape) {
                 if self.editing_cell {
                     self.editing_cell = false;
-                    self.formula_input = self.get_cell_formula(self.selected.0, self.selected.1);
+                    if let Some((row, col)) = self.selected {
+                        self.formula_input = self.get_cell_formula(row, col);
+                    }
                 } else {
-                    self.selected = (0, 0);
+                    self.selected = None;
                     self.formula_input.clear();
-                    self.status_message = "Selection cleared".to_string();
+                    self.status_message = "Selection cleared, command mode".to_string();
+                    self.request_formula_focus = true;
                 }
             }
         });
@@ -535,7 +577,8 @@ impl SpreadsheetApp {
     // Handle cell selection changes
     fn handle_selection_change(&mut self, new_selection: Option<(usize, usize)>) {
         if let Some((i, j)) = new_selection {
-            self.selected = (i, j);
+            // Only update when a new selection is made.
+            self.selected = Some((i, j));
             self.formula_input = self.get_cell_formula(i, j);
             self.status_message = format!("Selected cell {}{}", col_label(j), i + 1);
         }

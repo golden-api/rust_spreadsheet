@@ -392,6 +392,5 @@ pub fn recalc(
         unsafe {
             STATUS_CODE = 3; // Assuming STATUS_CODE is a global variable as in dependency.rs
         }
-        
-    } 
+    }
 }
