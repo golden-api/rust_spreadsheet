@@ -672,8 +672,6 @@ impl eframe::App for SpreadsheetApp {
             });
         });
         
-        
-
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(selection) = self.render_spreadsheet_grid(ui) {
                 new_selection = Some(selection);

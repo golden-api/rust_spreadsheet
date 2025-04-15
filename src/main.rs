@@ -5,11 +5,11 @@ use std::{
     env,
     io::{self, Write},
     process,
-    time::Instant,
+    time::Instant, u32,
 };
 
 // Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CellName {
     len: u8,
     data: [u8; 7],
@@ -48,7 +48,7 @@ impl std::str::FromStr for CellName {
         CellName::new(s)
     }
 }
-// ////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 
 #[cfg(feature = "gui")]
 mod gui;
@@ -77,14 +77,13 @@ pub enum FormulaType {
 #[derive(Clone)]
 pub enum Valtype {
     Int(i32),
-    Str(String),
+    Str(CellName),
 }
 
 #[derive(Clone)]
 pub enum CellData {
     Empty,
     SleepC,
-    // Updated: cell reference is now a compact CellName
     SleepR { cell1: CellName },
     Const,
     Ref { cell1: CellName },
@@ -100,7 +99,7 @@ pub enum CellData {
 pub struct Cell {
     pub value: Valtype,
     pub data: CellData,
-    pub dependents: HashSet<(usize, usize)>,
+    pub dependents: HashSet<u32>,
 }
 
 impl Cell {

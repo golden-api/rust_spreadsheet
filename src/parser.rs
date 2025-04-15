@@ -97,10 +97,11 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     let re_range_func = Regex::new(r"^([A-Z]+)\(([A-Z]+[0-9]+):([A-Z]+[0-9]+)\)$").unwrap();
     if let Some(caps) = re_range_func.captures(form) {
         block.reset();
-        let func = caps.get(1).unwrap().as_str().to_string();
+        let func = caps.get(1).unwrap().as_str();
         let ref1 = CellName::new(caps.get(2).unwrap().as_str()).unwrap();
         let ref2 = CellName::new(caps.get(3).unwrap().as_str()).unwrap();
-        block.data = CellData::Range { cell1: ref1, cell2: ref2, value2: Valtype::Str(func) };
+        // Wrap the function name as a CellName
+        block.data = CellData::Range { cell1: ref1, cell2: ref2, value2: Valtype::Str(CellName::new(func).unwrap()) };
         return;
     }
     block.data = CellData::Invalid;
@@ -117,7 +118,8 @@ pub fn eval(
         EVAL_ERROR = false;
         STATUS_CODE = 0;
     }
-    let err_value = Valtype::Str("ERR".to_string());
+    // Error value now uses a compact cell name
+    let err_value = Valtype::Str(CellName::new("ERR").unwrap());
     let get_cell_val = |reference: &CellName| -> Option<i32> {
         let (r_idx, c_idx) = to_indices(reference.as_str());
         if r_idx < total_rows && c_idx < total_cols {
@@ -156,6 +158,7 @@ pub fn eval(
             };
             let v2 = match value2 {
                 Valtype::Int(val) => *val,
+                // Now when matching a string cell name, error out
                 Valtype::Str(_) => {
                     unsafe { EVAL_ERROR = true; }
                     0
@@ -201,7 +204,7 @@ pub fn eval(
                 let (r1, c1) = to_indices(cell1.as_str());
                 let (r2, c2) = to_indices(cell2.as_str());
                 if r1 < total_rows && c1 < total_cols && r2 < total_rows && c2 < total_cols && r1 <= r2 && c1 <= c2 {
-                    let choice = match func.to_uppercase().as_str() {
+                    let choice = match func.as_str().to_uppercase().as_str() {
                         "MAX" => 1,
                         "MIN" => 2,
                         "AVG" => 3,
@@ -248,7 +251,6 @@ pub fn eval(
         Valtype::Int(result)
     }
 }
-
 
 pub fn update_and_recalc(
     sheet: &mut Vec<Vec<Cell>>,
@@ -326,6 +328,9 @@ pub fn update_and_recalc(
         return;
     }
 
+    // Calculate a single key from (r, c)
+    let cell_hash = (r * total_cols + c) as u32;
+
     // Store original value for rollback
     let original_value = sheet[r][c].value.clone();
 
@@ -337,7 +342,7 @@ pub fn update_and_recalc(
             for i in start_row..=end_row {
                 for j in start_col..=end_col {
                     if i < total_rows && j < total_cols {
-                        sheet[i][j].dependents.remove(&(r, c));
+                        sheet[i][j].dependents.remove(&cell_hash);
                     }
                 }
             }
@@ -345,35 +350,35 @@ pub fn update_and_recalc(
         CellData::Ref { ref cell1 } => {
             let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
-                sheet[i][j].dependents.remove(&(r, c));
+                sheet[i][j].dependents.remove(&cell_hash);
             }
         }
         CellData::CoR { ref cell2, .. } => {
             let (i, j) = to_indices(cell2.as_str());
             if i < total_rows && j < total_cols {
-                sheet[i][j].dependents.remove(&(r, c));
+                sheet[i][j].dependents.remove(&cell_hash);
             }
         }
         CellData::RoC { ref cell1, .. } => {
             let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
-                sheet[i][j].dependents.remove(&(r, c));
+                sheet[i][j].dependents.remove(&cell_hash);
             }
         }
         CellData::RoR { ref cell1, ref cell2, .. } => {
             let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
-                sheet[i][j].dependents.remove(&(r, c));
+                sheet[i][j].dependents.remove(&cell_hash);
             }
             let (i2, j2) = to_indices(cell2.as_str());
             if i2 < total_rows && j2 < total_cols {
-                sheet[i2][j2].dependents.remove(&(r, c));
+                sheet[i2][j2].dependents.remove(&cell_hash);
             }
         }
         CellData::SleepR { ref cell1 } => {
             let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
-                sheet[i][j].dependents.remove(&(r, c));
+                sheet[i][j].dependents.remove(&cell_hash);
             }
         }
         _ => {}
@@ -388,7 +393,7 @@ pub fn update_and_recalc(
             for row in start_row..=end_row {
                 for col in start_col..=end_col {
                     if row < total_rows && col < total_cols {
-                        sheet[row][col].dependents.insert((r, c));
+                        sheet[row][col].dependents.insert(cell_hash);
                     }
                 }
             }
@@ -396,35 +401,35 @@ pub fn update_and_recalc(
         CellData::Ref { cell1 } => {
             let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
-                sheet[dep_row][dep_col].dependents.insert((r, c));
+                sheet[dep_row][dep_col].dependents.insert(cell_hash);
             }
         }
         CellData::CoR { cell2, .. } => {
             let (dep_row, dep_col) = to_indices(cell2.as_str());
             if dep_row < total_rows && dep_col < total_cols {
-                sheet[dep_row][dep_col].dependents.insert((r, c));
+                sheet[dep_row][dep_col].dependents.insert(cell_hash);
             }
         }
         CellData::RoC { cell1, .. } => {
             let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
-                sheet[dep_row][dep_col].dependents.insert((r, c));
+                sheet[dep_row][dep_col].dependents.insert(cell_hash);
             }
         }
         CellData::RoR { cell1, cell2, .. } => {
             let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
-                sheet[dep_row][dep_col].dependents.insert((r, c));
+                sheet[dep_row][dep_col].dependents.insert(cell_hash);
             }
             let (dep_row2, dep_col2) = to_indices(cell2.as_str());
             if dep_row2 < total_rows && dep_col2 < total_cols {
-                sheet[dep_row2][dep_col2].dependents.insert((r, c));
+                sheet[dep_row2][dep_col2].dependents.insert(cell_hash);
             }
         }
         CellData::SleepR { cell1 } => {
             let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
-                sheet[dep_row][dep_col].dependents.insert((r, c));
+                sheet[dep_row][dep_col].dependents.insert(cell_hash);
             }
         }
         _ => {}
@@ -442,13 +447,17 @@ pub fn update_and_recalc(
     queue.push_back((r, c));
 
     while let Some((r_curr, c_curr)) = queue.pop_front() {
-        for &(dep_r, dep_c) in &sheet[r_curr][c_curr].dependents {
-            let dep_key = dep_r * total_cols + dep_c;
-            if index_map.contains_key(&dep_key) {
+        // Iterate over dependent keys (u32 values)
+        for &dep_key in &sheet[r_curr][c_curr].dependents {
+            // Convert dep_key to (dep_r, dep_c)
+            let dep_r = (dep_key as usize) / total_cols;
+            let dep_c = (dep_key as usize) % total_cols;
+            let computed_key = dep_r * total_cols + dep_c;
+            if index_map.contains_key(&computed_key) {
                 continue;
             }
             let idx = affected.len();
-            index_map.insert(dep_key, idx);
+            index_map.insert(computed_key, idx);
             affected.push((dep_r, dep_c));
             queue.push_back((dep_r, dep_c));
         }
@@ -457,8 +466,12 @@ pub fn update_and_recalc(
     let n = affected.len();
     let mut in_degree = vec![0; n];
     for &(r_curr, c_curr) in &affected {
-        for &(dep_r, dep_c) in &sheet[r_curr][c_curr].dependents {
-            let key = dep_r * total_cols + dep_c;
+        for &dep_key in &sheet[r_curr][c_curr].dependents {
+            let key = {
+                let dep_r = (dep_key as usize) / total_cols;
+                let dep_c = (dep_key as usize) % total_cols;
+                dep_r * total_cols + dep_c
+            };
             if let Some(&idx) = index_map.get(&key) {
                 in_degree[idx] += 1;
             }
@@ -481,8 +494,12 @@ pub fn update_and_recalc(
                 sheet[r_curr][c_curr].value = new_value;
             }
         }
-        for &(dep_r, dep_c) in &sheet[r_curr][c_curr].dependents {
-            let key = dep_r * total_cols + dep_c;
+        for &dep_key in &sheet[r_curr][c_curr].dependents {
+            let key = {
+                let dep_r = (dep_key as usize) / total_cols;
+                let dep_c = (dep_key as usize) % total_cols;
+                dep_r * total_cols + dep_c
+            };
             if let Some(&dep_idx) = index_map.get(&key) {
                 in_degree[dep_idx] -= 1;
                 if in_degree[dep_idx] == 0 {
