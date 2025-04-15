@@ -246,50 +246,116 @@ impl SpreadsheetApp {
             });
     }
 
+
+    
     // Render the scroll-to-cell feature
     fn render_scroll_to_cell(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.label(
-                egui::RichText::new("Scroll to:")
-                    .size(self.style.font_size)
-                    .color(self.style.header_text),
-            );
+        // Note: Removed the outer horizontal closure; it's handled by the caller.
+        ui.label(
+            egui::RichText::new("Scroll to:")
+                .size(self.style.font_size)
+                .color(self.style.header_text),
+        );
 
-            // Store the response from the text field
-            let text_response = ui.add(
-                egui::TextEdit::singleline(&mut self.scroll_to_cell)
-                    .hint_text("e.g. AB78")
-                    .desired_width(80.0)
-                    .font(egui::TextStyle::Monospace)
-                    .text_color(self.style.header_text),
-            );
+        let text_response = ui.add(
+            egui::TextEdit::singleline(&mut self.scroll_to_cell)
+                .hint_text("e.g. AB78")
+                .desired_width(80.0)
+                .font(egui::TextStyle::Monospace)
+                .text_color(self.style.header_text),
+        );
 
-            if text_response.gained_focus() {
-                self.focus_on_scroll_to = true;
-            }
+        if text_response.gained_focus() {
+            self.focus_on_scroll_to = true;
+        }
 
-            // Separate check for Enter key when text field has focus
-            let enter_pressed =
-                self.focus_on_scroll_to && ui.input(|i| i.key_pressed(egui::Key::Enter));
+        let enter_pressed = self.focus_on_scroll_to &&
+            ui.input(|i| i.key_pressed(egui::Key::Enter));
 
-            let button_clicked = ui
-                .add(
-                    egui::Button::new(
-                        egui::RichText::new("Go")
-                            .size(self.style.font_size)
-                            .color(self.style.header_text),
-                    )
-                    .fill(self.style.selected_cell_bg)
-                    .min_size(egui::Vec2::new(60.0, 25.0)),
+        let button_clicked = ui
+            .add(
+                egui::Button::new(
+                    egui::RichText::new("Go")
+                        .size(self.style.font_size)
+                        .color(self.style.header_text),
                 )
-                .clicked();
+                .fill(self.style.selected_cell_bg)
+                .min_size(egui::Vec2::new(60.0, 25.0)),
+            )
+            .clicked();
 
-            // Process if either Enter was pressed or button was clicked
-            if enter_pressed || button_clicked {
-                self.process_scroll_to_cell();
-            }
-        });
+        if enter_pressed || button_clicked {
+            self.process_scroll_to_cell();
+        }
     }
+
+    /// A simple function to adjust brightness by a given factor (this is just a conceptual example).
+    
+
+    // Render the colour picker feature
+    fn render_colour(&mut self, ui: &mut egui::Ui) {
+    ui.label(
+        egui::RichText::new("Theme:")
+            .size(self.style.font_size)
+            .color(self.style.header_text),
+    );
+
+    // Let the selected cell background be our base color, the muse for all other adjustments.
+    let mut base_color = self.style.selected_cell_bg;
+    if ui.color_edit_button_srgba(&mut base_color).changed() {
+
+        fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
+            // Since Color32 works with u8 values for rgb, you may need to convert to a floating point representation.
+            let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
+            let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
+            let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
+            Color32::from_rgb(r, g, b)
+        }
+    
+        fn contrast_color(bg: Color32) -> Color32 {
+            // Compute the relative luminance using the common formula.
+            let r = bg.r() as f32;
+            let g = bg.g() as f32;
+            let b = bg.b() as f32;
+            let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            // If the luminance is low, use white text; otherwise, black.
+            if luminance < 128.0 {
+                Color32::WHITE
+            } else {
+                Color32::from_rgb(0, 0, 0)
+            }
+        }
+
+        fn invert(bg: Color32) -> Color32 {
+            // Since Color32 works with u8 values for rgb, you may need to convert to a floating point representation.
+            let r = (255.0 - (bg.r() as f32)) as u8;
+            let g = (255.0 - (bg.g() as f32)) as u8;
+            let b = (255.0 - (bg.b() as f32)) as u8;
+            Color32::from_rgb(r, g, b)
+        }
+        // Update the base color.
+        self.style.selected_cell_bg = base_color;
+
+        // Use the base color to adjust other elements.
+        self.style.cell_bg_even = adjust_brightness(base_color, 0.9);  // A hint darker for even cells.
+        self.style.cell_bg_odd  = adjust_brightness(base_color, 1.1);  // A touch lighter for odd cells.
+
+        // Set header background and choose a contrasting text color.
+        // self.style.header_bg = adjust_brightness(base_color, 0.8);
+        // self.style.header_text = contrast_color(self.style.header_bg);
+
+        // For the general cell text, pick a pleasing contrast against the base color.
+        self.style.cell_text = contrast_color(base_color);
+        // And for the selected cell text, ensure readability too.
+        self.style.selected_cell_text = contrast_color(base_color);
+
+        // Finally, update the grid line to subtly complement the overall theme.
+        self.style.grid_line = Stroke::new(1.0, adjust_brightness(base_color, 0.7));
+    }
+}
+
+
+    
 
     fn process_scroll_to_cell(&mut self) {
         if let Some((target_row, target_col)) = parse_cell_name(&self.scroll_to_cell) {
@@ -596,9 +662,17 @@ impl eframe::App for SpreadsheetApp {
 
         let mut new_selection = None;
         egui::TopBottomPanel::top("formula_panel").show(ctx, |ui| {
+            // First row: formula bar alone
             self.render_formula_bar(ui);
-            self.render_scroll_to_cell(ui);
+        
+            // Second row: scroll-to-cell and color picker side by side
+            ui.horizontal(|ui| {
+                self.render_scroll_to_cell(ui);
+                self.render_colour(ui);
+            });
         });
+        
+        
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(selection) = self.render_spreadsheet_grid(ui) {
