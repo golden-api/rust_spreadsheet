@@ -287,7 +287,13 @@ impl SpreadsheetApp {
                     if let Some(cell_ref) = cmd.strip_prefix("goto ") {
                         self.goto_cell(cell_ref);
                     }
-                } else {
+                }
+                else if cmd.starts_with("scroll_to ") {
+                    if let Some(cell_ref) = cmd.strip_prefix("scroll_to ") {
+                        self.scrollto_cell(cell_ref);
+                    }
+                }
+                else {
                     self.status_message = format!("Unknown command: {}", cmd);
                 }
             }
@@ -368,6 +374,22 @@ impl SpreadsheetApp {
             }
         }
         self.status_message = format!("Invalid cell reference: {}", cell_ref);
+    }
+
+    fn scrollto_cell(&mut self, cell_ref: &str) {
+        if let Some((target_row, target_col)) = parse_cell_name(cell_ref) {
+            self.start_row = target_row;
+            self.start_col = target_col;
+            self.should_reset_scroll = true;
+            self.status_message = format!(
+                "Scrolled to cell {}{}",
+                col_label(target_col),
+                target_row + 1
+            );
+        } else {
+            self.status_message = "Invalid cell name".to_string();
+        }
+        self.scroll_to_cell = String::new();
     }
     
     
