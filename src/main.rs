@@ -1,3 +1,4 @@
+#[cfg(feature = "gui")]
 use eframe::egui;
 use std::{
     collections::HashSet,
@@ -7,10 +8,12 @@ use std::{
     time::Instant,
 };
 mod dependency;
+#[cfg(feature = "gui")]
 mod gui;
 mod parser;
 mod scrolling;
 mod utils;
+#[cfg(feature = "gui")]
 mod utils_gui;
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
@@ -258,7 +261,9 @@ fn main() {
         }
     };
 
-    if args.len() == 4 {
+    
+        #[cfg(feature = "gui")]
+        {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
                 .with_inner_size([1024.0, 768.0])
@@ -275,7 +280,8 @@ fn main() {
             }),
         )
         .unwrap();
-    } else {
+        }
+        #[cfg(not(feature = "gui"))] {
         interactive_mode(total_rows, total_cols);
     }
 }

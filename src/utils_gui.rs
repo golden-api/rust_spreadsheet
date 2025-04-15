@@ -1,3 +1,4 @@
+#[cfg(feature = "gui")]
 // Helper: Convert column index to Excel-style label (A, B, …, Z, AA, etc.)
 pub fn col_label(mut col_index: usize) -> String {
     let mut name = String::new();
@@ -11,7 +12,7 @@ pub fn col_label(mut col_index: usize) -> String {
     }
     name
 }
-
+#[cfg(feature = "gui")]
 pub fn parse_cell_name(name: &str) -> Option<(usize, usize)> {
     let mut col_part = String::new();
     let mut row_part = String::new();
@@ -31,7 +32,7 @@ pub fn parse_cell_name(name: &str) -> Option<(usize, usize)> {
     let row_index = row_part.parse::<usize>().ok()?.saturating_sub(1);
     Some((row_index, col_index))
 }
-
+#[cfg(feature = "gui")]
 pub fn col_label_to_index(label: &str) -> Option<usize> {
     let mut col = 0;
     for (i, c) in label.chars().rev().enumerate() {

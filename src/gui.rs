@@ -1,12 +1,16 @@
+#[cfg(feature = "gui")]
 use crate::utils_gui::{col_label, parse_cell_name};
+#[cfg(feature = "gui")]
 use crate::{Cell, FormulaType, STATUS, STATUS_CODE, Valtype, dependency, parser};
-
+#[cfg(feature = "gui")]
 use eframe::{
     egui,
     egui::{Color32, Stroke, Vec2},
 };
+#[cfg(feature = "gui")]
 use std::collections::HashSet;
 
+#[cfg(feature = "gui")]
 // Define your styling configuration.
 pub struct SpreadsheetStyle {
     header_bg: Color32,
@@ -20,7 +24,7 @@ pub struct SpreadsheetStyle {
     cell_size: Vec2,
     font_size: f32,
 }
-
+#[cfg(feature = "gui")]
 impl Default for SpreadsheetStyle {
     fn default() -> Self {
         Self {
@@ -37,7 +41,7 @@ impl Default for SpreadsheetStyle {
         }
     }
 }
-
+#[cfg(feature = "gui")]
 pub struct SpreadsheetApp {
     sheet: Vec<Vec<Cell>>,
     selected: Option<(usize, usize)>,
@@ -52,7 +56,7 @@ pub struct SpreadsheetApp {
     focus_on_scroll_to: bool,
     request_formula_focus: bool,
 }
-
+#[cfg(feature = "gui")]
 impl SpreadsheetApp {
     pub fn new(rows: usize, cols: usize, start_row: usize, start_col: usize) -> Self {
         let sheet = vec![
@@ -585,6 +589,7 @@ impl SpreadsheetApp {
     }
 }
 
+#[cfg(feature = "gui")]
 impl eframe::App for SpreadsheetApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
