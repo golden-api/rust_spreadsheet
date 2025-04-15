@@ -102,7 +102,7 @@ impl SpreadsheetApp {
                 }
             }
     
-            CellData::Ref { cell1 } => cell1.clone(),
+            CellData::Ref { cell1 } => cell1.as_str().to_string(),
     
             CellData::CoC { op_code, value2 } => {
                 if let Valtype::Int(val1) = &cell.value {
@@ -118,7 +118,7 @@ impl SpreadsheetApp {
     
             CellData::CoR { op_code, value2, cell2 } => {
                 if let Valtype::Int(val1) = value2 {
-                    format!("{}{}{}", val1, op_code, cell2)
+                    format!("{}{}{}", val1, op_code, cell2.as_str())
                 } else {
                     String::new()
                 }
@@ -126,7 +126,7 @@ impl SpreadsheetApp {
     
             CellData::RoC { op_code, value2, cell1 } => {
                 if let Valtype::Int(val2) = value2 {
-                    format!("{}{}{}", cell1, op_code, val2)
+                    format!("{}{}{}", cell1.as_str(), op_code, val2)
                 } else {
                     String::new()
                 }
@@ -138,7 +138,7 @@ impl SpreadsheetApp {
     
             CellData::Range { cell1, cell2, value2 } => {
                 if let Valtype::Str(func) = value2 {
-                    format!("{}({}:{})", func, cell1, cell2)
+                    format!("{}({}:{})", func.as_str(), cell1.as_str(), cell2.as_str())
                 } else {
                     String::new()
                 }
@@ -293,7 +293,6 @@ impl SpreadsheetApp {
 
     /// A simple function to adjust brightness by a given factor (this is just a conceptual example).
     
-
     // Render the colour picker feature
     fn render_colour(&mut self, ui: &mut egui::Ui) {
     ui.label(
@@ -362,9 +361,6 @@ impl SpreadsheetApp {
     }
 }
 
-
-    
-
     fn process_scroll_to_cell(&mut self) {
         if let Some((target_row, target_col)) = parse_cell_name(&self.scroll_to_cell) {
             self.start_row = target_row;
@@ -397,7 +393,7 @@ impl SpreadsheetApp {
         } else {
             let text = match &self.sheet[row][col].value {
                 Valtype::Int(n) => n.to_string(),
-                Valtype::Str(s) => s.clone(),
+                Valtype::Str(s) => s.as_str().to_string(),
             };
 
             let bg_color = if is_selected {

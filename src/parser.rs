@@ -261,7 +261,6 @@ pub fn update_and_recalc(
     backup: Cell,
 ) {
     type Coord = (usize, usize);
-
     // Validation block from update_cell
     {
         match &sheet[r][c].data {
@@ -332,7 +331,7 @@ pub fn update_and_recalc(
     let cell_hash = (r * total_cols + c) as u32;
 
     // Store original value for rollback
-    let original_value = sheet[r][c].value.clone();
+    let original_value = sheet[r][c].clone();
 
     // Remove old dependencies from backup
     match backup.data {
@@ -477,7 +476,11 @@ pub fn update_and_recalc(
             }
         }
     }
-
+    if in_degree[0] >0 {
+        sheet[r][c] =backup;
+        unsafe { STATUS_CODE = 3; }
+        return;
+    }
     let mut zero_queue: Vec<usize> = (0..n).filter(|&i| in_degree[i] == 0).collect();
     let mut i = 0;
     let mut temp_values: HashMap<Coord, Valtype> = HashMap::new();
@@ -509,15 +512,4 @@ pub fn update_and_recalc(
         }
     }
 
-    // Cycle detection and rollback
-    if i < n {
-        // Revert to original values if cycle detected
-        sheet[r][c].value = original_value;
-        for ((r_curr, c_curr), value) in temp_values {
-            if (r_curr, c_curr) != (r, c) {
-                sheet[r_curr][c_curr].value = value;
-            }
-        }
-        unsafe { STATUS_CODE = 3; }
-    }
 }
