@@ -298,27 +298,23 @@ impl SpreadsheetApp {
 
     
     fn move_selection(&mut self, direction: Direction) {
-        if let Some((row, col)) = self.selected {
-            let new_pos = match direction {
-                Direction::Up => (row.saturating_sub(1), col),
-                Direction::Down => (row + 1, col),
-                Direction::Left => (row, col.saturating_sub(1)),
-                Direction::Right => (row, col + 1),
+        let total_rows = self.sheet.len();
+        let total_cols = self.sheet[0].len();
+        let new_pos = match direction {
+                Direction::Up => crate::scrolling::w(&mut self.start_row),
+                Direction::Down => crate::scrolling::s(&mut self.start_row, total_rows),
+                Direction::Right => crate::scrolling::d(&mut self.start_col, total_cols),
+                Direction::Left => crate::scrolling::a(&mut self.start_row),
             };
-            let total_cols = self.sheet[0].len();
-            let total_rows = self.sheet.len();
+            // let total_cols = self.sheet[0].len();
+            // let total_rows = self.sheet.len();
             
-            if new_pos.0 < total_rows && new_pos.1 < total_cols {
-                self.selected = Some(new_pos);
+            // if new_pos.0 < total_rows && new_pos.1 < total_cols {
+            //     self.selected = Some(new_pos);
                 self.status_message = format!("Moved to cell {}{}", 
-                    self.column_letter(new_pos.1), new_pos.0 + 1);
-            }
-        } else {
-            // If no cell is selected, select the first cell
-            self.selected = Some((0, 0));
-            self.status_message = "Selected cell A1".to_string();
+                    &self.start_col, &self.start_row);
+            // }
         }
-    }
     
     fn reset_theme(&mut self) {
         // Reset to default theme values
@@ -340,18 +336,32 @@ impl SpreadsheetApp {
     // }
     
     fn goto_cell(&mut self, cell_ref: &str) {
-        // Parse cell reference like "A1", "B2" etc.
-        if cell_ref.len() >= 2 {
-            let col_char = cell_ref.chars().next().unwrap();
-            let col = (col_char as u8 - b'A') as usize;
+        // Find the first digit in the string, which marks the start of the row number.
+        if let Some(pos) = cell_ref.chars().position(|c| c.is_ascii_digit()) {
+            let col_str = &cell_ref[..pos];
+            let row_str = &cell_ref[pos..];
             
-            // Parse the row number
-            if let Ok(row) = cell_ref[1..].parse::<usize>() {
-                // Use sheet instead of data for bounds checking
-                let total_cols = self.sheet[0].len();
+            // Convert the column string (e.g. "A" or "AG") to a column index.
+            // Here, we'll use base-26 (like Excel). For a single letter, "A" becomes 0.
+            let mut col_index: usize = 0;
+            for c in col_str.chars() {
+                // Make it uppercase in case the user typed lower-case.
+                let c = c.to_ascii_uppercase();
+                // 'A' corresponds to 1 in this calculation.
+                col_index = col_index * 26 + ((c as u8 - b'A') as usize + 1);
+            }
+            // Adjust since we want 0-based indexing.
+            let col = col_index - 1;
+            
+            // Parse the row number.
+            if let Ok(row) = row_str.parse::<usize>() {
+                // Adjust since our sheet index is 0-based (i.e. row "1" is at index 0).
+                let row_index = row - 1;
                 let total_rows = self.sheet.len();
+                let total_cols = self.sheet[0].len();
+    
                 if row > 0 && row <= total_rows && col < total_cols {
-                    self.selected = Some((row - 1, col));
+                    self.selected = Some((row_index, col));
                     self.status_message = format!("Moved to cell {}", cell_ref);
                     return;
                 }
@@ -359,6 +369,7 @@ impl SpreadsheetApp {
         }
         self.status_message = format!("Invalid cell reference: {}", cell_ref);
     }
+    
     
     fn show_command_help(&mut self) {
         self.status_message = "Available commands: w,a,s,d (navigation), q (quit), theme_reset, help, goto [cell]".to_string();
