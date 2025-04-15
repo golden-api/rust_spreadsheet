@@ -1,5 +1,5 @@
+use crate::{Cell, CellData, STATUS_CODE, Valtype, CellName};
 use crate::utils::{EVAL_ERROR, compute, compute_range, sleepy, to_indices};
-use crate::{Cell, CellData, CellName, STATUS_CODE, Valtype};
 use std::collections::{HashMap, VecDeque};
 
 use regex::Regex;
@@ -59,10 +59,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let val2: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
         block.value = Valtype::Int(val1);
-        block.data = CellData::CoC {
-            op_code: op,
-            value2: Valtype::Int(val2),
-        };
+        block.data = CellData::CoC { op_code: op, value2: Valtype::Int(val2) };
         return;
     }
     // 6. CONSTANT_REFERENCE: "<int><op><ref>"
@@ -73,11 +70,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let ref2 = CellName::new(caps.get(3).unwrap().as_str()).unwrap();
         block.value = Valtype::Int(val1);
-        block.data = CellData::CoR {
-            op_code: op,
-            value2: Valtype::Int(val1),
-            cell2: ref2,
-        };
+        block.data = CellData::CoR { op_code: op, value2: Valtype::Int(val1), cell2: ref2 };
         return;
     }
     // 7. REFERENCE_CONSTANT: "<ref><op><int>"
@@ -87,11 +80,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let ref1 = CellName::new(caps.get(1).unwrap().as_str()).unwrap();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let val1: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
-        block.data = CellData::RoC {
-            op_code: op,
-            value2: Valtype::Int(val1),
-            cell1: ref1,
-        };
+        block.data = CellData::RoC { op_code: op, value2: Valtype::Int(val1), cell1: ref1 };
         return;
     }
     // 8. REFERENCE_REFERENCE: "<ref><op><ref>"
@@ -101,11 +90,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let ref1 = CellName::new(caps.get(1).unwrap().as_str()).unwrap();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let ref2 = CellName::new(caps.get(3).unwrap().as_str()).unwrap();
-        block.data = CellData::RoR {
-            op_code: op,
-            cell1: ref1,
-            cell2: ref2,
-        };
+        block.data = CellData::RoR { op_code: op, cell1: ref1, cell2: ref2 };
         return;
     }
     // 9. RANGE_FUNCTION: "<func>(<ref1>:<ref2>)"
@@ -116,11 +101,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let ref1 = CellName::new(caps.get(2).unwrap().as_str()).unwrap();
         let ref2 = CellName::new(caps.get(3).unwrap().as_str()).unwrap();
         // Wrap the function name as a CellName
-        block.data = CellData::Range {
-            cell1: ref1,
-            cell2: ref2,
-            value2: Valtype::Str(CellName::new(func).unwrap()),
-        };
+        block.data = CellData::Range { cell1: ref1, cell2: ref2, value2: Valtype::Str(CellName::new(func).unwrap()) };
         return;
     }
     block.data = CellData::Invalid;
@@ -146,16 +127,12 @@ pub fn eval(
             match &cell.value {
                 Valtype::Int(val) => Some(*val),
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     None
                 }
             }
         } else {
-            unsafe {
-                STATUS_CODE = 1;
-            }
+            unsafe { STATUS_CODE = 1; }
             None
         }
     };
@@ -164,23 +141,18 @@ pub fn eval(
         CellData::Const => match parsed.value {
             Valtype::Int(val) => val,
             Valtype::Str(_) => {
-                unsafe {
-                    EVAL_ERROR = true;
-                }
+                unsafe { EVAL_ERROR = true; }
                 0
             }
         },
-        CellData::Ref { ref cell1 } => get_cell_val(cell1).unwrap_or(0),
-        CellData::CoC {
-            op_code,
-            ref value2,
-        } => {
+        CellData::Ref { ref cell1 } => {
+            get_cell_val(cell1).unwrap_or(0)
+        }
+        CellData::CoC { op_code, ref value2 } => {
             let v1 = match parsed.value {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
@@ -188,25 +160,17 @@ pub fn eval(
                 Valtype::Int(val) => *val,
                 // Now when matching a string cell name, error out
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
             compute(v1, Some(op_code), v2)
         }
-        CellData::CoR {
-            op_code,
-            ref value2,
-            ref cell2,
-        } => {
+        CellData::CoR { op_code, ref value2, ref cell2 } => {
             let v1 = match value2 {
                 Valtype::Int(val) => *val,
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
@@ -216,17 +180,11 @@ pub fn eval(
                 0
             }
         }
-        CellData::RoC {
-            op_code,
-            ref value2,
-            ref cell1,
-        } => {
+        CellData::RoC { op_code, ref value2, ref cell1 } => {
             let v1 = match value2 {
                 Valtype::Int(val) => *val,
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
@@ -236,30 +194,16 @@ pub fn eval(
                 0
             }
         }
-        CellData::RoR {
-            op_code,
-            ref cell1,
-            ref cell2,
-        } => {
+        CellData::RoR { op_code, ref cell1, ref cell2 } => {
             let v1 = get_cell_val(cell1).unwrap_or(0);
             let v2 = get_cell_val(cell2).unwrap_or(0);
             compute(v1, Some(op_code), v2)
         }
-        CellData::Range {
-            ref cell1,
-            ref cell2,
-            ref value2,
-        } => {
+        CellData::Range { ref cell1, ref cell2, ref value2 } => {
             if let Valtype::Str(func) = value2 {
                 let (r1, c1) = to_indices(cell1.as_str());
                 let (r2, c2) = to_indices(cell2.as_str());
-                if r1 < total_rows
-                    && c1 < total_cols
-                    && r2 < total_rows
-                    && c2 < total_cols
-                    && r1 <= r2
-                    && c1 <= c2
-                {
+                if r1 < total_rows && c1 < total_cols && r2 < total_rows && c2 < total_cols && r1 <= r2 && c1 <= c2 {
                     let choice = match func.as_str().to_uppercase().as_str() {
                         "MAX" => 1,
                         "MIN" => 2,
@@ -267,17 +211,13 @@ pub fn eval(
                         "SUM" => 4,
                         "STDEV" => 5,
                         _ => {
-                            unsafe {
-                                STATUS_CODE = 2;
-                            }
+                            unsafe { STATUS_CODE = 2; }
                             0
                         }
                     };
                     compute_range(sheet, r1, r2, c1, c2, choice)
                 } else {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     0
                 }
             } else {
@@ -300,9 +240,7 @@ pub fn eval(
             }
         }
         CellData::Invalid => {
-            unsafe {
-                STATUS_CODE = 2;
-            }
+            unsafe { STATUS_CODE = 2; }
             0
         }
         _ => 0,
@@ -327,76 +265,58 @@ pub fn update_and_recalc(
     {
         match &sheet[r][c].data {
             CellData::Invalid => {
-                unsafe {
-                    STATUS_CODE = 2;
-                }
+                unsafe { STATUS_CODE = 2; }
                 return;
             }
             CellData::Range { cell1, cell2, .. } => {
                 let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
                 let (row_idx2, col_idx2) = to_indices(cell2.as_str());
                 if row_idx2 >= total_rows || col_idx2 >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::Ref { cell1 } => {
                 let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::CoR { cell2, .. } => {
                 let (row_idx, col_idx) = to_indices(cell2.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::RoC { cell1, .. } => {
                 let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::RoR { cell1, cell2, .. } => {
                 let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
                 let (row_idx2, col_idx2) = to_indices(cell2.as_str());
                 if row_idx2 >= total_rows || col_idx2 >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::SleepR { cell1 } => {
                 let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
@@ -407,19 +327,16 @@ pub fn update_and_recalc(
         return;
     }
 
-    // Calculate a single key from (r, c)
+    // Calculate unique key for (r,c)
     let cell_hash = (r * total_cols + c) as u32;
 
-    // Store original value for rollback
-    let original_value = sheet[r][c].clone();
-
-    // Remove old dependencies from backup
-    match backup.data {
-        CellData::Range {
-            ref cell1,
-            ref cell2,
-            ..
-        } => {
+    // Save previous state of the updated cell (for rollback)
+    // Instead of cloning dependencies separately, we swap them using mem::swap:
+    let mut original_state = backup;
+    original_state.dependents= sheet[r][c].dependents.clone();
+    // Remove old dependency edges based on the original cell's data.
+    match original_state.data {
+        CellData::Range { ref cell1, ref cell2, .. } => {
             let (start_row, start_col) = to_indices(cell1.as_str());
             let (end_row, end_col) = to_indices(cell2.as_str());
             for i in start_row..=end_row {
@@ -448,11 +365,7 @@ pub fn update_and_recalc(
                 sheet[i][j].dependents.remove(&cell_hash);
             }
         }
-        CellData::RoR {
-            ref cell1,
-            ref cell2,
-            ..
-        } => {
+        CellData::RoR { ref cell1, ref cell2, .. } => {
             let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
                 sheet[i][j].dependents.remove(&cell_hash);
@@ -471,7 +384,7 @@ pub fn update_and_recalc(
         _ => {}
     }
 
-    // Add new dependencies from current data
+    // Add new dependencies based on the new formula in sheet[r][c]
     let current_data = sheet[r][c].data.clone();
     match current_data {
         CellData::Range { cell1, cell2, .. } => {
@@ -522,21 +435,18 @@ pub fn update_and_recalc(
         _ => {}
     }
 
-    // Recalculation block from recalc
+    // --- Recalculation via BFS ---
     let mut affected: Vec<Coord> = Vec::with_capacity(50);
     let mut index_map: HashMap<usize, usize> = HashMap::with_capacity(20);
     let mut queue: VecDeque<Coord> = VecDeque::with_capacity(50);
 
-    // BFS to find affected cells
     let key = r * total_cols + c;
     index_map.insert(key, 0);
     affected.push((r, c));
     queue.push_back((r, c));
 
     while let Some((r_curr, c_curr)) = queue.pop_front() {
-        // Iterate over dependent keys (u32 values)
         for &dep_key in &sheet[r_curr][c_curr].dependents {
-            // Convert dep_key to (dep_r, dep_c)
             let dep_r = (dep_key as usize) / total_cols;
             let dep_c = (dep_key as usize) % total_cols;
             let computed_key = dep_r * total_cols + dep_c;
@@ -554,45 +464,85 @@ pub fn update_and_recalc(
     let mut in_degree = vec![0; n];
     for &(r_curr, c_curr) in &affected {
         for &dep_key in &sheet[r_curr][c_curr].dependents {
-            let key = {
-                let dep_r = (dep_key as usize) / total_cols;
-                let dep_c = (dep_key as usize) % total_cols;
-                dep_r * total_cols + dep_c
-            };
+            let dep_r = (dep_key as usize) / total_cols;
+            let dep_c = (dep_key as usize) % total_cols;
+            let key = dep_r * total_cols + dep_c;
             if let Some(&idx) = index_map.get(&key) {
                 in_degree[idx] += 1;
             }
         }
     }
     if in_degree[0] > 0 {
-        sheet[r][c] = backup;
-        unsafe {
-            STATUS_CODE = 3;
+        // A cycle is detected because not all affected cells were processed.
+        // Remove the newly added dependency edges from the updated cell.
+        match sheet[r][c].data.clone() {
+            CellData::Ref { ref cell1 } => {
+                let (i, j) = to_indices(cell1.as_str());
+                if i < total_rows && j < total_cols {
+                    sheet[i][j].dependents.remove(&cell_hash);
+                }
+            }
+            CellData::CoR { ref cell2, .. } => {
+                let (i, j) = to_indices(cell2.as_str());
+                if i < total_rows && j < total_cols {
+                    sheet[i][j].dependents.remove(&cell_hash);
+                }
+            }
+            CellData::RoC { ref cell1, .. } => {
+                let (i, j) = to_indices(cell1.as_str());
+                if i < total_rows && j < total_cols {
+                    sheet[i][j].dependents.remove(&cell_hash);
+                }
+            }
+            CellData::RoR { ref cell1, ref cell2, .. } => {
+                let (i, j) = to_indices(cell1.as_str());
+                if i < total_rows && j < total_cols {
+                    sheet[i][j].dependents.remove(&cell_hash);
+                }
+                let (i2, j2) = to_indices(cell2.as_str());
+                if i2 < total_rows && j2 < total_cols {
+                    sheet[i2][j2].dependents.remove(&cell_hash);
+                }
+            }
+            CellData::SleepR { ref cell1 } => {
+                let (i, j) = to_indices(cell1.as_str());
+                if i < total_rows && j < total_cols {
+                    sheet[i][j].dependents.remove(&cell_hash);
+                }
+            }
+            CellData::Range { ref cell1, ref cell2, .. } => {
+                let (start_row, start_col) = to_indices(cell1.as_str());
+                let (end_row, end_col) = to_indices(cell2.as_str());
+                for row in start_row..=end_row {
+                    for col in start_col..=end_col {
+                        if row < total_rows && col < total_cols {
+                            sheet[row][col].dependents.remove(&cell_hash);
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
+        // Roll back to the original state.
+        sheet[r][c] = original_state;
+        unsafe { STATUS_CODE = 3; }
         return;
     }
+     // Alternative: use the length of zero_queue after processing
     let mut zero_queue: Vec<usize> = (0..n).filter(|&i| in_degree[i] == 0).collect();
-    let mut i = 0;
-    let mut temp_values: HashMap<Coord, Valtype> = HashMap::new();
-
-    while i < zero_queue.len() {
-        let idx = zero_queue[i];
-        i += 1;
+    while let Some(idx) = zero_queue.pop() {
         let (r_curr, c_curr) = affected[idx];
         match sheet[r_curr][c_curr].data {
             CellData::Empty => {}
             _ => {
                 let new_value = eval(&sheet, total_rows, total_cols, r_curr, c_curr);
-                temp_values.insert((r_curr, c_curr), sheet[r_curr][c_curr].value.clone());
                 sheet[r_curr][c_curr].value = new_value;
             }
         }
         for &dep_key in &sheet[r_curr][c_curr].dependents {
-            let key = {
-                let dep_r = (dep_key as usize) / total_cols;
-                let dep_c = (dep_key as usize) % total_cols;
-                dep_r * total_cols + dep_c
-            };
+            let dep_r = (dep_key as usize) / total_cols;
+            let dep_c = (dep_key as usize) % total_cols;
+            let key = dep_r * total_cols + dep_c;
             if let Some(&dep_idx) = index_map.get(&key) {
                 in_degree[dep_idx] -= 1;
                 if in_degree[dep_idx] == 0 {
@@ -601,4 +551,6 @@ pub fn update_and_recalc(
             }
         }
     }
+
+
 }
