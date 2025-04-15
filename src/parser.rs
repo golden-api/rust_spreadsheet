@@ -357,14 +357,19 @@ pub fn recalc(
             }
         }
     }
-
+    if in_degree[0] > 0 {
+        unsafe {
+            STATUS_CODE = 3;
+        }
+        return ;
+    }
+    
     let mut zero_queue: Vec<usize> = (0..n).filter(|&i| in_degree[i] == 0).collect();
     let mut i = 0;
-    // Store temporary values with the correct type (Valtype)
     let mut temp_values: HashMap<Coord, Valtype> = HashMap::new();
-
     while i < zero_queue.len() {
         let idx = zero_queue[i];
+        println!("{} " ,idx);
         i += 1;
         let (r, c) = affected[idx];
         if sheet[r][c].formula.is_some() {
@@ -380,17 +385,6 @@ pub fn recalc(
                     zero_queue.push(dep_idx);
                 }
             }
-        }
-    }
-
-    // Integrate cycle detection
-    if i < n {
-        for ((r, c), value) in temp_values.into_iter() {
-            sheet[r][c].value = value; // Move value into sheet
-        }
-        // Cycle detected: set STATUS_CODE and do not apply updates
-        unsafe {
-            STATUS_CODE = 3; // Assuming STATUS_CODE is a global variable as in dependency.rs
         }
     }
 }
