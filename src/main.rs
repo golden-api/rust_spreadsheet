@@ -15,6 +15,7 @@ mod scrolling;
 mod utils;
 #[cfg(feature = "gui")]
 mod utils_gui;
+
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
 
@@ -31,6 +32,7 @@ pub enum FormulaType {
     Range,
     Invalid,
 }
+
 #[derive(Clone)]
 pub enum Valtype {
     Int(i32),
@@ -38,39 +40,43 @@ pub enum Valtype {
 }
 
 #[derive(Clone)]
-pub struct Cell {
-    value: Valtype,
-    formula: Option<FormulaType>,
-    value2: Valtype,
-    op_code: Option<char>,
-    cell1: Option<String>,
-    cell2: Option<String>,
-    dependents: HashSet<(usize, usize)>,
+pub enum CellData {
+    Empty,
+    SleepC,
+    SleepR { cell1: String },
+    Const,
+    Ref { cell1: String },
+    CoC { op_code: char, value2: Valtype },
+    CoR { op_code: char, value2: Valtype, cell2: String },
+    RoC { op_code: char, value2: Valtype, cell1: String },
+    RoR { op_code: char, cell1: String, cell2: String },
+    Range { cell1: String, cell2: String, value2: Valtype },
+    Invalid,
 }
+
+#[derive(Clone)]
+pub struct Cell {
+    pub value: Valtype,
+    pub data: CellData,
+    pub dependents: HashSet<(usize, usize)>,
+}
+
 impl Cell {
     pub fn reset(&mut self) {
         let current_dependents = std::mem::take(&mut self.dependents);
         *self = Self {
             value: Valtype::Int(0),
-            value2: Valtype::Int(0),
-            formula: None,
-            op_code: None,
-            cell1: None,
-            cell2: None,
+            data: CellData::Empty,
             dependents: current_dependents,
         };
     }
 
+    /// Clones a cell for backup without dependents.
     pub fn my_clone(&self) -> Self {
         Self {
             value: self.value.clone(),
-            value2: self.value2.clone(),
-            formula: self.formula.clone(),
-            op_code: self.op_code.clone(),
-            cell1: self.cell1.clone(),
-            cell2: self.cell2.clone(),
-            // Note: intentionally do not clone dependents.
-            dependents: HashSet::new(),
+            data: self.data.clone(),
+            dependents: HashSet::new(), // intentionally not cloning dependents
         }
     }
 }
@@ -136,12 +142,8 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
         vec![
             Cell {
                 value: Valtype::Int(0),
-                value2: Valtype::Int(0),
+                data: CellData::Empty,
                 dependents: HashSet::new(),
-                formula: None,
-                op_code: None,
-                cell1: None,
-                cell2: None,
             };
             total_cols
         ];
@@ -261,9 +263,8 @@ fn main() {
         }
     };
 
-    
-        #[cfg(feature = "gui")]
-        {
+    #[cfg(feature = "gui")]
+    {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
                 .with_inner_size([1024.0, 768.0])
@@ -280,8 +281,8 @@ fn main() {
             }),
         )
         .unwrap();
-        }
-        #[cfg(not(feature = "gui"))] {
+    }
+    #[cfg(not(feature = "gui"))] {
         interactive_mode(total_rows, total_cols);
     }
 }

@@ -1,5 +1,5 @@
+use crate::{Cell, CellData,STATUS_CODE, Valtype};
 use crate::utils::{EVAL_ERROR, compute, compute_range, sleepy, to_indices};
-use crate::{Cell, FormulaType, STATUS_CODE, Valtype};
 use std::collections::{HashMap, VecDeque};
 
 use regex::Regex;
@@ -14,19 +14,18 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
             if let Ok(val) = m.as_str().parse::<i32>() {
                 block.reset();
                 block.value = Valtype::Int(val);
-                block.formula = Some(FormulaType::SleepC);
+                block.data = CellData::SleepC;
                 return;
             }
         }
     }
-    // 2. SLEEP_REF: "SLEEP(<ref>)" where <ref> is e.g. A1
+    // 2. SLEEP_REF: "SLEEP(<ref>)"
     let re_sleep_ref = Regex::new(r"^SLEEP\(([A-Z]+[0-9]+)\)$").unwrap();
     if let Some(caps) = re_sleep_ref.captures(form) {
         if let Some(m) = caps.get(1) {
             block.reset();
             let cell_ref = m.as_str().to_string();
-            block.cell1 = Some(cell_ref);
-            block.formula = Some(FormulaType::SleepR);
+            block.data = CellData::SleepR { cell1: cell_ref };
             return;
         }
     }
@@ -37,7 +36,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
             if let Ok(val) = m.as_str().parse::<i32>() {
                 block.reset();
                 block.value = Valtype::Int(val);
-                block.formula = Some(FormulaType::Const);
+                block.data = CellData::Const;
                 return;
             }
         }
@@ -48,8 +47,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         if let Some(m) = caps.get(1) {
             block.reset();
             let cell_ref = m.as_str().to_string();
-            block.cell1 = Some(cell_ref);
-            block.formula = Some(FormulaType::Ref);
+            block.data = CellData::Ref { cell1: cell_ref };
             return;
         }
     }
@@ -61,9 +59,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let val2: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
         block.value = Valtype::Int(val1);
-        block.op_code = Some(op);
-        block.formula = Some(FormulaType::CoC);
-        block.value2 = Valtype::Int(val2);
+        block.data = CellData::CoC { op_code: op, value2: Valtype::Int(val2) };
         return;
     }
     // 6. CONSTANT_REFERENCE: "<int><op><ref>"
@@ -73,10 +69,8 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let val1: i32 = caps.get(1).unwrap().as_str().parse().unwrap();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let ref2 = caps.get(3).unwrap().as_str().to_string();
-        block.value2 = Valtype::Int(val1);
-        block.cell2 = Some(ref2);
-        block.op_code = Some(op);
-        block.formula = Some(FormulaType::CoR);
+        block.value = Valtype::Int(val1);
+        block.data = CellData::CoR { op_code: op, value2: Valtype::Int(val1), cell2: ref2 };
         return;
     }
     // 7. REFERENCE_CONSTANT: "<ref><op><int>"
@@ -86,10 +80,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let ref1 = caps.get(1).unwrap().as_str().to_string();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let val1: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
-        block.cell1 = Some(ref1);
-        block.value2 = Valtype::Int(val1);
-        block.op_code = Some(op);
-        block.formula = Some(FormulaType::RoC);
+        block.data = CellData::RoC { op_code: op, value2: Valtype::Int(val1), cell1: ref1 };
         return;
     }
     // 8. REFERENCE_REFERENCE: "<ref><op><ref>"
@@ -99,10 +90,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let ref1 = caps.get(1).unwrap().as_str().to_string();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let ref2 = caps.get(3).unwrap().as_str().to_string();
-        block.cell1 = Some(ref1);
-        block.cell2 = Some(ref2);
-        block.op_code = Some(op);
-        block.formula = Some(FormulaType::RoR);
+        block.data = CellData::RoR { op_code: op, cell1: ref1, cell2: ref2 };
         return;
     }
     // 9. RANGE_FUNCTION: "<func>(<ref1>:<ref2>)"
@@ -112,16 +100,13 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         let func = caps.get(1).unwrap().as_str().to_string();
         let ref1 = caps.get(2).unwrap().as_str().to_string();
         let ref2 = caps.get(3).unwrap().as_str().to_string();
-        block.cell1 = Some(ref1);
-        block.cell2 = Some(ref2);
-        block.value2 = Valtype::Str(func);
-        block.formula = Some(FormulaType::Range);
+        block.data = CellData::Range { cell1: ref1, cell2: ref2, value2: Valtype::Str(func) };
         return;
     }
-    block.formula = Some(FormulaType::Invalid);
+    block.data = CellData::Invalid;
 }
 
-fn eval(
+pub fn eval(
     sheet: &Vec<Vec<Cell>>,
     total_rows: usize,
     total_cols: usize,
@@ -154,8 +139,8 @@ fn eval(
         }
     };
     let parsed = sheet[r][c].clone();
-    let result: i32 = match parsed.formula {
-        Some(FormulaType::Const) => match parsed.value {
+    let result: i32 = match parsed.data {
+        CellData::Const => match parsed.value {
             Valtype::Int(val) => val,
             Valtype::Str(_) => {
                 unsafe {
@@ -164,148 +149,104 @@ fn eval(
                 0
             }
         },
-        Some(FormulaType::Ref) => {
-            if let Some(reference) = parsed.cell1 {
-                get_cell_val(&reference).unwrap_or(0)
-            } else {
-                0
-            }
+        CellData::Ref { ref cell1 } => {
+            get_cell_val(cell1).unwrap_or(0)
         }
-        Some(FormulaType::CoC) => {
+        CellData::CoC { op_code, ref value2 } => {
             let v1 = match parsed.value {
                 Valtype::Int(val) => val,
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
-            let v2 = match parsed.value2 {
-                Valtype::Int(val) => val,
+            let v2 = match value2 {
+                Valtype::Int(val) => *val,
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
-            compute(v1, parsed.op_code, v2)
+            compute(v1, Some(op_code), v2)
         }
-        Some(FormulaType::CoR) => {
-            let v1 = match parsed.value2 {
-                Valtype::Int(val) => val,
+        CellData::CoR { op_code, ref value2, ref cell2 } => {
+            let v1 = match value2 {
+                Valtype::Int(val) => *val,
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
-            if let Some(reference) = parsed.cell2 {
-                if let Some(v2) = get_cell_val(&reference) {
-                    compute(v1, parsed.op_code, v2)
-                } else {
-                    0
-                }
+            if let Some(v2) = get_cell_val(cell2) {
+                compute(v1, Some(op_code), v2)
             } else {
                 0
             }
         }
-        Some(FormulaType::RoC) => {
-            let v1 = match parsed.value2 {
-                Valtype::Int(val) => val,
+        CellData::RoC { op_code, ref value2, ref cell1 } => {
+            let v1 = match value2 {
+                Valtype::Int(val) => *val,
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     0
                 }
             };
-            if let Some(reference) = parsed.cell1 {
-                if let Some(v2) = get_cell_val(&reference) {
-                    compute(v2, parsed.op_code, v1)
-                } else {
-                    0
-                }
+            if let Some(v2) = get_cell_val(cell1) {
+                compute(v2, Some(op_code), v1)
             } else {
                 0
             }
         }
-        Some(FormulaType::RoR) => {
-            if let (Some(r1_str), Some(r2_str)) = (parsed.cell1, parsed.cell2) {
-                let v1 = get_cell_val(&r1_str).unwrap_or(0);
-                let v2 = get_cell_val(&r2_str).unwrap_or(0);
-                compute(v1, parsed.op_code, v2)
-            } else {
-                0
-            }
+        CellData::RoR { op_code, ref cell1, ref cell2 } => {
+            let v1 = get_cell_val(cell1).unwrap_or(0);
+            let v2 = get_cell_val(cell2).unwrap_or(0);
+            compute(v1, Some(op_code), v2)
         }
-        Some(FormulaType::Range) => {
-            if let (Some(r1_str), Some(r2_str)) = (parsed.cell1, parsed.cell2) {
-                if let Valtype::Str(func) = parsed.value2 {
-                    let (r1, c1) = to_indices(&r1_str);
-                    let (r2, c2) = to_indices(&r2_str);
-                    if r1 < total_rows
-                        && c1 < total_cols
-                        && r2 < total_rows
-                        && c2 < total_cols
-                        && r1 <= r2
-                        && c1 <= c2
-                    {
-                        let choice = match func.to_uppercase().as_str() {
-                            "MAX" => 1,
-                            "MIN" => 2,
-                            "AVG" => 3,
-                            "SUM" => 4,
-                            "STDEV" => 5,
-                            _ => {
-                                unsafe {
-                                    STATUS_CODE = 2;
-                                }
-                                0
-                            }
-                        };
-                        compute_range(sheet, r1, r2, c1, c2, choice)
-                    } else {
-                        unsafe {
-                            STATUS_CODE = 1;
+        CellData::Range { ref cell1, ref cell2, ref value2 } => {
+            if let Valtype::Str(func) = value2 {
+                let (r1, c1) = to_indices(cell1);
+                let (r2, c2) = to_indices(cell2);
+                if r1 < total_rows && c1 < total_cols && r2 < total_rows && c2 < total_cols && r1 <= r2 && c1 <= c2 {
+                    let choice = match func.to_uppercase().as_str() {
+                        "MAX" => 1,
+                        "MIN" => 2,
+                        "AVG" => 3,
+                        "SUM" => 4,
+                        "STDEV" => 5,
+                        _ => {
+                            unsafe { STATUS_CODE = 2; }
+                            0
                         }
-                        0
-                    }
+                    };
+                    compute_range(sheet, r1, r2, c1, c2, choice)
                 } else {
+                    unsafe { STATUS_CODE = 1; }
                     0
                 }
             } else {
                 0
             }
         }
-        Some(FormulaType::SleepC) => match parsed.value {
+        CellData::SleepC => match parsed.value {
             Valtype::Int(val) => {
                 sleepy(val);
                 val
             }
             Valtype::Str(_) => 0,
         },
-        Some(FormulaType::SleepR) => {
-            if let Some(reference) = parsed.cell1 {
-                if let Some(val) = get_cell_val(&reference) {
-                    sleepy(val);
-                    val
-                } else {
-                    0
-                }
+        CellData::SleepR { ref cell1 } => {
+            if let Some(val) = get_cell_val(cell1) {
+                sleepy(val);
+                val
             } else {
                 0
             }
         }
-        Some(FormulaType::Invalid) => {
-            unsafe {
-                STATUS_CODE = 2;
-            }
+        CellData::Invalid => {
+            unsafe { STATUS_CODE = 2; }
             0
         }
-        None => 0,
+        _ => 0,
     };
     if unsafe { EVAL_ERROR } {
         err_value
@@ -333,15 +274,12 @@ pub fn recalc(
     queue.push_back((start_row, start_col));
 
     while let Some((r, c)) = queue.pop_front() {
-        for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
-            let dep_r = dep_r_u8 as usize;
-            let dep_c = dep_c_u8 as usize;
-            let key = dep_r * total_cols + dep_c;
-            if index_map.contains_key(&key) {
+        for &(dep_r, dep_c) in &sheet[r][c].dependents {
+            if index_map.contains_key(&(dep_r * total_cols + dep_c)) {
                 continue;
             }
             let idx = affected.len();
-            index_map.insert(key, idx);
+            index_map.insert(dep_r * total_cols + dep_c, idx);
             affected.push((dep_r, dep_c));
             queue.push_back((dep_r, dep_c));
         }
@@ -350,18 +288,16 @@ pub fn recalc(
     let n = affected.len();
     let mut in_degree = vec![0; n];
     for &(r, c) in &affected {
-        for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
-            let key = (dep_r_u8 as usize) * total_cols + (dep_c_u8 as usize);
+        for &(dep_r, dep_c) in &sheet[r][c].dependents {
+            let key = dep_r * total_cols + dep_c;
             if let Some(&idx) = index_map.get(&key) {
                 in_degree[idx] += 1;
             }
         }
     }
     if in_degree[0] > 0 {
-        unsafe {
-            STATUS_CODE = 3;
-        }
-        return ;
+        unsafe { STATUS_CODE = 3; }
+        return;
     }
     
     let mut zero_queue: Vec<usize> = (0..n).filter(|&i| in_degree[i] == 0).collect();
@@ -369,16 +305,19 @@ pub fn recalc(
     let mut temp_values: HashMap<Coord, Valtype> = HashMap::new();
     while i < zero_queue.len() {
         let idx = zero_queue[i];
-        println!("{} " ,idx);
         i += 1;
         let (r, c) = affected[idx];
-        if sheet[r][c].formula.is_some() {
-            let new_value = eval(&sheet, total_rows, total_cols, r, c);
-            temp_values.insert((r, c), sheet[r][c].value.clone());
-            sheet[r][c].value = new_value.clone();
+        // Only recalc if the cell contains a formula (i.e. is not Empty)
+        match sheet[r][c].data {
+            CellData::Empty => {},
+            _ => {
+                let new_value = eval(&sheet, total_rows, total_cols, r, c);
+                temp_values.insert((r, c), sheet[r][c].value.clone());
+                sheet[r][c].value = new_value.clone();
+            }
         }
-        for &(dep_r_u8, dep_c_u8) in &sheet[r][c].dependents {
-            let key = (dep_r_u8 as usize) * total_cols + (dep_c_u8 as usize);
+        for &(dep_r, dep_c) in &sheet[r][c].dependents {
+            let key = dep_r * total_cols + dep_c;
             if let Some(&dep_idx) = index_map.get(&key) {
                 in_degree[dep_idx] -= 1;
                 if in_degree[dep_idx] == 0 {
