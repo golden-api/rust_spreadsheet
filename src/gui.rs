@@ -85,13 +85,13 @@ impl SpreadsheetApp {
             request_formula_focus: false,
         }
     }
-
-    // Helper: Extract formula from cell
+    
+        // Helper: Extract formula from cell
     fn get_cell_formula(&self, row: usize, col: usize) -> String {
         let cell = &self.sheet[row][col];
         match &cell.data {
             CellData::Empty => String::new(),
-    
+        
             CellData::Const => {
                 if let Valtype::Int(val) = cell.value {
                     val.to_string()
@@ -99,9 +99,10 @@ impl SpreadsheetApp {
                     String::new()
                 }
             }
-    
-            CellData::Ref { cell1 } => cell1.clone(),
-    
+        
+            // Use as_str() to convert CellName to &str
+            CellData::Ref { cell1 } => cell1.as_str().to_string(),
+        
             CellData::CoC { op_code, value2 } => {
                 if let Valtype::Int(val1) = &cell.value {
                     if let Valtype::Int(val2) = value2 {
@@ -113,35 +114,35 @@ impl SpreadsheetApp {
                     String::new()
                 }
             }
-    
+        
             CellData::CoR { op_code, value2, cell2 } => {
                 if let Valtype::Int(val1) = value2 {
-                    format!("{}{}{}", val1, op_code, cell2)
+                    format!("{}{}{}", val1, op_code, cell2.as_str())
                 } else {
                     String::new()
                 }
             }
-    
+        
             CellData::RoC { op_code, value2, cell1 } => {
                 if let Valtype::Int(val2) = value2 {
-                    format!("{}{}{}", cell1, op_code, val2)
+                    format!("{}{}{}", cell1.as_str(), op_code, val2)
                 } else {
                     String::new()
                 }
             }
-    
+        
             CellData::RoR { op_code, cell1, cell2 } => {
-                format!("{}{}{}", cell1, op_code, cell2)
+                format!("{}{}{}", cell1.as_str(), op_code, cell2.as_str())
             }
-    
+        
             CellData::Range { cell1, cell2, value2 } => {
                 if let Valtype::Str(func) = value2 {
-                    format!("{}({}:{})", func, cell1, cell2)
+                    format!("{}({}:{})", func, cell1.as_str(), cell2.as_str())
                 } else {
                     String::new()
                 }
             }
-    
+        
             CellData::SleepC => {
                 if let Valtype::Int(val) = cell.value {
                     format!("SLEEP({})", val)
@@ -149,14 +150,14 @@ impl SpreadsheetApp {
                     String::new()
                 }
             }
-    
+        
             CellData::SleepR { cell1 } => {
-                format!("SLEEP({})", cell1)
+                format!("SLEEP({})", cell1.as_str())
             }
-    
+        
             CellData::Invalid => String::new(),
         }
-    } 
+    }
 
     // Update the value of the currently selected cell
     fn update_selected_cell(&mut self) {

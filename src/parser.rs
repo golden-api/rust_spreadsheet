@@ -1,4 +1,4 @@
-use crate::{Cell, CellData,STATUS_CODE, Valtype};
+use crate::{Cell, CellData, STATUS_CODE, Valtype, CellName};
 use crate::utils::{EVAL_ERROR, compute, compute_range, sleepy, to_indices};
 use std::collections::{HashMap, VecDeque};
 
@@ -24,7 +24,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     if let Some(caps) = re_sleep_ref.captures(form) {
         if let Some(m) = caps.get(1) {
             block.reset();
-            let cell_ref = m.as_str().to_string();
+            let cell_ref = CellName::new(m.as_str()).unwrap();
             block.data = CellData::SleepR { cell1: cell_ref };
             return;
         }
@@ -46,7 +46,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     if let Some(caps) = re_reference.captures(form) {
         if let Some(m) = caps.get(1) {
             block.reset();
-            let cell_ref = m.as_str().to_string();
+            let cell_ref = CellName::new(m.as_str()).unwrap();
             block.data = CellData::Ref { cell1: cell_ref };
             return;
         }
@@ -68,7 +68,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
         block.reset();
         let val1: i32 = caps.get(1).unwrap().as_str().parse().unwrap();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
-        let ref2 = caps.get(3).unwrap().as_str().to_string();
+        let ref2 = CellName::new(caps.get(3).unwrap().as_str()).unwrap();
         block.value = Valtype::Int(val1);
         block.data = CellData::CoR { op_code: op, value2: Valtype::Int(val1), cell2: ref2 };
         return;
@@ -77,7 +77,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     let re_ref_const = Regex::new(r"^([A-Z]+[0-9]+)([-+*/])(-?\d+)$").unwrap();
     if let Some(caps) = re_ref_const.captures(form) {
         block.reset();
-        let ref1 = caps.get(1).unwrap().as_str().to_string();
+        let ref1 = CellName::new(caps.get(1).unwrap().as_str()).unwrap();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
         let val1: i32 = caps.get(3).unwrap().as_str().parse().unwrap();
         block.data = CellData::RoC { op_code: op, value2: Valtype::Int(val1), cell1: ref1 };
@@ -87,9 +87,9 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     let re_ref_ref = Regex::new(r"^([A-Z]+[0-9]+)([-+*/])([A-Z]+[0-9]+)$").unwrap();
     if let Some(caps) = re_ref_ref.captures(form) {
         block.reset();
-        let ref1 = caps.get(1).unwrap().as_str().to_string();
+        let ref1 = CellName::new(caps.get(1).unwrap().as_str()).unwrap();
         let op = caps.get(2).unwrap().as_str().chars().next().unwrap();
-        let ref2 = caps.get(3).unwrap().as_str().to_string();
+        let ref2 = CellName::new(caps.get(3).unwrap().as_str()).unwrap();
         block.data = CellData::RoR { op_code: op, cell1: ref1, cell2: ref2 };
         return;
     }
@@ -98,8 +98,8 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     if let Some(caps) = re_range_func.captures(form) {
         block.reset();
         let func = caps.get(1).unwrap().as_str().to_string();
-        let ref1 = caps.get(2).unwrap().as_str().to_string();
-        let ref2 = caps.get(3).unwrap().as_str().to_string();
+        let ref1 = CellName::new(caps.get(2).unwrap().as_str()).unwrap();
+        let ref2 = CellName::new(caps.get(3).unwrap().as_str()).unwrap();
         block.data = CellData::Range { cell1: ref1, cell2: ref2, value2: Valtype::Str(func) };
         return;
     }
@@ -118,23 +118,19 @@ pub fn eval(
         STATUS_CODE = 0;
     }
     let err_value = Valtype::Str("ERR".to_string());
-    let get_cell_val = |reference: &String| -> Option<i32> {
-        let (r_idx, c_idx) = to_indices(reference);
+    let get_cell_val = |reference: &CellName| -> Option<i32> {
+        let (r_idx, c_idx) = to_indices(reference.as_str());
         if r_idx < total_rows && c_idx < total_cols {
             let cell = &sheet[r_idx][c_idx];
             match &cell.value {
                 Valtype::Int(val) => Some(*val),
                 Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
+                    unsafe { EVAL_ERROR = true; }
                     None
                 }
             }
         } else {
-            unsafe {
-                STATUS_CODE = 1;
-            }
+            unsafe { STATUS_CODE = 1; }
             None
         }
     };
@@ -143,9 +139,7 @@ pub fn eval(
         CellData::Const => match parsed.value {
             Valtype::Int(val) => val,
             Valtype::Str(_) => {
-                unsafe {
-                    EVAL_ERROR = true;
-                }
+                unsafe { EVAL_ERROR = true; }
                 0
             }
         },
@@ -204,8 +198,8 @@ pub fn eval(
         }
         CellData::Range { ref cell1, ref cell2, ref value2 } => {
             if let Valtype::Str(func) = value2 {
-                let (r1, c1) = to_indices(cell1);
-                let (r2, c2) = to_indices(cell2);
+                let (r1, c1) = to_indices(cell1.as_str());
+                let (r2, c2) = to_indices(cell2.as_str());
                 if r1 < total_rows && c1 < total_cols && r2 < total_rows && c2 < total_cols && r1 <= r2 && c1 <= c2 {
                     let choice = match func.to_uppercase().as_str() {
                         "MAX" => 1,
@@ -274,52 +268,52 @@ pub fn update_and_recalc(
                 return;
             }
             CellData::Range { cell1, cell2, .. } => {
-                let (row_idx, col_idx) = to_indices(cell1);
+                let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
                 }
-                let (row_idx2, col_idx2) = to_indices(cell2);
+                let (row_idx2, col_idx2) = to_indices(cell2.as_str());
                 if row_idx2 >= total_rows || col_idx2 >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::Ref { cell1 } => {
-                let (row_idx, col_idx) = to_indices(cell1);
+                let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::CoR { cell2, .. } => {
-                let (row_idx, col_idx) = to_indices(cell2);
+                let (row_idx, col_idx) = to_indices(cell2.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::RoC { cell1, .. } => {
-                let (row_idx, col_idx) = to_indices(cell1);
+                let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::RoR { cell1, cell2, .. } => {
-                let (row_idx, col_idx) = to_indices(cell1);
+                let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
                 }
-                let (row_idx2, col_idx2) = to_indices(cell2);
+                let (row_idx2, col_idx2) = to_indices(cell2.as_str());
                 if row_idx2 >= total_rows || col_idx2 >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
                 }
             }
             CellData::SleepR { cell1 } => {
-                let (row_idx, col_idx) = to_indices(cell1);
+                let (row_idx, col_idx) = to_indices(cell1.as_str());
                 if row_idx >= total_rows || col_idx >= total_cols {
                     unsafe { STATUS_CODE = 1; }
                     return;
@@ -338,8 +332,8 @@ pub fn update_and_recalc(
     // Remove old dependencies from backup
     match backup.data {
         CellData::Range { ref cell1, ref cell2, .. } => {
-            let (start_row, start_col) = to_indices(cell1);
-            let (end_row, end_col) = to_indices(cell2);
+            let (start_row, start_col) = to_indices(cell1.as_str());
+            let (end_row, end_col) = to_indices(cell2.as_str());
             for i in start_row..=end_row {
                 for j in start_col..=end_col {
                     if i < total_rows && j < total_cols {
@@ -349,35 +343,35 @@ pub fn update_and_recalc(
             }
         }
         CellData::Ref { ref cell1 } => {
-            let (i, j) = to_indices(cell1);
+            let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
                 sheet[i][j].dependents.remove(&(r, c));
             }
         }
         CellData::CoR { ref cell2, .. } => {
-            let (i, j) = to_indices(cell2);
+            let (i, j) = to_indices(cell2.as_str());
             if i < total_rows && j < total_cols {
                 sheet[i][j].dependents.remove(&(r, c));
             }
         }
         CellData::RoC { ref cell1, .. } => {
-            let (i, j) = to_indices(cell1);
+            let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
                 sheet[i][j].dependents.remove(&(r, c));
             }
         }
         CellData::RoR { ref cell1, ref cell2, .. } => {
-            let (i, j) = to_indices(cell1);
+            let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
                 sheet[i][j].dependents.remove(&(r, c));
             }
-            let (i2, j2) = to_indices(cell2);
+            let (i2, j2) = to_indices(cell2.as_str());
             if i2 < total_rows && j2 < total_cols {
                 sheet[i2][j2].dependents.remove(&(r, c));
             }
         }
         CellData::SleepR { ref cell1 } => {
-            let (i, j) = to_indices(cell1);
+            let (i, j) = to_indices(cell1.as_str());
             if i < total_rows && j < total_cols {
                 sheet[i][j].dependents.remove(&(r, c));
             }
@@ -389,8 +383,8 @@ pub fn update_and_recalc(
     let current_data = sheet[r][c].data.clone();
     match current_data {
         CellData::Range { cell1, cell2, .. } => {
-            let (start_row, start_col) = to_indices(&cell1);
-            let (end_row, end_col) = to_indices(&cell2);
+            let (start_row, start_col) = to_indices(cell1.as_str());
+            let (end_row, end_col) = to_indices(cell2.as_str());
             for row in start_row..=end_row {
                 for col in start_col..=end_col {
                     if row < total_rows && col < total_cols {
@@ -400,35 +394,35 @@ pub fn update_and_recalc(
             }
         }
         CellData::Ref { cell1 } => {
-            let (dep_row, dep_col) = to_indices(&cell1);
+            let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
                 sheet[dep_row][dep_col].dependents.insert((r, c));
             }
         }
         CellData::CoR { cell2, .. } => {
-            let (dep_row, dep_col) = to_indices(&cell2);
+            let (dep_row, dep_col) = to_indices(cell2.as_str());
             if dep_row < total_rows && dep_col < total_cols {
                 sheet[dep_row][dep_col].dependents.insert((r, c));
             }
         }
         CellData::RoC { cell1, .. } => {
-            let (dep_row, dep_col) = to_indices(&cell1);
+            let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
                 sheet[dep_row][dep_col].dependents.insert((r, c));
             }
         }
         CellData::RoR { cell1, cell2, .. } => {
-            let (dep_row, dep_col) = to_indices(&cell1);
+            let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
                 sheet[dep_row][dep_col].dependents.insert((r, c));
             }
-            let (dep_row2, dep_col2) = to_indices(&cell2);
+            let (dep_row2, dep_col2) = to_indices(cell2.as_str());
             if dep_row2 < total_rows && dep_col2 < total_cols {
                 sheet[dep_row2][dep_col2].dependents.insert((r, c));
             }
         }
         CellData::SleepR { cell1 } => {
-            let (dep_row, dep_col) = to_indices(&cell1);
+            let (dep_row, dep_col) = to_indices(cell1.as_str());
             if dep_row < total_rows && dep_col < total_cols {
                 sheet[dep_row][dep_col].dependents.insert((r, c));
             }

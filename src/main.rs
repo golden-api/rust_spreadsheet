@@ -7,6 +7,49 @@ use std::{
     process,
     time::Instant,
 };
+
+// Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CellName {
+    len: u8,
+    data: [u8; 7],
+}
+
+impl CellName {
+    pub fn new(s: &str) -> Result<Self, &'static str> {
+        if s.len() > 7 {
+            return Err("CellName too long");
+        }
+        if !s.is_ascii() {
+            return Err("CellName must be ASCII");
+        }
+        let mut data = [0u8; 7];
+        data[..s.len()].copy_from_slice(s.as_bytes());
+        Ok(CellName {
+            len: s.len() as u8,
+            data,
+        })
+    }
+
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.data[..self.len as usize]).unwrap()
+    }
+}
+
+impl std::fmt::Display for CellName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl std::str::FromStr for CellName {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        CellName::new(s)
+    }
+}
+// ////////////////////////////////////////////////////////////////////////////
+
 #[cfg(feature = "gui")]
 mod gui;
 mod parser;
@@ -41,14 +84,15 @@ pub enum Valtype {
 pub enum CellData {
     Empty,
     SleepC,
-    SleepR { cell1: String },
+    // Updated: cell reference is now a compact CellName
+    SleepR { cell1: CellName },
     Const,
-    Ref { cell1: String },
+    Ref { cell1: CellName },
     CoC { op_code: char, value2: Valtype },
-    CoR { op_code: char, value2: Valtype, cell2: String },
-    RoC { op_code: char, value2: Valtype, cell1: String },
-    RoR { op_code: char, cell1: String, cell2: String },
-    Range { cell1: String, cell2: String, value2: Valtype },
+    CoR { op_code: char, value2: Valtype, cell2: CellName },
+    RoC { op_code: char, value2: Valtype, cell1: CellName },
+    RoR { op_code: char, cell1: CellName, cell2: CellName },
+    Range { cell1: CellName, cell2: CellName, value2: Valtype },
     Invalid,
 }
 
@@ -195,7 +239,7 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                     if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
                         let old_cell = spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col], formula);
-                        parser::update_and_recalc(&mut spreadsheet, total_rows, total_cols, row, col,old_cell);
+                        parser::update_and_recalc(&mut spreadsheet, total_rows, total_cols, row, col, old_cell);
                     } else {
                         unsafe {
                             STATUS_CODE = 1;
