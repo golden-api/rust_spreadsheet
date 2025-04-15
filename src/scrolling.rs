@@ -36,6 +36,43 @@ pub fn d(start_col: &mut usize, total_cols: usize) {
     }
 }
 
+pub fn w1(start_row: &mut usize, amount: usize) {
+    if *start_row >= amount {
+        *start_row -= amount;
+    } else {
+        *start_row = 0;
+    }
+}
+
+pub fn s1(start_row: &mut usize, total_rows: usize, amount: usize) {
+    if *start_row + amount <= total_rows - amount {
+        *start_row += amount;
+    } else if *start_row >= total_rows - amount {
+        // Do nothing, already at or past the end
+    } else {
+        *start_row = total_rows - amount;
+    }
+}
+
+pub fn a1(start_col: &mut usize, amount: usize) {
+    if *start_col >= amount {
+        *start_col -= amount;
+    } else {
+        *start_col = 0;
+    }
+}
+
+pub fn d1(start_col: &mut usize, total_cols: usize, amount: usize) {
+    if *start_col + amount <= total_cols - amount {
+        *start_col += amount;
+    } else if *start_col >= total_cols - amount {
+        // Do nothing, already at or past the end
+    } else {
+        *start_col = total_cols - amount;
+    }
+}
+
+
 pub fn scroll_to(
     start_row: &mut usize,
     start_col: &mut usize,

@@ -283,7 +283,25 @@ impl SpreadsheetApp {
             
             // Unknown command
             _ => {
-                if cmd.starts_with("goto ") {
+                if cmd.starts_with("w") {
+                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
+
+                    self.move_selection_n(Direction::Up, count);
+                }
+                else if cmd.starts_with("s") {
+                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
+                    self.move_selection_n(Direction::Down, count);
+                }
+                else if cmd.starts_with("a") {
+                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
+                    self.move_selection_n(Direction::Left, count);
+                }
+                else if cmd.starts_with("d") {
+                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
+                    self.move_selection_n(Direction::Right, count);
+                }
+
+                else if cmd.starts_with("goto ") {
                     if let Some(cell_ref) = cmd.strip_prefix("goto ") {
                         self.goto_cell(cell_ref);
                     }
@@ -306,7 +324,7 @@ impl SpreadsheetApp {
     fn move_selection(&mut self, direction: Direction) {
         let total_rows = self.sheet.len();
         let total_cols = self.sheet[0].len();
-        let new_pos = match direction {
+        match direction {
                 Direction::Up => crate::scrolling::w(&mut self.start_row),
                 Direction::Down => crate::scrolling::s(&mut self.start_row, total_rows),
                 Direction::Right => crate::scrolling::d(&mut self.start_col, total_cols),
@@ -321,6 +339,26 @@ impl SpreadsheetApp {
                     col_label(self.start_col), (self.start_row+1).to_string());
             // }
         }
+
+
+        fn move_selection_n(&mut self, direction: Direction, amount: usize) {
+            let total_rows = self.sheet.len();
+            let total_cols = self.sheet[0].len();
+            match direction {
+                    Direction::Up => crate::scrolling::w1(&mut self.start_row, amount),
+                    Direction::Down => crate::scrolling::s1(&mut self.start_row, total_rows, amount),
+                    Direction::Right => crate::scrolling::d1(&mut self.start_col, total_cols, amount),
+                    Direction::Left => crate::scrolling::a1(&mut self.start_row, amount),
+                };
+                // let total_cols = self.sheet[0].len();
+                // let total_rows = self.sheet.len();
+                
+                // if new_pos.0 < total_rows && new_pos.1 < total_cols {
+                //     self.selected = Some(new_pos);
+                self.status_message = format!("Moved to cell {}{}", 
+                        col_label(self.start_col), (self.start_row+1).to_string());
+                // }
+            }
     
     fn reset_theme(&mut self) {
         // Reset to default theme values
