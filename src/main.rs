@@ -18,7 +18,6 @@ mod utils_gui;
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
 
-#[derive(Clone, Debug)]
 pub enum FormulaType {
     SleepC,
     SleepR,

@@ -1,7 +1,7 @@
 #[cfg(feature = "gui")]
 use crate::utils_gui::{col_label, parse_cell_name};
 #[cfg(feature = "gui")]
-use crate::{Cell, FormulaType, STATUS, STATUS_CODE, Valtype, dependency, parser};
+use crate::{Cell, FormulaType, STATUS, STATUS_CODE, Valtype,CellData, parser};
 #[cfg(feature = "gui")]
 use eframe::{
     egui,
@@ -63,11 +63,7 @@ impl SpreadsheetApp {
             vec![
                 Cell {
                     value: Valtype::Int(0),
-                    value2: Valtype::Int(0),
-                    formula: None,
-                    op_code: None,
-                    cell1: None,
-                    cell2: None,
+                    data: CellData::Empty,
                     dependents: HashSet::new(),
                 };
                 cols
@@ -93,68 +89,74 @@ impl SpreadsheetApp {
     // Helper: Extract formula from cell
     fn get_cell_formula(&self, row: usize, col: usize) -> String {
         let cell = &self.sheet[row][col];
-        if let Some(formula_type) = &cell.formula {
-            match formula_type {
-                FormulaType::Const => {
-                    if let Valtype::Int(val) = cell.value {
-                        return val.to_string();
-                    }
+        match &cell.data {
+            CellData::Empty => String::new(),
+    
+            CellData::Const => {
+                if let Valtype::Int(val) = cell.value {
+                    val.to_string()
+                } else {
+                    String::new()
                 }
-                FormulaType::Ref => {
-                    if let Some(ref1) = &cell.cell1 {
-                        return ref1.clone();
-                    }
-                }
-                FormulaType::CoC => {
-                    if let (Valtype::Int(val1), Valtype::Int(val2), Some(op)) =
-                        (&cell.value, &cell.value2, &cell.op_code)
-                    {
-                        return format!("{}{}{}", val1, op, val2);
-                    }
-                }
-                FormulaType::CoR => {
-                    if let (Valtype::Int(val), Some(ref2), Some(op)) =
-                        (&cell.value2, &cell.cell2, &cell.op_code)
-                    {
-                        return format!("{}{}{}", val, op, ref2);
-                    }
-                }
-                FormulaType::RoC => {
-                    if let (Some(ref1), Valtype::Int(val), Some(op)) =
-                        (&cell.cell1, &cell.value2, &cell.op_code)
-                    {
-                        return format!("{}{}{}", ref1, op, val);
-                    }
-                }
-                FormulaType::RoR => {
-                    if let (Some(ref1), Some(ref2), Some(op)) =
-                        (&cell.cell1, &cell.cell2, &cell.op_code)
-                    {
-                        return format!("{}{}{}", ref1, op, ref2);
-                    }
-                }
-                FormulaType::Range => {
-                    if let (Some(ref1), Some(ref2), Valtype::Str(func)) =
-                        (&cell.cell1, &cell.cell2, &cell.value2)
-                    {
-                        return format!("{}({}:{})", func, ref1, ref2);
-                    }
-                }
-                FormulaType::SleepC => {
-                    if let Valtype::Int(val) = cell.value {
-                        return format!("SLEEP({})", val);
-                    }
-                }
-                FormulaType::SleepR => {
-                    if let Some(ref1) = &cell.cell1 {
-                        return format!("SLEEP({})", ref1);
-                    }
-                }
-                _ => {}
             }
+    
+            CellData::Ref { cell1 } => cell1.clone(),
+    
+            CellData::CoC { op_code, value2 } => {
+                if let Valtype::Int(val1) = &cell.value {
+                    if let Valtype::Int(val2) = value2 {
+                        format!("{}{}{}", val1, op_code, val2)
+                    } else {
+                        String::new()
+                    }
+                } else {
+                    String::new()
+                }
+            }
+    
+            CellData::CoR { op_code, value2, cell2 } => {
+                if let Valtype::Int(val1) = value2 {
+                    format!("{}{}{}", val1, op_code, cell2)
+                } else {
+                    String::new()
+                }
+            }
+    
+            CellData::RoC { op_code, value2, cell1 } => {
+                if let Valtype::Int(val2) = value2 {
+                    format!("{}{}{}", cell1, op_code, val2)
+                } else {
+                    String::new()
+                }
+            }
+    
+            CellData::RoR { op_code, cell1, cell2 } => {
+                format!("{}{}{}", cell1, op_code, cell2)
+            }
+    
+            CellData::Range { cell1, cell2, value2 } => {
+                if let Valtype::Str(func) = value2 {
+                    format!("{}({}:{})", func, cell1, cell2)
+                } else {
+                    String::new()
+                }
+            }
+    
+            CellData::SleepC => {
+                if let Valtype::Int(val) = cell.value {
+                    format!("SLEEP({})", val)
+                } else {
+                    String::new()
+                }
+            }
+    
+            CellData::SleepR { cell1 } => {
+                format!("SLEEP({})", cell1)
+            }
+    
+            CellData::Invalid => String::new(),
         }
-        String::new()
-    }
+    } 
 
     // Update the value of the currently selected cell
     fn update_selected_cell(&mut self) {
@@ -166,10 +168,7 @@ impl SpreadsheetApp {
         if let Some((r, c)) = self.selected {
             let old_cell = self.sheet[r][c].my_clone();
             parser::detect_formula(&mut self.sheet[r][c], &self.formula_input);
-            dependency::update_cell(&mut self.sheet, total_rows, total_cols, r, c, old_cell);
-            if unsafe { STATUS_CODE } == 0 {
-                parser::recalc(&mut self.sheet, total_rows, total_cols, r, c);
-            }
+            parser::update_and_recalc(&mut self.sheet, total_rows, total_cols, r, c,old_cell);
 
             self.status_message = match unsafe { STATUS_CODE } {
                 0 => format!("Updated cell {}{}", col_label(c), r + 1),
