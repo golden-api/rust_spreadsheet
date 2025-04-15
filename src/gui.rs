@@ -311,8 +311,8 @@ impl SpreadsheetApp {
             
             // if new_pos.0 < total_rows && new_pos.1 < total_cols {
             //     self.selected = Some(new_pos);
-                self.status_message = format!("Moved to cell {}{}", 
-                    &self.start_col, &self.start_row);
+            self.status_message = format!("Moved to cell {}{}", 
+                    col_label(self.start_col), (self.start_row+1).to_string());
             // }
         }
     
@@ -374,24 +374,7 @@ impl SpreadsheetApp {
     fn show_command_help(&mut self) {
         self.status_message = "Available commands: w,a,s,d (navigation), q (quit), theme_reset, help, goto [cell]".to_string();
     }
-    
-    // Helper to convert column index to letter
-    fn column_letter(&self, col: usize) -> String {
-        let mut result = String::new();
-        let mut n = col;
-        
-        loop {
-            let remainder = n % 26;
-            result.insert(0, (b'A' + remainder as u8) as char);
-            n = n / 26;
-            if n == 0 {
-                break;
-            }
-            n -= 1;
-        }
-        
-        result
-    }
+
     
     // Render the scroll-to-cell feature
     fn render_scroll_to_cell(&mut self, ui: &mut egui::Ui) {
