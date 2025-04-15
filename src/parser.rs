@@ -255,31 +255,206 @@ pub fn eval(
     }
 }
 
-pub fn recalc(
+
+pub fn update_and_recalc(
     sheet: &mut Vec<Vec<Cell>>,
     total_rows: usize,
     total_cols: usize,
-    start_row: usize,
-    start_col: usize,
+    r: usize,
+    c: usize,
+    backup: Cell,
 ) {
     type Coord = (usize, usize);
+
+    // Validation block from update_cell
+    {
+        match &sheet[r][c].data {
+            CellData::Invalid => {
+                unsafe { STATUS_CODE = 2; }
+                return;
+            }
+            CellData::Range { cell1, cell2, .. } => {
+                let (row_idx, col_idx) = to_indices(cell1);
+                if row_idx >= total_rows || col_idx >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+                let (row_idx2, col_idx2) = to_indices(cell2);
+                if row_idx2 >= total_rows || col_idx2 >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+            }
+            CellData::Ref { cell1 } => {
+                let (row_idx, col_idx) = to_indices(cell1);
+                if row_idx >= total_rows || col_idx >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+            }
+            CellData::CoR { cell2, .. } => {
+                let (row_idx, col_idx) = to_indices(cell2);
+                if row_idx >= total_rows || col_idx >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+            }
+            CellData::RoC { cell1, .. } => {
+                let (row_idx, col_idx) = to_indices(cell1);
+                if row_idx >= total_rows || col_idx >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+            }
+            CellData::RoR { cell1, cell2, .. } => {
+                let (row_idx, col_idx) = to_indices(cell1);
+                if row_idx >= total_rows || col_idx >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+                let (row_idx2, col_idx2) = to_indices(cell2);
+                if row_idx2 >= total_rows || col_idx2 >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+            }
+            CellData::SleepR { cell1 } => {
+                let (row_idx, col_idx) = to_indices(cell1);
+                if row_idx >= total_rows || col_idx >= total_cols {
+                    unsafe { STATUS_CODE = 1; }
+                    return;
+                }
+            }
+            _ => {}
+        }
+    }
+    if unsafe { STATUS_CODE } != 0 {
+        return;
+    }
+
+    // Store original value for rollback
+    let original_value = sheet[r][c].value.clone();
+
+    // Remove old dependencies from backup
+    match backup.data {
+        CellData::Range { ref cell1, ref cell2, .. } => {
+            let (start_row, start_col) = to_indices(cell1);
+            let (end_row, end_col) = to_indices(cell2);
+            for i in start_row..=end_row {
+                for j in start_col..=end_col {
+                    if i < total_rows && j < total_cols {
+                        sheet[i][j].dependents.remove(&(r, c));
+                    }
+                }
+            }
+        }
+        CellData::Ref { ref cell1 } => {
+            let (i, j) = to_indices(cell1);
+            if i < total_rows && j < total_cols {
+                sheet[i][j].dependents.remove(&(r, c));
+            }
+        }
+        CellData::CoR { ref cell2, .. } => {
+            let (i, j) = to_indices(cell2);
+            if i < total_rows && j < total_cols {
+                sheet[i][j].dependents.remove(&(r, c));
+            }
+        }
+        CellData::RoC { ref cell1, .. } => {
+            let (i, j) = to_indices(cell1);
+            if i < total_rows && j < total_cols {
+                sheet[i][j].dependents.remove(&(r, c));
+            }
+        }
+        CellData::RoR { ref cell1, ref cell2, .. } => {
+            let (i, j) = to_indices(cell1);
+            if i < total_rows && j < total_cols {
+                sheet[i][j].dependents.remove(&(r, c));
+            }
+            let (i2, j2) = to_indices(cell2);
+            if i2 < total_rows && j2 < total_cols {
+                sheet[i2][j2].dependents.remove(&(r, c));
+            }
+        }
+        CellData::SleepR { ref cell1 } => {
+            let (i, j) = to_indices(cell1);
+            if i < total_rows && j < total_cols {
+                sheet[i][j].dependents.remove(&(r, c));
+            }
+        }
+        _ => {}
+    }
+
+    // Add new dependencies from current data
+    let current_data = sheet[r][c].data.clone();
+    match current_data {
+        CellData::Range { cell1, cell2, .. } => {
+            let (start_row, start_col) = to_indices(&cell1);
+            let (end_row, end_col) = to_indices(&cell2);
+            for row in start_row..=end_row {
+                for col in start_col..=end_col {
+                    if row < total_rows && col < total_cols {
+                        sheet[row][col].dependents.insert((r, c));
+                    }
+                }
+            }
+        }
+        CellData::Ref { cell1 } => {
+            let (dep_row, dep_col) = to_indices(&cell1);
+            if dep_row < total_rows && dep_col < total_cols {
+                sheet[dep_row][dep_col].dependents.insert((r, c));
+            }
+        }
+        CellData::CoR { cell2, .. } => {
+            let (dep_row, dep_col) = to_indices(&cell2);
+            if dep_row < total_rows && dep_col < total_cols {
+                sheet[dep_row][dep_col].dependents.insert((r, c));
+            }
+        }
+        CellData::RoC { cell1, .. } => {
+            let (dep_row, dep_col) = to_indices(&cell1);
+            if dep_row < total_rows && dep_col < total_cols {
+                sheet[dep_row][dep_col].dependents.insert((r, c));
+            }
+        }
+        CellData::RoR { cell1, cell2, .. } => {
+            let (dep_row, dep_col) = to_indices(&cell1);
+            if dep_row < total_rows && dep_col < total_cols {
+                sheet[dep_row][dep_col].dependents.insert((r, c));
+            }
+            let (dep_row2, dep_col2) = to_indices(&cell2);
+            if dep_row2 < total_rows && dep_col2 < total_cols {
+                sheet[dep_row2][dep_col2].dependents.insert((r, c));
+            }
+        }
+        CellData::SleepR { cell1 } => {
+            let (dep_row, dep_col) = to_indices(&cell1);
+            if dep_row < total_rows && dep_col < total_cols {
+                sheet[dep_row][dep_col].dependents.insert((r, c));
+            }
+        }
+        _ => {}
+    }
+
+    // Recalculation block from recalc
     let mut affected: Vec<Coord> = Vec::with_capacity(50);
     let mut index_map: HashMap<usize, usize> = HashMap::with_capacity(20);
     let mut queue: VecDeque<Coord> = VecDeque::with_capacity(50);
 
     // BFS to find affected cells
-    let key = start_row * total_cols + start_col;
+    let key = r * total_cols + c;
     index_map.insert(key, 0);
-    affected.push((start_row, start_col));
-    queue.push_back((start_row, start_col));
+    affected.push((r, c));
+    queue.push_back((r, c));
 
-    while let Some((r, c)) = queue.pop_front() {
-        for &(dep_r, dep_c) in &sheet[r][c].dependents {
-            if index_map.contains_key(&(dep_r * total_cols + dep_c)) {
+    while let Some((r_curr, c_curr)) = queue.pop_front() {
+        for &(dep_r, dep_c) in &sheet[r_curr][c_curr].dependents {
+            let dep_key = dep_r * total_cols + dep_c;
+            if index_map.contains_key(&dep_key) {
                 continue;
             }
             let idx = affected.len();
-            index_map.insert(dep_r * total_cols + dep_c, idx);
+            index_map.insert(dep_key, idx);
             affected.push((dep_r, dep_c));
             queue.push_back((dep_r, dep_c));
         }
@@ -287,36 +462,32 @@ pub fn recalc(
 
     let n = affected.len();
     let mut in_degree = vec![0; n];
-    for &(r, c) in &affected {
-        for &(dep_r, dep_c) in &sheet[r][c].dependents {
+    for &(r_curr, c_curr) in &affected {
+        for &(dep_r, dep_c) in &sheet[r_curr][c_curr].dependents {
             let key = dep_r * total_cols + dep_c;
             if let Some(&idx) = index_map.get(&key) {
                 in_degree[idx] += 1;
             }
         }
     }
-    if in_degree[0] > 0 {
-        unsafe { STATUS_CODE = 3; }
-        return;
-    }
-    
+
     let mut zero_queue: Vec<usize> = (0..n).filter(|&i| in_degree[i] == 0).collect();
     let mut i = 0;
     let mut temp_values: HashMap<Coord, Valtype> = HashMap::new();
+
     while i < zero_queue.len() {
         let idx = zero_queue[i];
         i += 1;
-        let (r, c) = affected[idx];
-        // Only recalc if the cell contains a formula (i.e. is not Empty)
-        match sheet[r][c].data {
-            CellData::Empty => {},
+        let (r_curr, c_curr) = affected[idx];
+        match sheet[r_curr][c_curr].data {
+            CellData::Empty => {}
             _ => {
-                let new_value = eval(&sheet, total_rows, total_cols, r, c);
-                temp_values.insert((r, c), sheet[r][c].value.clone());
-                sheet[r][c].value = new_value.clone();
+                let new_value = eval(&sheet, total_rows, total_cols, r_curr, c_curr);
+                temp_values.insert((r_curr, c_curr), sheet[r_curr][c_curr].value.clone());
+                sheet[r_curr][c_curr].value = new_value;
             }
         }
-        for &(dep_r, dep_c) in &sheet[r][c].dependents {
+        for &(dep_r, dep_c) in &sheet[r_curr][c_curr].dependents {
             let key = dep_r * total_cols + dep_c;
             if let Some(&dep_idx) = index_map.get(&key) {
                 in_degree[dep_idx] -= 1;
@@ -325,5 +496,17 @@ pub fn recalc(
                 }
             }
         }
+    }
+
+    // Cycle detection and rollback
+    if i < n {
+        // Revert to original values if cycle detected
+        sheet[r][c].value = original_value;
+        for ((r_curr, c_curr), value) in temp_values {
+            if (r_curr, c_curr) != (r, c) {
+                sheet[r_curr][c_curr].value = value;
+            }
+        }
+        unsafe { STATUS_CODE = 3; }
     }
 }

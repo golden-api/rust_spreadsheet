@@ -7,7 +7,6 @@ use std::{
     process,
     time::Instant,
 };
-mod dependency;
 #[cfg(feature = "gui")]
 mod gui;
 mod parser;
@@ -197,17 +196,7 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                     if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
                         let old_cell = spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col], formula);
-                        dependency::update_cell(
-                            &mut spreadsheet,
-                            total_rows,
-                            total_cols,
-                            row,
-                            col,
-                            old_cell,
-                        );
-                        if unsafe { STATUS_CODE } == 0 {
-                            parser::recalc(&mut spreadsheet, total_rows, total_cols, row, col);
-                        }
+                        parser::update_and_recalc(&mut spreadsheet, total_rows, total_cols, row, col,old_cell);
                     } else {
                         unsafe {
                             STATUS_CODE = 1;
