@@ -1,7 +1,7 @@
 #[cfg(feature = "gui")]
 use crate::utils_gui::{col_label, parse_cell_name};
 #[cfg(feature = "gui")]
-use crate::{Cell, CellData, FormulaType, STATUS, STATUS_CODE, Valtype, parser};
+use crate::{Cell, FormulaType, STATUS, STATUS_CODE, Valtype,CellData, parser};
 #[cfg(feature = "gui")]
 use eframe::{
     egui,
@@ -9,6 +9,13 @@ use eframe::{
 };
 #[cfg(feature = "gui")]
 use std::collections::HashSet;
+
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
+}
 
 #[cfg(feature = "gui")]
 // Define your styling configuration.
@@ -55,7 +62,7 @@ pub struct SpreadsheetApp {
     start_col: usize,
     scroll_to_cell: String,
     should_reset_scroll: bool,
-    focus_on_scroll_to: bool,
+    focus_on: usize,
     request_formula_focus: bool,
 }
 #[cfg(feature = "gui")]
@@ -83,7 +90,7 @@ impl SpreadsheetApp {
             start_col,
             scroll_to_cell: "..".to_string(),
             should_reset_scroll: false,
-            focus_on_scroll_to: false,
+            focus_on: 0,
             request_formula_focus: false,
         }
     }
@@ -93,7 +100,7 @@ impl SpreadsheetApp {
         let cell = &self.sheet[row][col];
         match &cell.data {
             CellData::Empty => String::new(),
-
+    
             CellData::Const => {
                 if let Valtype::Int(val) = cell.value {
                     val.to_string()
@@ -101,9 +108,9 @@ impl SpreadsheetApp {
                     String::new()
                 }
             }
-
+    
             CellData::Ref { cell1 } => cell1.as_str().to_string(),
-
+    
             CellData::CoC { op_code, value2 } => {
                 if let Valtype::Int(val1) = &cell.value {
                     if let Valtype::Int(val2) = value2 {
@@ -115,51 +122,35 @@ impl SpreadsheetApp {
                     String::new()
                 }
             }
-
-            CellData::CoR {
-                op_code,
-                value2,
-                cell2,
-            } => {
+    
+            CellData::CoR { op_code, value2, cell2 } => {
                 if let Valtype::Int(val1) = value2 {
                     format!("{}{}{}", val1, op_code, cell2.as_str())
                 } else {
                     String::new()
                 }
             }
-
-            CellData::RoC {
-                op_code,
-                value2,
-                cell1,
-            } => {
+    
+            CellData::RoC { op_code, value2, cell1 } => {
                 if let Valtype::Int(val2) = value2 {
                     format!("{}{}{}", cell1.as_str(), op_code, val2)
                 } else {
                     String::new()
                 }
             }
-
-            CellData::RoR {
-                op_code,
-                cell1,
-                cell2,
-            } => {
+    
+            CellData::RoR { op_code, cell1, cell2 } => {
                 format!("{}{}{}", cell1, op_code, cell2)
             }
-
-            CellData::Range {
-                cell1,
-                cell2,
-                value2,
-            } => {
+    
+            CellData::Range { cell1, cell2, value2 } => {
                 if let Valtype::Str(func) = value2 {
                     format!("{}({}:{})", func.as_str(), cell1.as_str(), cell2.as_str())
                 } else {
                     String::new()
                 }
             }
-
+    
             CellData::SleepC => {
                 if let Valtype::Int(val) = cell.value {
                     format!("SLEEP({})", val)
@@ -167,14 +158,14 @@ impl SpreadsheetApp {
                     String::new()
                 }
             }
-
+    
             CellData::SleepR { cell1 } => {
                 format!("SLEEP({})", cell1)
             }
-
+    
             CellData::Invalid => String::new(),
         }
-    }
+    } 
 
     // Update the value of the currently selected cell
     fn update_selected_cell(&mut self) {
@@ -186,7 +177,7 @@ impl SpreadsheetApp {
         if let Some((r, c)) = self.selected {
             let old_cell = self.sheet[r][c].my_clone();
             parser::detect_formula(&mut self.sheet[r][c], &self.formula_input);
-            parser::update_and_recalc(&mut self.sheet, total_rows, total_cols, r, c, old_cell);
+            parser::update_and_recalc(&mut self.sheet, total_rows, total_cols, r, c,old_cell);
 
             self.status_message = match unsafe { STATUS_CODE } {
                 0 => format!("Updated cell {}{}", col_label(c), r + 1),
@@ -227,6 +218,9 @@ impl SpreadsheetApp {
                         response.request_focus();
                         self.request_formula_focus = false;
                     }
+                    if response.gained_focus(){
+                        self.focus_on=2;
+                    }
                     // Only process Enter key when formula bar has focus
                     let process_formula = ui
                         .add(
@@ -239,7 +233,7 @@ impl SpreadsheetApp {
                             .min_size(egui::Vec2::new(100.0, 25.0)),
                         )
                         .clicked()
-                        || (response.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)));
+                        || ((self.focus_on==2) && ui.input(|i| i.key_pressed(egui::Key::Enter)));
 
                     if process_formula {
                         if self.selected.is_some() {
@@ -247,9 +241,11 @@ impl SpreadsheetApp {
                             self.editing_cell = false;
                         } else {
                             // Here you can add your command processing logic later.
-
-                            self.status_message =
-                                format!("Command received: {}", self.formula_input);
+                            
+                            // self.status_message =
+                            //     format!("Command received: {}", self.formula_input);
+                            let cmd = self.formula_input.trim().to_lowercase();
+                            self.process_command(&cmd);
                             self.formula_input.clear();
                         }
                     }
@@ -264,6 +260,128 @@ impl SpreadsheetApp {
             });
     }
 
+    fn process_command(&mut self, cmd: &str) {
+        match cmd {
+            // Navigation commands
+            "w" => self.move_selection(Direction::Up),
+            "s" => self.move_selection(Direction::Down),
+            "a" => self.move_selection(Direction::Left),
+            "d" => self.move_selection(Direction::Right),
+            
+            // Application commands
+            "q" => std::process::exit(0),  // Using the new field
+            "tr" => self.reset_theme(),
+            
+            // Cell operations
+            // "clear" => self.clear_selected_cells(),
+            // Use methods that actually exist instead of copy/paste
+            "copy" => self.status_message = "Copy function not implemented yet".to_string(),
+            "paste" => self.status_message = "Paste function not implemented yet".to_string(),
+            
+            // Help command
+            "help" => self.show_command_help(),
+            
+            // Unknown command
+            _ => {
+                if cmd.starts_with("goto ") {
+                    if let Some(cell_ref) = cmd.strip_prefix("goto ") {
+                        self.goto_cell(cell_ref);
+                    }
+                } else {
+                    self.status_message = format!("Unknown command: {}", cmd);
+                }
+            }
+        }
+    }
+    
+
+
+    
+    fn move_selection(&mut self, direction: Direction) {
+        if let Some((row, col)) = self.selected {
+            let new_pos = match direction {
+                Direction::Up => (row.saturating_sub(1), col),
+                Direction::Down => (row + 1, col),
+                Direction::Left => (row, col.saturating_sub(1)),
+                Direction::Right => (row, col + 1),
+            };
+            let total_cols = self.sheet[0].len();
+            let total_rows = self.sheet.len();
+            
+            if new_pos.0 < total_rows && new_pos.1 < total_cols {
+                self.selected = Some(new_pos);
+                self.status_message = format!("Moved to cell {}{}", 
+                    self.column_letter(new_pos.1), new_pos.0 + 1);
+            }
+        } else {
+            // If no cell is selected, select the first cell
+            self.selected = Some((0, 0));
+            self.status_message = "Selected cell A1".to_string();
+        }
+    }
+    
+    fn reset_theme(&mut self) {
+        // Reset to default theme values
+        self.style = SpreadsheetStyle::default();
+        self.status_message = "Theme reset to default".to_string();
+    }
+    
+    // fn clear_selected_cells(&mut self) {
+    //     if let Some((row, col)) = self.selected {
+    //         // Use your sheet's actual method to clear a cell
+    //         // This is just a placeholder - adjust to your actual sheet structure
+    //         if let Some(cell) = self.sheet.get_mut(row,col) {
+    //             cell.clear(); // Assuming there's a clear method
+    //             self.status_message = "Cell cleared".to_string();
+    //         }
+    //     } else {
+    //         self.status_message = "No cell selected".to_string();
+    //     }
+    // }
+    
+    fn goto_cell(&mut self, cell_ref: &str) {
+        // Parse cell reference like "A1", "B2" etc.
+        if cell_ref.len() >= 2 {
+            let col_char = cell_ref.chars().next().unwrap();
+            let col = (col_char as u8 - b'A') as usize;
+            
+            // Parse the row number
+            if let Ok(row) = cell_ref[1..].parse::<usize>() {
+                // Use sheet instead of data for bounds checking
+                let total_cols = self.sheet[0].len();
+                let total_rows = self.sheet.len();
+                if row > 0 && row <= total_rows && col < total_cols {
+                    self.selected = Some((row - 1, col));
+                    self.status_message = format!("Moved to cell {}", cell_ref);
+                    return;
+                }
+            }
+        }
+        self.status_message = format!("Invalid cell reference: {}", cell_ref);
+    }
+    
+    fn show_command_help(&mut self) {
+        self.status_message = "Available commands: w,a,s,d (navigation), q (quit), theme_reset, help, goto [cell]".to_string();
+    }
+    
+    // Helper to convert column index to letter
+    fn column_letter(&self, col: usize) -> String {
+        let mut result = String::new();
+        let mut n = col;
+        
+        loop {
+            let remainder = n % 26;
+            result.insert(0, (b'A' + remainder as u8) as char);
+            n = n / 26;
+            if n == 0 {
+                break;
+            }
+            n -= 1;
+        }
+        
+        result
+    }
+    
     // Render the scroll-to-cell feature
     fn render_scroll_to_cell(&mut self, ui: &mut egui::Ui) {
         // Note: Removed the outer horizontal closure; it's handled by the caller.
@@ -282,11 +400,11 @@ impl SpreadsheetApp {
         );
 
         if text_response.gained_focus() {
-            self.focus_on_scroll_to = true;
+            self.focus_on = 1;
         }
 
-        let enter_pressed =
-            self.focus_on_scroll_to && ui.input(|i| i.key_pressed(egui::Key::Enter));
+        let enter_pressed = (self.focus_on==1) &&
+            ui.input(|i| i.key_pressed(egui::Key::Enter));
 
         let button_clicked = ui
             .add(
@@ -306,71 +424,74 @@ impl SpreadsheetApp {
     }
 
     /// A simple function to adjust brightness by a given factor (this is just a conceptual example).
-
+    
     // Render the colour picker feature
     fn render_colour(&mut self, ui: &mut egui::Ui) {
-        ui.label(
-            egui::RichText::new("Theme:")
-                .size(self.style.font_size)
-                .color(self.style.header_text),
-        );
+    ui.label(
+        egui::RichText::new("Theme:")
+            .size(self.style.font_size)
+            .color(self.style.header_text),
+    );
 
-        // Let the selected cell background be our base color, the muse for all other adjustments.
-        let mut base_color = self.style.prev_base_color.clone();
+    // Let the selected cell background be our base color, the muse for all other adjustments.
+    let mut base_color = self.style.prev_base_color.clone();
 
-        if ui.color_edit_button_srgba(&mut base_color).changed() {
-            fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
-                // Since Color32 works with u8 values for rgb, you may need to convert to a floating point representation.
-                let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
-                let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
-                let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
-                Color32::from_rgb(r, g, b)
-            }
+    if ui.color_edit_button_srgba(&mut base_color).changed() {
 
-            fn contrast_color(bg: Color32) -> Color32 {
-                // Compute the relative luminance using the common formula.
-                let r = bg.r() as f32;
-                let g = bg.g() as f32;
-                let b = bg.b() as f32;
-                let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                // If the luminance is low, use white text; otherwise, black.
-                if luminance < 128.0 {
-                    Color32::WHITE
-                } else {
-                    Color32::from_rgb(0, 0, 0)
-                }
-            }
-
-            fn invert(bg: Color32) -> Color32 {
-                // Since Color32 works with u8 values for rgb, you may need to convert to a floating point representation.
-                let r = (255.0 - (bg.r() as f32)) as u8;
-                let g = (255.0 - (bg.g() as f32)) as u8;
-                let b = (255.0 - (bg.b() as f32)) as u8;
-                Color32::from_rgb(r, g, b)
-            }
-            // Update the base color.
-            // Somewhere in your state, store the previous base color.
-
-            self.style.selected_cell_bg = invert(base_color);
-
-            // Use the base color to adjust other elements.
-            self.style.cell_bg_even = adjust_brightness(base_color, 0.8); // A hint darker for even cells.
-            self.style.cell_bg_odd = adjust_brightness(base_color, 1.2); // A touch lighter for odd cells.
-
-            // Set header background and choose a contrasting text color.
-            // self.style.header_bg = adjust_brightness(base_color, 0.8);
-            // self.style.header_text = contrast_color(self.style.header_bg);
-
-            // For the general cell text, pick a pleasing contrast against the base color.
-            self.style.cell_text = contrast_color(base_color);
-            // And for the selected cell text, ensure readability too.
-            self.style.selected_cell_text = contrast_color(invert(base_color));
-
-            // Finally, update the grid line to subtly complement the overall theme.
-            self.style.grid_line = Stroke::new(1.0, adjust_brightness(base_color, 0.7));
-            self.style.prev_base_color = base_color;
+        fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
+            // Since Color32 works with u8 values for rgb, you may need to convert to a floating point representation.
+            let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
+            let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
+            let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
+            Color32::from_rgb(r, g, b)
         }
+    
+        fn contrast_color(bg: Color32) -> Color32 {
+            // Compute the relative luminance using the common formula.
+            let r = bg.r() as f32;
+            let g = bg.g() as f32;
+            let b = bg.b() as f32;
+            let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            // If the luminance is low, use white text; otherwise, black.
+            if luminance < 128.0 {
+                Color32::WHITE
+            } else {
+                Color32::from_rgb(0, 0, 0)
+            }
+        }
+
+        fn invert(bg: Color32) -> Color32 {
+            // Since Color32 works with u8 values for rgb, you may need to convert to a floating point representation.
+            let r = (255.0 - (bg.r() as f32)) as u8;
+            let g = (255.0 - (bg.g() as f32)) as u8;
+            let b = (255.0 - (bg.b() as f32)) as u8;
+            Color32::from_rgb(r, g, b)
+        }
+        // Update the base color.
+        // Somewhere in your state, store the previous base color.
+
+        self.style.selected_cell_bg = invert(base_color);
+
+
+
+        // Use the base color to adjust other elements.
+        self.style.cell_bg_even = adjust_brightness(base_color, 0.8);  // A hint darker for even cells.
+        self.style.cell_bg_odd  = adjust_brightness(base_color, 1.2);  // A touch lighter for odd cells.
+
+        // Set header background and choose a contrasting text color.
+        // self.style.header_bg = adjust_brightness(base_color, 0.8);
+        // self.style.header_text = contrast_color(self.style.header_bg);
+
+        // For the general cell text, pick a pleasing contrast against the base color.
+        self.style.cell_text = contrast_color(base_color);
+        // And for the selected cell text, ensure readability too.
+        self.style.selected_cell_text = contrast_color(invert(base_color));
+
+        // Finally, update the grid line to subtly complement the overall theme.
+        self.style.grid_line = Stroke::new(1.0, adjust_brightness(base_color, 0.7));
+        self.style.prev_base_color= base_color;
     }
+}
 
     fn process_scroll_to_cell(&mut self) {
         if let Some((target_row, target_col)) = parse_cell_name(&self.scroll_to_cell) {
@@ -453,8 +574,11 @@ impl SpreadsheetApp {
 
     // Render an editable cell (when editing)
     fn render_editable_cell(&mut self, ui: &mut egui::Ui, rect: egui::Rect) {
-        let rect =
-            egui::Rect::from_min_size(rect.min, egui::Vec2::new(rect.width(), rect.height()));
+
+        let rect = egui::Rect::from_min_size(
+            rect.min,
+            egui::Vec2::new(rect.width(), rect.height())
+        );
 
         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(rect), |ui| {
             let response = ui.add(
@@ -464,15 +588,16 @@ impl SpreadsheetApp {
                     // .font(egui::TextStyle::Monospace)
                     .background_color(self.style.selected_cell_bg) // Add this line
                     .vertical_align(egui::Align::Center)
-                    .margin(egui::Vec2::new(3.0, 5.0)),
+                    .margin(egui::Vec2::new(3.0, 5.0))
             );
-
+    
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 self.update_selected_cell();
                 self.editing_cell = false;
             }
         });
     }
+    
 
     // // Render the main spreadsheet grid
     fn render_spreadsheet_grid(&mut self, ui: &mut egui::Ui) -> Option<(usize, usize)> {
@@ -685,7 +810,7 @@ impl eframe::App for SpreadsheetApp {
         egui::TopBottomPanel::top("formula_panel").show(ctx, |ui| {
             // First row: formula bar alone
             self.render_formula_bar(ui);
-
+        
             // Second row: scroll-to-cell and color picker side by side
             ui.horizontal(|ui| {
                 self.render_scroll_to_cell(ui);
@@ -697,6 +822,8 @@ impl eframe::App for SpreadsheetApp {
                 ui.separator();
             });
         });
+        
+        
 
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(selection) = self.render_spreadsheet_grid(ui) {
