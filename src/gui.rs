@@ -279,17 +279,41 @@ impl SpreadsheetApp {
                         self.goto_cell(cell_ref);
                     }
                 } else if cmd.starts_with("w") {
-                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
-                    self.move_selection_n(Direction::Up, count);
+                    let arg = &cmd[1..].trim();
+                    if arg.is_empty() {
+                        self.move_selection_n(Direction::Up, 1);
+                    } else if let Ok(count) = arg.parse::<usize>() {
+                        self.move_selection_n(Direction::Up, count);
+                    }else {
+                        self.status_message = format!("Unknown command: {}", cmd);
+                    }
                 } else if cmd.starts_with("s") {
-                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
-                    self.move_selection_n(Direction::Down, count);
+                    let arg = &cmd[1..].trim();
+                    if arg.is_empty() {
+                        self.move_selection_n(Direction::Down, 1);
+                    } else if let Ok(count) = arg.parse::<usize>() {
+                        self.move_selection_n(Direction::Down, count);
+                    }else {
+                        self.status_message = format!("Unknown command: {}", cmd);
+                    }
                 } else if cmd.starts_with("a") {
-                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
-                    self.move_selection_n(Direction::Left, count);
+                    let arg = &cmd[1..].trim();
+                    if arg.is_empty() {
+                        self.move_selection_n(Direction::Left, 1);
+                    } else if let Ok(count) = arg.parse::<usize>() {
+                        self.move_selection_n(Direction::Left, count);
+                    }else {
+                        self.status_message = format!("Unknown command: {}", cmd);
+                    }
                 } else if cmd.starts_with("d") {
-                    let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
-                    self.move_selection_n(Direction::Right, count);
+                    let arg = &cmd[1..].trim();
+                    if arg.is_empty() {
+                        self.move_selection_n(Direction::Right, 1);
+                    } else if let Ok(count) = arg.parse::<usize>() {
+                        self.move_selection_n(Direction::Right, count);
+                    }else {
+                        self.status_message = format!("Unknown command: {}", cmd);
+                    }
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
                 }
