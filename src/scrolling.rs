@@ -1,4 +1,4 @@
-use crate::utils::to_indices;
+use crate::{STATUS_CODE, utils::to_indices};
 
 pub fn w(start_row: &mut usize) {
     if *start_row >= 10 {
@@ -44,7 +44,7 @@ pub fn scroll_to(
     cell_ref: &str,
 ) -> Result<(), ()> {
     let (row, col) = to_indices(cell_ref);
-    if row >= total_rows || col >= total_cols {
+    if row >= total_rows || col >= total_cols || unsafe { STATUS_CODE } == 1 {
         return Err(());
     }
     *start_row = row;
