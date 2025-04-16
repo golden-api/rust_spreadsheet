@@ -9,7 +9,10 @@ use eframe::{
 };
 #[cfg(feature = "gui")]
 use std::collections::HashSet;
-
+#[cfg(feature = "gui")]
+use csv::Writer;
+#[cfg(feature = "gui")]
+use std::fs::File;
 enum Direction {
     Up,
     Down,
@@ -287,6 +290,9 @@ impl SpreadsheetApp {
                     }else {
                         self.status_message = format!("Unknown command: {}", cmd);
                     }
+                }else if cmd.starts_with("csv ") {
+                    let filename = cmd.strip_prefix("csv ").unwrap().trim();
+                    self.export_to_csv(filename);
                 } else if cmd.starts_with("s") {
                     let arg = &cmd[1..].trim();
                     if arg.is_empty() {
@@ -320,7 +326,33 @@ impl SpreadsheetApp {
             }
         }
     }
+    fn export_to_csv(&mut self, filename: &str) {
+        let filename = if filename.ends_with(".csv") {
+            filename.to_string()
+        } else {
+            format!("{}.csv", filename)
+        };
 
+        match File::create(&filename) {
+            Ok(file) => {
+                let mut wtr = Writer::from_writer(file);
+                for row in &self.sheet {
+                    let record: Vec<String> = row.iter().map(|cell| match &cell.value {
+                        Valtype::Int(n) => n.to_string(),
+                        Valtype::Str(s) => s.to_string(),
+                    }).collect();
+                    
+                    if let Err(e) = wtr.write_record(&record) {
+                        self.status_message = format!("CSV write error: {}", e);
+                        return;
+                    }
+                }
+                wtr.flush().unwrap();
+                self.status_message = format!("Exported to {}", filename);
+            }
+            Err(e) => self.status_message = format!("File error: {}", e),
+        }
+    }
     fn move_selection(&mut self, direction: Direction) {
         let total_rows = self.sheet.len();
         let total_cols = self.sheet[0].len();
