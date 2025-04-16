@@ -72,7 +72,6 @@ pub fn d1(start_col: &mut usize, total_cols: usize, amount: usize) {
     }
 }
 
-
 pub fn scroll_to(
     start_row: &mut usize,
     start_col: &mut usize,

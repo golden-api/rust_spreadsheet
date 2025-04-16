@@ -5,11 +5,12 @@ use std::{
     env,
     io::{self, Write},
     process,
-    time::Instant, u32,
+    time::Instant,
+    u32,
 };
 
 // Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
-#[derive(Clone, Copy, PartialEq, Eq, Hash,Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CellName {
     len: u8,
     data: [u8; 7],
@@ -54,8 +55,8 @@ impl std::str::FromStr for CellName {
 mod gui;
 mod parser;
 mod scrolling;
-mod utils;
 mod tests;
+mod utils;
 #[cfg(feature = "gui")]
 mod utils_gui;
 
@@ -75,24 +76,47 @@ pub enum FormulaType {
     Invalid,
 }
 
-#[derive(Clone, PartialEq,Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Valtype {
     Int(i32),
     Str(CellName),
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub enum CellData {
     Empty,
     SleepC,
-    SleepR { cell1: CellName },
+    SleepR {
+        cell1: CellName,
+    },
     Const,
-    Ref { cell1: CellName },
-    CoC { op_code: char, value2: Valtype },
-    CoR { op_code: char, value2: Valtype, cell2: CellName },
-    RoC { op_code: char, value2: Valtype, cell1: CellName },
-    RoR { op_code: char, cell1: CellName, cell2: CellName },
-    Range { cell1: CellName, cell2: CellName, value2: Valtype },
+    Ref {
+        cell1: CellName,
+    },
+    CoC {
+        op_code: char,
+        value2: Valtype,
+    },
+    CoR {
+        op_code: char,
+        value2: Valtype,
+        cell2: CellName,
+    },
+    RoC {
+        op_code: char,
+        value2: Valtype,
+        cell1: CellName,
+    },
+    RoR {
+        op_code: char,
+        cell1: CellName,
+        cell2: CellName,
+    },
+    Range {
+        cell1: CellName,
+        cell2: CellName,
+        value2: Valtype,
+    },
     Invalid,
 }
 
@@ -239,7 +263,14 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                     if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
                         let old_cell = spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col], formula);
-                        parser::update_and_recalc(&mut spreadsheet, total_rows, total_cols, row, col, old_cell);
+                        parser::update_and_recalc(
+                            &mut spreadsheet,
+                            total_rows,
+                            total_cols,
+                            row,
+                            col,
+                            old_cell,
+                        );
                     } else {
                         unsafe {
                             STATUS_CODE = 1;
@@ -314,7 +345,8 @@ fn main() {
         )
         .unwrap();
     }
-    #[cfg(not(feature = "gui"))] {
+    #[cfg(not(feature = "gui"))]
+    {
         interactive_mode(total_rows, total_cols);
     }
 }

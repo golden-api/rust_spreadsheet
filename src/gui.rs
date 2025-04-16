@@ -1,7 +1,7 @@
 #[cfg(feature = "gui")]
 use crate::utils_gui::{col_label, parse_cell_name};
 #[cfg(feature = "gui")]
-use crate::{Cell, FormulaType, STATUS, STATUS_CODE, Valtype, CellData, parser};
+use crate::{Cell, CellData, FormulaType, STATUS, STATUS_CODE, Valtype, parser};
 #[cfg(feature = "gui")]
 use eframe::{
     egui,
@@ -123,7 +123,11 @@ impl SpreadsheetApp {
                 }
             }
 
-            CellData::CoR { op_code, value2, cell2 } => {
+            CellData::CoR {
+                op_code,
+                value2,
+                cell2,
+            } => {
                 if let Valtype::Int(val1) = value2 {
                     format!("{}{}{}", val1, op_code, cell2.as_str())
                 } else {
@@ -131,7 +135,11 @@ impl SpreadsheetApp {
                 }
             }
 
-            CellData::RoC { op_code, value2, cell1 } => {
+            CellData::RoC {
+                op_code,
+                value2,
+                cell1,
+            } => {
                 if let Valtype::Int(val2) = value2 {
                     format!("{}{}{}", cell1.as_str(), op_code, val2)
                 } else {
@@ -139,11 +147,19 @@ impl SpreadsheetApp {
                 }
             }
 
-            CellData::RoR { op_code, cell1, cell2 } => {
+            CellData::RoR {
+                op_code,
+                cell1,
+                cell2,
+            } => {
                 format!("{}{}{}", cell1, op_code, cell2)
             }
 
-            CellData::Range { cell1, cell2, value2 } => {
+            CellData::Range {
+                cell1,
+                cell2,
+                value2,
+            } => {
                 if let Valtype::Str(func) = value2 {
                     format!("{}({}:{})", func.as_str(), cell1.as_str(), cell2.as_str())
                 } else {
@@ -222,7 +238,8 @@ impl SpreadsheetApp {
                             .fill(self.style.selected_cell_bg)
                             .min_size(egui::Vec2::new(100.0, 25.0)),
                         )
-                        .clicked() || ((self.focus_on == 2) && ui.input(|i| i.key_pressed(egui::Key::Enter)));
+                        .clicked()
+                        || ((self.focus_on == 2) && ui.input(|i| i.key_pressed(egui::Key::Enter)));
                     if process_formula {
                         if self.selected.is_some() {
                             self.update_selected_cell();
@@ -246,17 +263,22 @@ impl SpreadsheetApp {
 
     fn process_command(&mut self, cmd: &str) {
         match cmd {
-            "w" => self.move_selection(Direction::Up),
-            "s" => self.move_selection(Direction::Down),
-            "a" => self.move_selection(Direction::Left),
-            "d" => self.move_selection(Direction::Right),
             "q" => std::process::exit(0),
             "tr" => self.reset_theme(),
             "copy" => self.status_message = "Copy function not implemented yet".to_string(),
             "paste" => self.status_message = "Paste function not implemented yet".to_string(),
             "help" => self.show_command_help(),
             _ => {
-                if cmd.starts_with("w") {
+                if cmd.starts_with("scroll_to ") {
+                    if let Some(cell_ref) = cmd.strip_prefix("scroll_to ") {
+                        self.scroll_to_cell = cell_ref.to_string();
+                        self.process_scroll_to_cell();
+                    }
+                } else if cmd.starts_with("goto ") {
+                    if let Some(cell_ref) = cmd.strip_prefix("goto ") {
+                        self.goto_cell(cell_ref);
+                    }
+                } else if cmd.starts_with("w") {
                     let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
                     self.move_selection_n(Direction::Up, count);
                 } else if cmd.starts_with("s") {
@@ -268,14 +290,6 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("d") {
                     let count = cmd[1..].trim().parse::<usize>().unwrap_or(1);
                     self.move_selection_n(Direction::Right, count);
-                } else if cmd.starts_with("goto ") {
-                    if let Some(cell_ref) = cmd.strip_prefix("goto ") {
-                        self.goto_cell(cell_ref);
-                    }
-                } else if cmd.starts_with("scroll_to ") {
-                    if let Some(cell_ref) = cmd.strip_prefix("scroll_to ") {
-                        self.scrollto_cell(cell_ref);
-                    }
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
                 }
@@ -314,12 +328,12 @@ impl SpreadsheetApp {
             (self.start_row + 1).to_string()
         );
     }
-    
+
     fn reset_theme(&mut self) {
         self.style = SpreadsheetStyle::default();
         self.status_message = "Theme reset to default".to_string();
     }
-    
+
     fn goto_cell(&mut self, cell_ref: &str) {
         if let Some(pos) = cell_ref.chars().position(|c| c.is_ascii_digit()) {
             let col_str = &cell_ref[..pos];
@@ -344,26 +358,12 @@ impl SpreadsheetApp {
         self.status_message = format!("Invalid cell reference: {}", cell_ref);
     }
 
-    fn scrollto_cell(&mut self, cell_ref: &str) {
-        if let Some((target_row, target_col)) = parse_cell_name(cell_ref) {
-            self.start_row = target_row;
-            self.start_col = target_col;
-            self.should_reset_scroll = true;
-            self.status_message = format!(
-                "Scrolled to cell {}{}",
-                col_label(target_col),
-                target_row + 1
-            );
-        } else {
-            self.status_message = "Invalid cell name".to_string();
-        }
-        self.scroll_to_cell = String::new();
-    }
-    
     fn show_command_help(&mut self) {
-        self.status_message = "Available commands: w,a,s,d (navigation), q (quit), theme_reset, help, goto [cell]".to_string();
+        self.status_message =
+            "Available commands: w,a,s,d (navigation), q (quit), theme_reset, help, goto [cell]"
+                .to_string();
     }
-    
+
     // Render the scroll-to-cell feature
     fn render_scroll_to_cell(&mut self, ui: &mut egui::Ui) {
         ui.label(
@@ -381,8 +381,7 @@ impl SpreadsheetApp {
         if text_response.gained_focus() {
             self.focus_on = 1;
         }
-        let enter_pressed = (self.focus_on == 1)
-            && ui.input(|i| i.key_pressed(egui::Key::Enter));
+        let enter_pressed = (self.focus_on == 1) && ui.input(|i| i.key_pressed(egui::Key::Enter));
         let button_clicked = ui
             .add(
                 egui::Button::new(
@@ -433,7 +432,7 @@ impl SpreadsheetApp {
             }
             self.style.selected_cell_bg = invert(base_color);
             self.style.cell_bg_even = adjust_brightness(base_color, 0.8);
-            self.style.cell_bg_odd  = adjust_brightness(base_color, 1.2);
+            self.style.cell_bg_odd = adjust_brightness(base_color, 1.2);
             self.style.cell_text = contrast_color(base_color);
             self.style.selected_cell_text = contrast_color(invert(base_color));
             self.style.grid_line = Stroke::new(1.0, adjust_brightness(base_color, 0.7));
@@ -513,10 +512,8 @@ impl SpreadsheetApp {
 
     // Render an editable cell (when editing)
     fn render_editable_cell(&mut self, ui: &mut egui::Ui, rect: egui::Rect) {
-        let rect = egui::Rect::from_min_size(
-            rect.min,
-            egui::Vec2::new(rect.width(), rect.height())
-        );
+        let rect =
+            egui::Rect::from_min_size(rect.min, egui::Vec2::new(rect.width(), rect.height()));
         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(rect), |ui| {
             let response = ui.add(
                 egui::TextEdit::singleline(&mut self.formula_input)
@@ -524,7 +521,7 @@ impl SpreadsheetApp {
                     .text_color(self.style.selected_cell_text)
                     .background_color(self.style.selected_cell_bg)
                     .vertical_align(egui::Align::Center)
-                    .margin(egui::Vec2::new(3.0, 5.0))
+                    .margin(egui::Vec2::new(3.0, 5.0)),
             );
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 self.update_selected_cell();
@@ -532,7 +529,7 @@ impl SpreadsheetApp {
             }
         });
     }
-    
+
     // Render the main spreadsheet grid
     fn render_spreadsheet_grid(&mut self, ui: &mut egui::Ui) -> Option<(usize, usize)> {
         let mut new_selection = None;
@@ -652,7 +649,12 @@ impl SpreadsheetApp {
 
     // Handle keyboard events with dynamic viewport sizes.
     // The dynamic visible rows and columns are computed in update() and passed here.
-    fn handle_keyboard_events(&mut self, ctx: &egui::Context, visible_rows: usize, visible_cols: usize) {
+    fn handle_keyboard_events(
+        &mut self,
+        ctx: &egui::Context,
+        visible_rows: usize,
+        visible_cols: usize,
+    ) {
         ctx.input(|input| {
             if input.key_pressed(egui::Key::ArrowDown) {
                 if let Some((row, col)) = self.selected {
@@ -725,7 +727,7 @@ impl eframe::App for SpreadsheetApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
         let mut new_selection = None;
-        
+
         egui::TopBottomPanel::top("formula_panel").show(ctx, |ui| {
             self.render_formula_bar(ui);
             ui.horizontal(|ui| {
@@ -738,7 +740,7 @@ impl eframe::App for SpreadsheetApp {
                 ui.separator();
             });
         });
-        
+
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(selection) = self.render_spreadsheet_grid(ui) {
                 new_selection = Some(selection);
@@ -752,8 +754,9 @@ impl eframe::App for SpreadsheetApp {
         let avail_size = avail_rect.size();
         let row_label_width = 30.0;
         let visible_rows = 33;
-        let visible_cols = (((avail_size.x - row_label_width) / self.style.cell_size.x).ceil() as usize).max(1);
-        
+        let visible_cols =
+            (((avail_size.x - row_label_width) / self.style.cell_size.x).ceil() as usize).max(1);
+
         self.handle_keyboard_events(ctx, visible_rows, visible_cols);
     }
 }
