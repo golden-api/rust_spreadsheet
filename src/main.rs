@@ -1,12 +1,11 @@
 #[cfg(feature = "gui")]
 use eframe::egui;
+#[cfg(not(feature = "gui"))]
+use std::{io::{self, Write},time::Instant,};
 use std::{
     collections::HashSet,
     env,
-    io::{self, Write},
-    process,
-    time::Instant,
-    u32,
+    process
 };
 
 // Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
@@ -51,14 +50,16 @@ impl std::str::FromStr for CellName {
 }
 //////////////////////////////////////////////////////////////////////////////
 
+#[cfg(test)]
+mod tests;
 #[cfg(feature = "gui")]
 mod gui;
-mod parser;
-mod scrolling;
-mod tests;
-mod utils;
 #[cfg(feature = "gui")]
 mod utils_gui;
+mod parser;
+mod utils;
+#[cfg(not(feature = "gui"))]
+mod scrolling;
 
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
@@ -147,6 +148,7 @@ impl Cell {
     }
 }
 
+#[cfg(not(feature = "gui"))]
 fn print_sheet(spreadsheet: &[Vec<Cell>], pointer: &(usize, usize), dimension: &(usize, usize)) {
     let view_rows = dimension.0.saturating_sub(pointer.0).min(10);
     let view_cols = dimension.1.saturating_sub(pointer.1).min(10);
@@ -202,7 +204,7 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
         return Err("Usage: <program> <num_rows> <num_columns>");
     }
 }
-
+#[cfg(not(feature = "gui"))]
 fn interactive_mode(total_rows: usize, total_cols: usize) {
     let mut spreadsheet = vec![
         vec![
@@ -346,7 +348,5 @@ fn main() {
         .unwrap();
     }
     #[cfg(not(feature = "gui"))]
-    {
-        interactive_mode(total_rows, total_cols);
-    }
+    interactive_mode(total_rows, total_cols);
 }

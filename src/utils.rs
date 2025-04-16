@@ -52,7 +52,7 @@ pub fn sleepy(x: i32) {
     }
 }
 pub fn compute_range(
-    sheet: &Vec<Vec<Cell>>,
+    sheet: &[Vec<Cell>],
     r_min: usize,
     r_max: usize,
     c_min: usize,
@@ -68,34 +68,39 @@ pub fn compute_range(
         _ => 0,
     };
     let mut variance: f64 = 0.0;
-    for r in r_min..=r_max {
-        for c in c_min..=c_max {
-            match &sheet[r][c].value {
-                Valtype::Str(_) => unsafe { EVAL_ERROR = true },
-                Valtype::Int(val) => match choice {
-                    1 => res = max(res, *val),
-                    2 => res = min(res, *val),
-                    3 | 4 | 5 => res += *val,
-                    _ => unsafe {
-                        STATUS_CODE = 2;
-                    },
-                },
-            }
+    sheet.iter()
+    .skip(r_min)
+    .take(r_max - r_min + 1)
+    .flat_map(|row| &row[c_min..=c_max])
+    .for_each(|cell| {
+        match &cell.value {
+            Valtype::Str(_) => unsafe { EVAL_ERROR = true },
+            Valtype::Int(val) => match choice {
+                1 => res = max(res, *val),
+                2 => res = min(res, *val),
+                3..=5 => res += *val,  // Combined range
+                _ => unsafe { STATUS_CODE = 2 },
+            },
         }
-    }
+    });
+
     if choice == 3 {
         return res / area;
     }
     if choice == 5 {
         let n = area;
         let mean = res / n;
-        for r in r_min..=r_max {
-            for c in c_min..=c_max {
-                if let Valtype::Int(val) = sheet[r][c].value {
-                    variance += ((val - mean) as f64).powi(2);
-                }
-            }
-        }
+        sheet.iter()
+        .skip(r_min)
+        .take(r_max - r_min + 1)
+        .flat_map(|row| &row[c_min..=c_max])
+        .filter_map(|cell| match cell.value {
+            Valtype::Int(val) => Some(val),
+            _ => None
+        })
+        .for_each(|val| {
+            variance += ((val - mean) as f64).powi(2);
+        });
         variance /= n as f64;
         return variance.sqrt().round() as i32;
     }

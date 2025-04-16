@@ -127,7 +127,7 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
 }
 
 pub fn eval(
-    sheet: &Vec<Vec<Cell>>,
+    sheet: &[Vec<Cell>],
     total_rows: usize,
     total_cols: usize,
     r: usize,
@@ -246,11 +246,10 @@ pub fn eval(
             compute(v1, Some(op_code), v2)
         }
         CellData::Range {
-            ref cell1,
-            ref cell2,
-            ref value2,
+            cell1, 
+            cell2, 
+            value2: Valtype::Str(func)
         } => {
-            if let Valtype::Str(func) = value2 {
                 let (r1, c1) = to_indices(cell1.as_str());
                 let (r2, c2) = to_indices(cell2.as_str());
                 if r1 < total_rows
@@ -280,9 +279,7 @@ pub fn eval(
                     }
                     0
                 }
-            } else {
-                0
-            }
+             
         }
         CellData::SleepC => match parsed.value {
             Valtype::Int(val) => {
@@ -315,7 +312,7 @@ pub fn eval(
 }
 
 pub fn update_and_recalc(
-    sheet: &mut Vec<Vec<Cell>>,
+    sheet: &mut [Vec<Cell>],
     total_rows: usize,
     total_cols: usize,
     r: usize,
@@ -423,13 +420,19 @@ pub fn update_and_recalc(
         } => {
             let (start_row, start_col) = to_indices(cell1.as_str());
             let (end_row, end_col) = to_indices(cell2.as_str());
-            for i in start_row..=end_row {
-                for j in start_col..=end_col {
-                    if i < total_rows && j < total_cols {
-                        sheet[i][j].dependents.remove(&cell_hash);
-                    }
-                }
-            }
+            sheet.iter_mut()
+            .enumerate()
+            .skip(start_row)
+            .take(end_row - start_row + 1)
+            .for_each(|(_, row)| {
+                row.iter_mut()
+                    .enumerate()
+                    .skip(start_col)
+                    .take(end_col - start_col + 1)
+                    .for_each(|(_, cell)| {
+                        cell.dependents.remove(&cell_hash);
+                    });
+            });
         }
         CellData::Ref { ref cell1 } => {
             let (i, j) = to_indices(cell1.as_str());
@@ -478,13 +481,19 @@ pub fn update_and_recalc(
         CellData::Range { cell1, cell2, .. } => {
             let (start_row, start_col) = to_indices(cell1.as_str());
             let (end_row, end_col) = to_indices(cell2.as_str());
-            for row in start_row..=end_row {
-                for col in start_col..=end_col {
-                    if row < total_rows && col < total_cols {
-                        sheet[row][col].dependents.insert(cell_hash);
-                    }
-                }
-            }
+            sheet.iter_mut()
+            .enumerate()
+            .skip(start_row)
+            .take(end_row - start_row + 1)
+            .for_each(|(_, row)| {
+                row.iter_mut()
+                    .enumerate()
+                    .skip(start_col)
+                    .take(end_col - start_col + 1)
+                    .for_each(|(_, cell)| {
+                        cell.dependents.insert(cell_hash);
+                    });
+            });
         }
         CellData::Ref { cell1 } => {
             let (dep_row, dep_col) = to_indices(cell1.as_str());
@@ -609,13 +618,19 @@ pub fn update_and_recalc(
             } => {
                 let (start_row, start_col) = to_indices(cell1.as_str());
                 let (end_row, end_col) = to_indices(cell2.as_str());
-                for row in start_row..=end_row {
-                    for col in start_col..=end_col {
-                        if row < total_rows && col < total_cols {
-                            sheet[row][col].dependents.remove(&cell_hash);
-                        }
-                    }
-                }
+                sheet.iter_mut()
+                .enumerate()
+                .skip(start_row)
+                .take(end_row - start_row + 1)
+                .for_each(|(_, row)| {
+                    row.iter_mut()
+                        .enumerate()
+                        .skip(start_col)
+                        .take(end_col - start_col + 1)
+                        .for_each(|(_, cell)| {
+                            cell.dependents.remove(&cell_hash);
+                        });
+                });
             }
             _ => {}
         }
@@ -633,7 +648,7 @@ pub fn update_and_recalc(
         match sheet[r_curr][c_curr].data {
             CellData::Empty => {}
             _ => {
-                let new_value = eval(&sheet, total_rows, total_cols, r_curr, c_curr);
+                let new_value = eval(sheet, total_rows, total_cols, r_curr, c_curr);
                 sheet[r_curr][c_curr].value = new_value;
             }
         }

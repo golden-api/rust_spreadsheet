@@ -1,7 +1,7 @@
 #[cfg(feature = "gui")]
 use crate::utils_gui::{col_label, parse_cell_name};
 #[cfg(feature = "gui")]
-use crate::{Cell, CellData, FormulaType, STATUS, STATUS_CODE, Valtype, parser};
+use crate::{Cell, CellData, STATUS, STATUS_CODE, Valtype, parser};
 #[cfg(feature = "gui")]
 use eframe::{
     egui,
@@ -353,30 +353,14 @@ impl SpreadsheetApp {
             Err(e) => self.status_message = format!("File error: {}", e),
         }
     }
-    fn move_selection(&mut self, direction: Direction) {
-        let total_rows = self.sheet.len();
-        let total_cols = self.sheet[0].len();
-        match direction {
-            Direction::Up => crate::scrolling::w(&mut self.start_row),
-            Direction::Down => crate::scrolling::s(&mut self.start_row, total_rows),
-            Direction::Right => crate::scrolling::d(&mut self.start_col, total_cols),
-            Direction::Left => crate::scrolling::a(&mut self.start_row),
-        };
-        self.status_message = format!(
-            "Moved to cell {}{}",
-            col_label(self.start_col),
-            (self.start_row + 1).to_string()
-        );
-    }
-
     fn move_selection_n(&mut self, direction: Direction, amount: usize) {
         let total_rows = self.sheet.len();
         let total_cols = self.sheet[0].len();
         match direction {
-            Direction::Up => crate::scrolling::w1(&mut self.start_row, amount),
-            Direction::Down => crate::scrolling::s1(&mut self.start_row, total_rows, amount),
-            Direction::Right => crate::scrolling::d1(&mut self.start_col, total_cols, amount),
-            Direction::Left => crate::scrolling::a1(&mut self.start_row, amount),
+            Direction::Up => crate::utils_gui::w(&mut self.start_row, amount),
+            Direction::Down => crate::utils_gui::s(&mut self.start_row, total_rows, amount),
+            Direction::Right => crate::utils_gui::d(&mut self.start_col, total_cols, amount),
+            Direction::Left => crate::utils_gui::a(&mut self.start_row, amount),
         };
         self.status_message = format!(
             "Moved to cell {}{}",
