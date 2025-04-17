@@ -175,7 +175,7 @@ fn print_sheet(spreadsheet: &[Vec<Cell>], pointer: &(usize, usize), dimension: &
             if row < dimension.0 && col < spreadsheet[row].len() {
                 match &spreadsheet[row][col].value {
                     Valtype::Int(v) => print!("{:<10}  ", v),
-                    Valtype::Str(s) => print!("{:<10}  ", s),
+                    Valtype::Str(s) => print!("{:<10}         ", s),
                 }
             } else {
                 print!("{:<10}  ", 0);

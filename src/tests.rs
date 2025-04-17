@@ -318,7 +318,7 @@ fn test_compute_range_edge_cases() {
     sheet[0][0].value = Valtype::Int(1);
     sheet[0][1].value = Valtype::Int(-2);
     sheet[1][0].value = Valtype::Int(3);
-
+    
     // Test MIN with negative
     unsafe {
         STATUS_CODE = 0;
@@ -326,11 +326,12 @@ fn test_compute_range_edge_cases() {
     }
     let result = compute_range(&sheet, 0, 1, 0, 1, 2);
     assert_eq!(result, -2);
-
+    
     // Test AVG with partial range
     let result = compute_range(&sheet, 0, 0, 0, 1, 3);
     assert_eq!(result, 0); // (1 + -2) / 2
-
+    
+    sheet[0][1].value = Valtype::Str(CellName::new("ERR").unwrap());
     // Test STDEV with small range
     let result = compute_range(&sheet, 0, 0, 0, 1, 5);
     assert!(result >= 1 && result <= 2); // Approx for [1, -2]
@@ -710,6 +711,8 @@ fn test_cellname_functions() {
     assert!(result.is_err());
 }
 
+
+//scrolling.rs
 #[test]
 fn scrolling() {
     let total_rows = 25;
