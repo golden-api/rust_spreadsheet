@@ -91,7 +91,7 @@ impl SpreadsheetApp {
             status_message: String::new(),
             start_row,
             start_col,
-            scroll_to_cell: "..".to_string(),
+            scroll_to_cell: String::new(),
             should_reset_scroll: false,
             focus_on: 0,
             request_formula_focus: false,
@@ -793,10 +793,10 @@ impl eframe::App for SpreadsheetApp {
         let avail_rect = ctx.available_rect();
         let avail_size = avail_rect.size();
         let row_label_width = 30.0;
-        let visible_rows = 33;
+        let visible_rows = 31;
         let visible_cols =
             (((avail_size.x - row_label_width) / self.style.cell_size.x).ceil() as usize).max(1);
 
-        self.handle_keyboard_events(ctx, visible_rows, visible_cols);
+        self.handle_keyboard_events(ctx, visible_rows, visible_cols-1);
     }
 }
