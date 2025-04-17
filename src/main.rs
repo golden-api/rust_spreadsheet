@@ -1,17 +1,24 @@
-#[cfg(feature = "gui")]
-use eframe::egui;
-#[cfg(not(feature = "gui"))]
-use std::{io::{self, Write},time::Instant,};
 use std::{
     collections::HashSet,
     env,
-    process
+    process,
 };
+#[cfg(not(feature = "gui"))]
+use std::{
+    io::{
+        self,
+        Write,
+    },
+    time::Instant,
+};
+
+#[cfg(feature = "gui")]
+use eframe::egui;
 
 // Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CellName {
-    len: u8,
+    len:  u8,
     data: [u8; 7],
 }
 
@@ -25,10 +32,7 @@ impl CellName {
         }
         let mut data = [0u8; 7];
         data[..s.len()].copy_from_slice(s.as_bytes());
-        Ok(CellName {
-            len: s.len() as u8,
-            data,
-        })
+        Ok(CellName { len: s.len() as u8, data })
     }
 
     pub fn as_str(&self) -> &str {
@@ -37,7 +41,10 @@ impl CellName {
 }
 
 impl std::fmt::Display for CellName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
@@ -50,16 +57,16 @@ impl std::str::FromStr for CellName {
 }
 //////////////////////////////////////////////////////////////////////////////
 
-#[cfg(test)]
-mod tests;
 #[cfg(feature = "gui")]
 mod gui;
-#[cfg(feature = "gui")]
-mod utils_gui;
 mod parser;
-mod utils;
 #[cfg(not(feature = "gui"))]
 mod scrolling;
+#[cfg(test)]
+mod tests;
+mod utils;
+#[cfg(feature = "gui")]
+mod utils_gui;
 
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
@@ -87,69 +94,46 @@ pub enum Valtype {
 pub enum CellData {
     Empty,
     SleepC,
-    SleepR {
-        cell1: CellName,
-    },
+    SleepR { cell1: CellName },
     Const,
-    Ref {
-        cell1: CellName,
-    },
-    CoC {
-        op_code: char,
-        value2: Valtype,
-    },
-    CoR {
-        op_code: char,
-        value2: Valtype,
-        cell2: CellName,
-    },
-    RoC {
-        op_code: char,
-        value2: Valtype,
-        cell1: CellName,
-    },
-    RoR {
-        op_code: char,
-        cell1: CellName,
-        cell2: CellName,
-    },
-    Range {
-        cell1: CellName,
-        cell2: CellName,
-        value2: Valtype,
-    },
+    Ref { cell1: CellName },
+    CoC { op_code: char, value2: Valtype },
+    CoR { op_code: char, value2: Valtype, cell2: CellName },
+    RoC { op_code: char, value2: Valtype, cell1: CellName },
+    RoR { op_code: char, cell1: CellName, cell2: CellName },
+    Range { cell1: CellName, cell2: CellName, value2: Valtype },
     Invalid,
 }
 
 #[derive(Clone)]
 pub struct Cell {
-    pub value: Valtype,
-    pub data: CellData,
+    pub value:      Valtype,
+    pub data:       CellData,
     pub dependents: HashSet<u32>,
 }
 
 impl Cell {
     pub fn reset(&mut self) {
         let current_dependents = std::mem::take(&mut self.dependents);
-        *self = Self {
-            value: Valtype::Int(0),
-            data: CellData::Empty,
-            dependents: current_dependents,
-        };
+        *self = Self { value: Valtype::Int(0), data: CellData::Empty, dependents: current_dependents };
     }
 
     /// Clones a cell for backup without dependents.
     pub fn my_clone(&self) -> Self {
         Self {
-            value: self.value.clone(),
-            data: self.data.clone(),
+            value:      self.value.clone(),
+            data:       self.data.clone(),
             dependents: HashSet::new(), // intentionally not cloning dependents
         }
     }
 }
 
 #[cfg(not(feature = "gui"))]
-fn print_sheet(spreadsheet: &[Vec<Cell>], pointer: &(usize, usize), dimension: &(usize, usize)) {
+fn print_sheet(
+    spreadsheet: &[Vec<Cell>],
+    pointer: &(usize, usize),
+    dimension: &(usize, usize),
+) {
     let view_rows = dimension.0.saturating_sub(pointer.0).min(10);
     let view_cols = dimension.1.saturating_sub(pointer.1).min(10);
 
@@ -205,18 +189,11 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     }
 }
 #[cfg(not(feature = "gui"))]
-fn interactive_mode(total_rows: usize, total_cols: usize) {
-    let mut spreadsheet = vec![
-        vec![
-            Cell {
-                value: Valtype::Int(0),
-                data: CellData::Empty,
-                dependents: HashSet::new(),
-            };
-            total_cols
-        ];
-        total_rows
-    ];
+fn interactive_mode(
+    total_rows: usize,
+    total_cols: usize,
+) {
+    let mut spreadsheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; total_cols]; total_rows];
 
     let (mut start_row, mut start_col) = (0, 0);
     let mut enable_output = true;
@@ -227,15 +204,8 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
     };
 
     let start_time = Instant::now();
-    print_sheet(
-        &spreadsheet,
-        &(start_row, start_col),
-        &(total_rows, total_cols),
-    );
-    prompt(
-        start_time.elapsed().as_secs_f64(),
-        STATUS[unsafe { STATUS_CODE }],
-    );
+    print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
+    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
 
     let start = Instant::now();
     loop {
@@ -265,14 +235,7 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
                     if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
                         let old_cell = spreadsheet[row][col].my_clone();
                         parser::detect_formula(&mut spreadsheet[row][col], formula);
-                        parser::update_and_recalc(
-                            &mut spreadsheet,
-                            total_rows,
-                            total_cols,
-                            row,
-                            col,
-                            old_cell,
-                        );
+                        parser::update_and_recalc(&mut spreadsheet, total_rows, total_cols, row, col, old_cell);
                     } else {
                         unsafe {
                             STATUS_CODE = 1;
@@ -282,17 +245,7 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
             }
             _ if input.starts_with("scroll_to ") => {
                 let cell_ref = input.trim_start_matches("scroll_to ").trim();
-                if cell_ref.is_empty()
-                    || !cell_ref.chars().next().unwrap().is_alphabetic()
-                    || scrolling::scroll_to(
-                        &mut start_row,
-                        &mut start_col,
-                        total_rows,
-                        total_cols,
-                        cell_ref,
-                    )
-                    .is_err()
-                {
+                if cell_ref.is_empty() || !cell_ref.chars().next().unwrap().is_alphabetic() || scrolling::scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, cell_ref).is_err() {
                     unsafe {
                         STATUS_CODE = 1;
                     }
@@ -305,16 +258,9 @@ fn interactive_mode(total_rows: usize, total_cols: usize) {
             },
         }
         if enable_output {
-            print_sheet(
-                &spreadsheet,
-                &(start_row, start_col),
-                &(total_rows, total_cols),
-            );
+            print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
         }
-        prompt(
-            start_time.elapsed().as_secs_f64(),
-            STATUS[unsafe { STATUS_CODE }],
-        );
+        prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
     }
 }
 
@@ -330,22 +276,8 @@ fn main() {
 
     #[cfg(feature = "gui")]
     {
-        let options = eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default()
-                .with_inner_size([1024.0, 768.0])
-                .with_resizable(true),
-            ..Default::default()
-        };
-        eframe::run_native(
-            "Rust Spreadsheet",
-            options,
-            Box::new(move |_cc| {
-                Ok(Box::new(gui::SpreadsheetApp::new(
-                    total_rows, total_cols, 0, 0,
-                )))
-            }),
-        )
-        .unwrap();
+        let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]).with_resizable(true), ..Default::default() };
+        eframe::run_native("Rust Spreadsheet", options, Box::new(move |_cc| Ok(Box::new(gui::SpreadsheetApp::new(total_rows, total_cols, 0, 0))))).unwrap();
     }
     #[cfg(not(feature = "gui"))]
     interactive_mode(total_rows, total_cols);

@@ -1,18 +1,24 @@
-use crate::{Cell, STATUS_CODE, Valtype};
 use std::{
-    cmp::{max, min},
+    cmp::{
+        max,
+        min,
+    },
     f64,
     thread::sleep,
     time::Duration,
+};
+
+use crate::{
+    Cell,
+    STATUS_CODE,
+    Valtype,
 };
 
 pub static mut EVAL_ERROR: bool = false;
 
 pub fn to_indices(s: &str) -> (usize, usize) {
     let split_pos = s.find(|c: char| c.is_ascii_digit()).unwrap_or(s.len());
-    let col = s[..split_pos]
-        .bytes()
-        .fold(0, |acc, b| acc * 26 + (b - b'A' + 1) as usize);
+    let col = s[..split_pos].bytes().fold(0, |acc, b| acc * 26 + (b - b'A' + 1) as usize);
     let row = s[split_pos..].parse::<usize>().unwrap_or(0);
     if row == 0 || col == 0 {
         unsafe {
@@ -23,12 +29,16 @@ pub fn to_indices(s: &str) -> (usize, usize) {
     (row - 1, col - 1)
 }
 
-pub fn compute(a: i32, op: Option<char>, b: i32) -> i32 {
+pub fn compute(
+    a: i32,
+    op: Option<char>,
+    b: i32,
+) -> i32 {
     match op {
         Some('+') => a + b,
         Some('-') => a - b,
         Some('*') => a * b,
-        Some('/') => {
+        Some('/') =>
             if b == 0 {
                 unsafe {
                     EVAL_ERROR = true;
@@ -36,8 +46,7 @@ pub fn compute(a: i32, op: Option<char>, b: i32) -> i32 {
                 0
             } else {
                 a / b
-            }
-        }
+            },
         _ => {
             unsafe {
                 STATUS_CODE = 2;
@@ -68,17 +77,13 @@ pub fn compute_range(
         _ => 0,
     };
     let mut variance: f64 = 0.0;
-    sheet.iter()
-    .skip(r_min)
-    .take(r_max - r_min + 1)
-    .flat_map(|row| &row[c_min..=c_max])
-    .for_each(|cell| {
+    sheet.iter().skip(r_min).take(r_max - r_min + 1).flat_map(|row| &row[c_min..=c_max]).for_each(|cell| {
         match &cell.value {
             Valtype::Str(_) => unsafe { EVAL_ERROR = true },
             Valtype::Int(val) => match choice {
                 1 => res = max(res, *val),
                 2 => res = min(res, *val),
-                3..=5 => res += *val,  // Combined range
+                3..=5 => res += *val, // Combined range
                 _ => unsafe { STATUS_CODE = 2 },
             },
         }
@@ -90,17 +95,18 @@ pub fn compute_range(
     if choice == 5 {
         let n = area;
         let mean = res / n;
-        sheet.iter()
-        .skip(r_min)
-        .take(r_max - r_min + 1)
-        .flat_map(|row| &row[c_min..=c_max])
-        .filter_map(|cell| match cell.value {
-            Valtype::Int(val) => Some(val),
-            _ => None
-        })
-        .for_each(|val| {
-            variance += ((val - mean) as f64).powi(2);
-        });
+        sheet
+            .iter()
+            .skip(r_min)
+            .take(r_max - r_min + 1)
+            .flat_map(|row| &row[c_min..=c_max])
+            .filter_map(|cell| match cell.value {
+                Valtype::Int(val) => Some(val),
+                _ => None,
+            })
+            .for_each(|val| {
+                variance += ((val - mean) as f64).powi(2);
+            });
         variance /= n as f64;
         return variance.sqrt().round() as i32;
     }

@@ -1,4 +1,7 @@
-use crate::{STATUS_CODE, utils::to_indices};
+use crate::{
+    STATUS_CODE,
+    utils::to_indices,
+};
 
 pub fn w(start_row: &mut usize) {
     if *start_row >= 10 {
@@ -8,7 +11,10 @@ pub fn w(start_row: &mut usize) {
     }
 }
 
-pub fn s(start_row: &mut usize, total_rows: usize) {
+pub fn s(
+    start_row: &mut usize,
+    total_rows: usize,
+) {
     if *start_row + 10 <= total_rows - 10 {
         *start_row += 10;
     } else if *start_row >= total_rows - 10 {
@@ -26,7 +32,10 @@ pub fn a(start_col: &mut usize) {
     }
 }
 
-pub fn d(start_col: &mut usize, total_cols: usize) {
+pub fn d(
+    start_col: &mut usize,
+    total_cols: usize,
+) {
     if *start_col + 10 <= total_cols - 10 {
         *start_col += 10;
     } else if *start_col >= total_cols - 10 {

@@ -44,7 +44,10 @@ pub fn col_label_to_index(label: &str) -> Option<usize> {
     Some(col - 1)
 }
 #[cfg(feature = "gui")]
-pub fn w(start_row: &mut usize, amount: usize) {
+pub fn w(
+    start_row: &mut usize,
+    amount: usize,
+) {
     if *start_row >= amount {
         *start_row -= amount;
     } else {
@@ -53,7 +56,11 @@ pub fn w(start_row: &mut usize, amount: usize) {
 }
 
 #[cfg(feature = "gui")]
-pub fn s(start_row: &mut usize, total_rows: usize, amount: usize) {
+pub fn s(
+    start_row: &mut usize,
+    total_rows: usize,
+    amount: usize,
+) {
     if *start_row + amount <= total_rows - amount {
         *start_row += amount;
     } else if *start_row >= total_rows - amount {
@@ -64,7 +71,10 @@ pub fn s(start_row: &mut usize, total_rows: usize, amount: usize) {
 }
 
 #[cfg(feature = "gui")]
-pub fn a(start_col: &mut usize, amount: usize) {
+pub fn a(
+    start_col: &mut usize,
+    amount: usize,
+) {
     if *start_col >= amount {
         *start_col -= amount;
     } else {
@@ -73,7 +83,11 @@ pub fn a(start_col: &mut usize, amount: usize) {
 }
 
 #[cfg(feature = "gui")]
-pub fn d(start_col: &mut usize, total_cols: usize, amount: usize) {
+pub fn d(
+    start_col: &mut usize,
+    total_cols: usize,
+    amount: usize,
+) {
     if *start_col + amount <= total_cols - amount {
         *start_col += amount;
     } else if *start_col >= total_cols - amount {
