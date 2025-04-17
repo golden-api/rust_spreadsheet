@@ -1,6 +1,6 @@
 use crate::parser::{detect_formula, eval, update_and_recalc};
 use crate::scrolling::{a, d, s, scroll_to, w};
-use crate::utils::{EVAL_ERROR, compute, compute_range, sleepy, to_indices};
+use crate::utils::{EVAL_ERROR, compute, compute_range, to_indices};
 use crate::{Cell, CellData, CellName, STATUS_CODE, Valtype};
 use std::collections::HashSet;
 use std::io;
@@ -135,12 +135,82 @@ fn test_eval_complex_scenarios() {
         EVAL_ERROR = false;
     }
     sheet[3][0].data = CellData::RoR {
-        op_code: '+',
+        op_code: '-',
         cell1: CellName::new("A1").unwrap(),
         cell2: CellName::new("E6").unwrap(), // Out of bounds
     };
-    let result = eval(&sheet, 5, 5, 3, 0);
+    let _ = eval(&sheet, 5, 5, 3, 0);
     assert_eq!(unsafe { STATUS_CODE }, 1);
+}
+
+#[test]
+fn test_detect_formula_edge_cases() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    
+    // Test with whitespace
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "  42  ");
+    assert!(matches!(cell.data, CellData::Const));
+    assert_eq!(cell.value, Valtype::Int(42));
+    
+    // Test with negative values
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "-42");
+    assert!(matches!(cell.data, CellData::Const));
+    assert_eq!(cell.value, Valtype::Int(-42));
+    
+    // Test with invalid formula
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "A1B2");
+    assert!(matches!(cell.data, CellData::Invalid));
+    
+    // Test with empty formula
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "");
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+#[test]
+fn test_detect_formula_operations() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    
+    // Test with negative operands
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "-5+3");
+    if let CellData::CoC { op_code, value2 } = &cell.data {
+        assert_eq!(*op_code, '+');
+        if let Valtype::Int(v) = value2 {
+            assert_eq!(*v, 3);
+        } else {
+            panic!("Expected Int, got {:?}", value2);
+        }
+        assert_eq!(cell.value, Valtype::Int(-5));
+    } else {
+        panic!("Expected CoC, got {:?}", cell.data);
+    }
+    
+    // Test with division
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "10/2");
+    if let CellData::CoC { op_code, value2 } = &cell.data {
+        assert_eq!(*op_code, '/');
+        if let Valtype::Int(v) = value2 {
+            assert_eq!(*v, 2);
+        } else {
+            panic!("Expected Int, got {:?}", value2);
+        }
+        assert_eq!(cell.value, Valtype::Int(10));
+    } else {
+        panic!("Expected CoC, got {:?}", cell.data);
+    }
 }
 
 #[test]
@@ -212,64 +282,6 @@ fn test_update_and_recalc_complex_cycle() {
 
     update_and_recalc(&mut sheet, 5, 5, 0, 0, backup);
     assert_eq!(unsafe { STATUS_CODE }, 3); // Cycle detected
-}
-
-#[test]
-fn test_scroll_functions_boundaries() {
-    let mut start_row = 0;
-    let mut start_col = 0;
-    let total_rows = 15;
-    let total_cols = 15;
-
-    // Test w at boundary
-    w(&mut start_row);
-    assert_eq!(start_row, 0);
-
-    // Test s at upper boundary
-    start_row = 5;
-    s(&mut start_row, total_rows);
-    assert_eq!(start_row, 5);
-
-    // Test a at boundary
-    a(&mut start_col);
-    assert_eq!(start_col, 0);
-
-    // Test d at upper boundary
-    start_col = 5;
-    d(&mut start_col, total_cols);
-    assert_eq!(start_col, 5);
-}
-
-#[test]
-fn test_scroll_to_edge_cases() {
-    let mut start_row = 0;
-    let mut start_col = 0;
-    let total_rows = 10;
-    let total_cols = 10;
-
-    // Valid edge case
-    let result = scroll_to(
-        &mut start_row,
-        &mut start_col,
-        total_rows,
-        total_cols,
-        "J10",
-    );
-    assert!(result.is_ok());
-    assert_eq!(start_row, 9);
-    assert_eq!(start_col, 9);
-
-    // Invalid format
-    let result = scroll_to(
-        &mut start_row,
-        &mut start_col,
-        total_rows,
-        total_cols,
-        "A100",
-    );
-    assert!(result.is_err());
-    let result = scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, "A");
-    assert!(result.is_err());
 }
 
 #[test]
@@ -403,4 +415,393 @@ fn test_interactive_mode() {
     }
     crate::interactive_mode(total_rows, total_cols);
     assert_eq!(unsafe { STATUS_CODE }, 0); // Basic check
+}
+
+#[test]
+fn test_detect_formula_range_functions() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    
+    // Test SUM
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "SUM(A1:B2)");
+    if let CellData::Range { cell1, cell2, value2 } = &cell.data {
+        assert_eq!(cell1.as_str(), "A1");
+        assert_eq!(cell2.as_str(), "B2");
+        if let Valtype::Str(func) = value2 {
+            assert_eq!(func.as_str(), "SUM");
+        } else {
+            panic!("Expected Str, got {:?}", value2);
+        }
+    } else {
+        panic!("Expected Range, got {:?}", cell.data);
+    }
+    
+    // Test STDEV
+    unsafe { STATUS_CODE = 0; }
+    detect_formula(&mut cell, "STDEV(A1:Z9)");
+    if let CellData::Range { cell1, cell2, value2 } = &cell.data {
+        assert_eq!(cell1.as_str(), "A1");
+        assert_eq!(cell2.as_str(), "Z9");
+        if let Valtype::Str(func) = value2 {
+            assert_eq!(func.as_str(), "STDEV");
+        } else {
+            panic!("Expected Str, got {:?}", value2);
+        }
+    } else {
+        panic!("Expected Range, got {:?}", cell.data);
+    }
+}
+
+#[test]
+fn test_eval_edge_cases() {
+    let sheet = vec![
+        vec![
+            Cell {
+                value: Valtype::Int(0),
+                data: CellData::Empty,
+                dependents: HashSet::new(),
+            };
+            5
+        ];
+        5
+    ];
+    
+    // Eval on empty cell
+    unsafe { STATUS_CODE = 0; EVAL_ERROR = false; }
+    let result = eval(&sheet, 5, 5, 0, 0);
+    assert_eq!(result, Valtype::Int(0));
+    
+    // Test with string value in cell
+    // sheet[0][0].value = Valtype::Str(CellName::new("TEST").unwrap());
+    // unsafe { STATUS_CODE = 0; EVAL_ERROR = false; }
+    // let result = eval(&sheet, 5, 5, 0, 0);
+    // match result {
+    //     Valtype::Str(name) => assert_eq!(name.as_str(), "ERR"),
+    //     _ => panic!("Expected error string, got {:?}", result),
+    // }
+    // assert!(unsafe { EVAL_ERROR });
+}
+
+#[test]
+fn test_eval_invalid_formula() {
+    let mut sheet = vec![
+        vec![
+            Cell {
+                value: Valtype::Int(0),
+                data: CellData::Empty,
+                dependents: HashSet::new(),
+            };
+            2
+        ];
+        2
+    ];
+    
+    // Set cell to have invalid formula
+    sheet[0][0].data = CellData::Invalid;
+    
+    unsafe { STATUS_CODE = 0; EVAL_ERROR = false; }
+    let result = eval(&sheet, 2, 2, 0, 0);
+    assert_eq!(result, Valtype::Int(0)); // Should return 0 for invalid formula
+    assert_eq!(unsafe { STATUS_CODE }, 2); // Should set status code to 2 (unrecognized command)
+}
+
+#[test]
+fn test_eval_sleep_constant() {
+    let mut sheet = vec![
+        vec![
+            Cell {
+                value: Valtype::Int(0),
+                data: CellData::Empty,
+                dependents: HashSet::new(),
+            };
+            2
+        ];
+        2
+    ];
+    
+    // Test with SleepC and small timeout
+    sheet[0][0].data = CellData::SleepC;
+    sheet[0][0].value = Valtype::Int(1);
+    unsafe { STATUS_CODE = 0; EVAL_ERROR = false; }
+    let start = std::time::Instant::now();
+    let result = eval(&sheet, 2, 2, 0, 0);
+    let elapsed = start.elapsed();
+    assert_eq!(result, Valtype::Int(1));
+    assert!(elapsed.as_millis() >= 900, "Sleep should have lasted at least 1 second");
+    
+    // // Test with SleepC and string value (should error)
+    // sheet[0][1].data = CellData::SleepC;
+    // sheet[0][1].value = Valtype::Str(CellName::new("TEST").unwrap());
+    // unsafe { STATUS_CODE = 0; EVAL_ERROR = false; }
+    // let result = eval(&sheet, 2, 2, 0, 1);
+    // match result {
+    //     Valtype::Str(name) => assert_eq!(name.as_str(), "ERR"),
+    //     _ => panic!("Expected error string, got {:?}", result),
+    // }
+    // assert!(unsafe { EVAL_ERROR });
+}
+
+#[test]
+fn test_to_indices_function() {
+    unsafe { STATUS_CODE = 0; }
+    let (row, col) = to_indices("A1");
+    assert_eq!(row, 0);
+    assert_eq!(col, 0);
+    
+    unsafe { STATUS_CODE = 0; }
+    let (row, col) = to_indices("Z26");
+    assert_eq!(row, 25);
+    assert_eq!(col, 25);
+    
+    unsafe { STATUS_CODE = 0; }
+    let (row, col) = to_indices("AA1");
+    assert_eq!(row, 0);
+    assert_eq!(col, 26);
+    
+    unsafe { STATUS_CODE = 0; }
+    let (row, col) = to_indices("BC45");
+    assert_eq!(row, 44);
+    assert_eq!(col, 54); // B=2, C=3 -> BC = 2*26 + 3 = 55, so 54 zero-indexed
+    
+    // Test invalid indices
+    unsafe { STATUS_CODE = 0; }
+    let (row, col) = to_indices("A0");
+    assert_eq!(row, 0);
+    assert_eq!(col, 0);
+    assert_eq!(unsafe { STATUS_CODE }, 1);
+}
+
+#[test]
+fn test_update_and_recalc_chains() {
+    let mut sheet = vec![
+        vec![
+            Cell {
+                value: Valtype::Int(0),
+                data: CellData::Empty,
+                dependents: HashSet::new(),
+            };
+            5
+        ];
+        5
+    ];
+    
+    // Setup chain: A1 = 1, B1 = A1+1, C1 = B1+1, D1 = C1+1
+    sheet[0][0].data = CellData::Const;
+    sheet[0][0].value = Valtype::Int(1);
+    
+    sheet[0][1].data = CellData::RoC {
+        op_code: '+',
+        value2: Valtype::Int(1),
+        cell1: CellName::new("A1").unwrap(),
+    };
+    
+    sheet[0][2].data = CellData::RoC {
+        op_code: '+',
+        value2: Valtype::Int(1),
+        cell1: CellName::new("B1").unwrap(),
+    };
+    
+    sheet[0][3].data = CellData::RoC {
+        op_code: '+',
+        value2: Valtype::Int(1),
+        cell1: CellName::new("C1").unwrap(),
+    };
+    
+    // Setup dependencies
+    let b1_hash = (0 * 5 + 1) as u32;
+    let c1_hash = (0 * 5 + 2) as u32;
+    let d1_hash = (0 * 5 + 3) as u32;
+    
+    sheet[0][0].dependents.insert(b1_hash);
+    sheet[0][1].dependents.insert(c1_hash);
+    sheet[0][2].dependents.insert(d1_hash);
+    
+    // Now change A1 and see if the chain updates
+    let backup = sheet[0][0].my_clone();
+    unsafe { STATUS_CODE = 0; }
+    sheet[0][0].data = CellData::Const;
+    sheet[0][0].value = Valtype::Int(10);
+    
+    update_and_recalc(&mut sheet, 5, 5, 0, 0, backup);
+    
+    // Check that all cells have been updated
+    assert_eq!(sheet[0][0].value, Valtype::Int(10));
+    assert_eq!(sheet[0][1].value, Valtype::Int(11));
+    assert_eq!(sheet[0][2].value, Valtype::Int(12));
+    assert_eq!(sheet[0][3].value, Valtype::Int(13));
+}
+
+#[test]
+fn test_compute_range_functions() {
+    let mut sheet = vec![
+        vec![
+            Cell {
+                value: Valtype::Int(0),
+                data: CellData::Empty,
+                dependents: HashSet::new(),
+            };
+            4
+        ];
+        4
+    ];
+    
+    // Setup values
+    //  1  2  3  4
+    //  5  6  7  8
+    //  9 10 11 12
+    // 13 14 15 16
+    for i in 0..4 {
+        for j in 0..4 {
+            sheet[i][j].value = Valtype::Int(i as i32 * 4 + j as i32 + 1);
+        }
+    }
+    
+    // Test MAX function
+    let result = compute_range(&sheet, 0, 1, 0, 1, 1);
+    assert_eq!(result, 6); // max of [1,2,5,6] is 6
+    
+    // Test MIN function
+    let result = compute_range(&sheet, 0, 1, 0, 1, 2);
+    assert_eq!(result, 1); // min of [1,2,5,6] is 1
+    
+    // Test AVG function
+    let result = compute_range(&sheet, 0, 1, 0, 1, 3);
+    assert_eq!(result, 3); // avg of [1,2,5,6] is (1+2+5+6)/4 = 14/4 = 3.5 = 3 (integer division)
+    
+    // Test SUM function
+    let result = compute_range(&sheet, 0, 1, 0, 1, 4);
+    assert_eq!(result, 14); // sum of [1,2,5,6] is 14
+    
+    // Test STDEV function
+    let result = compute_range(&sheet, 0, 0, 0, 3, 5);
+    // STDEV of [1,2,3,4] has mean 2.5, variance is 1.25, stdev is sqrt(1.25) = 1.118 = 1 (rounded)
+    assert!(result > 0 && result < 2);
+    
+    // Test invalid function code
+    unsafe { STATUS_CODE = 0; }
+    let result = compute_range(&sheet, 0, 1, 0, 1, 6);
+    assert_eq!(result, 0);
+    assert_eq!(unsafe { STATUS_CODE }, 2);
+}
+
+#[test]
+fn test_cellname_functions() {
+    // Test valid cell name
+    let cell_name = CellName::new("A1").unwrap();
+    assert_eq!(cell_name.as_str(), "A1");
+    
+    // Test to_string
+    assert_eq!(cell_name.to_string(), "A1");
+    
+    // Test from_str
+    let cell_name: CellName = "B2".parse().unwrap();
+    assert_eq!(cell_name.as_str(), "B2");
+    
+    // Test too long
+    let result = CellName::new("ABCDEFGH");
+    assert!(result.is_err());
+    
+    // Test non-ASCII
+    let result = CellName::new("Ä1");
+    assert!(result.is_err());
+}
+
+#[test]
+fn scrolling() {
+    let total_rows = 25;
+    let total_cols = 25;
+
+    let mut start_row = 11;
+    w(&mut start_row);
+    assert_eq!(start_row, 1);
+
+    w(&mut start_row);
+    assert_eq!(start_row, 0);
+
+    let mut start_col = 5;
+    a(&mut start_col);
+    assert_eq!(start_col, 0);
+    
+    start_col =11;
+    a(&mut start_col);
+    assert_eq!(start_col, 1);
+
+    start_row = 18;
+    s(&mut start_row, total_rows);
+    assert_eq!(start_row, 18);
+    
+    start_row = 4;
+    s(&mut start_row, total_rows);
+    assert_eq!(start_row, 14);
+
+    start_row = 14;
+    s(&mut start_row, total_rows);
+    assert_eq!(start_row, 15);
+
+    start_col = 12;
+    d(&mut start_col, total_cols);
+    assert_eq!(start_col, 15);  // No change when already at boundary
+    
+    start_col = 15;
+    d(&mut start_col, total_cols);
+    assert_eq!(start_col, 15);  // No change when already at boundary
+    
+    start_col = 4;
+    d(&mut start_col, total_cols);
+    assert_eq!(start_col, 14);  // No change when already at boundary
+
+    start_row = 0;
+    start_col = 0;
+    let _ = scroll_to(
+        &mut start_row,
+        &mut start_col,
+        1,
+        1,
+        "A1"
+    );
+    assert_eq!(start_row, 0);
+    assert_eq!(start_col, 0);
+
+    start_row = 0;
+    start_col = 0;
+    let _ = scroll_to(
+        &mut start_row,
+        &mut start_col,
+        100,
+        100,
+        "C5"
+    );
+    assert_eq!(start_row, 4);  // Row index (5-1=4)
+    assert_eq!(start_col, 2);  // Column index (C=3-1=2)    
+
+}
+
+#[test]
+fn test_invalid_scroll_to() {
+    let mut start_row = 0;
+    let mut start_col = 0;
+    
+    // Test invalid cell reference format
+    let result = scroll_to(
+        &mut start_row,
+        &mut start_col,
+        10,
+        10,
+        "Invalid123"
+    );
+    assert!(result.is_err());
+    
+    // Test out-of-bounds reference
+    let result = scroll_to(
+        &mut start_row,
+        &mut start_col,
+        10,
+        10,
+        "K11"
+    );
+    assert!(result.is_err());
 }
