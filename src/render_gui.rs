@@ -1,185 +1,12 @@
-#[cfg(feature = "gui")]
-use std::collections::HashSet;
-#[cfg(feature = "gui")]
-use std::fs::File;
+use egui::{Color32, Stroke};
 
-#[cfg(feature = "gui")]
-use csv::Writer;
-#[cfg(feature = "gui")]
-use eframe::{
-    egui,
-    egui::{
-        Color32,
-        Stroke,
-        Vec2,
-    },
-};
-
-#[cfg(feature = "gui")]
-use crate::utils_gui::{
-    col_label,
-    parse_cell_name,
-};
-#[cfg(feature = "gui")]
 use crate::{
-    Cell,
-    CellData,
-    STATUS,
-    STATUS_CODE,
     Valtype,
-    parser,
+    gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
+    utils_gui::{col_label, parse_cell_name},
 };
-enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
 
-#[cfg(feature = "gui")]
-// Define your styling configuration.
-pub struct SpreadsheetStyle {
-    header_bg:          Color32,
-    header_text:        Color32,
-    cell_bg_even:       Color32,
-    cell_bg_odd:        Color32,
-    cell_text:          Color32,
-    selected_cell_bg:   Color32,
-    selected_cell_text: Color32,
-    grid_line:          Stroke,
-    cell_size:          Vec2,
-    font_size:          f32,
-    prev_base_color:    Color32,
-}
-#[cfg(feature = "gui")]
-impl Default for SpreadsheetStyle {
-    fn default() -> Self {
-        Self {
-            header_bg:          Color32::from_rgb(60, 63, 100),
-            header_text:        Color32::from_rgb(220, 220, 220),
-            cell_bg_even:       Color32::from_rgb(65, 50, 85),
-            cell_bg_odd:        Color32::from_rgb(45, 45, 45),
-            cell_text:          Color32::LIGHT_GRAY,
-            selected_cell_bg:   Color32::from_rgb(120, 120, 180),
-            selected_cell_text: Color32::WHITE,
-            grid_line:          Stroke::new(1.0, Color32::from_rgb(70, 70, 70)),
-            cell_size:          Vec2::new(60.0, 25.0),
-            font_size:          14.0,
-            prev_base_color:    Color32::from_rgb(120, 120, 180),
-        }
-    }
-}
-#[cfg(feature = "gui")]
-pub struct SpreadsheetApp {
-    sheet:                 Vec<Vec<Cell>>,
-    selected:              Option<(usize, usize)>,
-    formula_input:         String,
-    editing_cell:          bool,
-    style:                 SpreadsheetStyle,
-    status_message:        String,
-    start_row:             usize,
-    start_col:             usize,
-    scroll_to_cell:        String,
-    should_reset_scroll:   bool,
-    focus_on:              usize,
-    request_formula_focus: bool,
-}
-#[cfg(feature = "gui")]
 impl SpreadsheetApp {
-    pub fn new(
-        rows: usize,
-        cols: usize,
-        start_row: usize,
-        start_col: usize,
-    ) -> Self {
-        let sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; cols]; rows];
-        Self { sheet, selected: Some((0, 0)), formula_input: String::new(), editing_cell: false, style: SpreadsheetStyle::default(), status_message: String::new(), start_row, start_col, scroll_to_cell: String::new(), should_reset_scroll: false, focus_on: 0, request_formula_focus: false }
-    }
-
-    // Helper: Extract formula from cell
-    fn get_cell_formula(
-        &self,
-        row: usize,
-        col: usize,
-    ) -> String {
-        let cell = &self.sheet[row][col];
-        match &cell.data {
-            CellData::Empty => String::new(),
-
-            CellData::Const =>
-                if let Valtype::Int(val) = cell.value {
-                    val.to_string()
-                } else {
-                    String::new()
-                },
-
-            CellData::Ref { cell1 } => cell1.as_str().to_string(),
-
-            CellData::CoC { op_code, value2 } =>
-                if let Valtype::Int(val1) = &cell.value {
-                    if let Valtype::Int(val2) = value2 { format!("{}{}{}", val1, op_code, val2) } else { String::new() }
-                } else {
-                    String::new()
-                },
-
-            CellData::CoR { op_code, value2, cell2 } =>
-                if let Valtype::Int(val1) = value2 {
-                    format!("{}{}{}", val1, op_code, cell2.as_str())
-                } else {
-                    String::new()
-                },
-
-            CellData::RoC { op_code, value2, cell1 } =>
-                if let Valtype::Int(val2) = value2 {
-                    format!("{}{}{}", cell1.as_str(), op_code, val2)
-                } else {
-                    String::new()
-                },
-
-            CellData::RoR { op_code, cell1, cell2 } => {
-                format!("{}{}{}", cell1, op_code, cell2)
-            }
-
-            CellData::Range { cell1, cell2, value2 } =>
-                if let Valtype::Str(func) = value2 {
-                    format!("{}({}:{})", func.as_str(), cell1.as_str(), cell2.as_str())
-                } else {
-                    String::new()
-                },
-
-            CellData::SleepC =>
-                if let Valtype::Int(val) = cell.value {
-                    format!("SLEEP({})", val)
-                } else {
-                    String::new()
-                },
-
-            CellData::SleepR { cell1 } => {
-                format!("SLEEP({})", cell1)
-            }
-
-            CellData::Invalid => String::new(),
-        }
-    }
-
-    // Update the value of the currently selected cell
-    fn update_selected_cell(&mut self) {
-        let total_rows = self.sheet.len();
-        let total_cols = self.sheet[0].len();
-        if let Some((r, c)) = self.selected {
-            let old_cell = self.sheet[r][c].my_clone();
-            parser::detect_formula(&mut self.sheet[r][c], &self.formula_input);
-            parser::update_and_recalc(&mut self.sheet, total_rows, total_cols, r, c, old_cell);
-            self.status_message = match unsafe { STATUS_CODE } {
-                0 => format!("Updated cell {}{}", col_label(c), r + 1),
-                code => format!("{}", STATUS[code]),
-            };
-            unsafe {
-                STATUS_CODE = 0;
-            }
-        }
-    }
-
     // Render the formula input bar
     fn render_formula_bar(
         &mut self,
@@ -225,7 +52,7 @@ impl SpreadsheetApp {
             "copy" => self.status_message = "Copy function not implemented yet".to_string(),
             "paste" => self.status_message = "Paste function not implemented yet".to_string(),
             "help" => self.show_command_help(),
-            _ =>
+            _ => {
                 if cmd.starts_with("scroll_to ") {
                     if let Some(cell_ref) = cmd.strip_prefix("scroll_to ") {
                         self.scroll_to_cell = cell_ref.to_string();
@@ -276,84 +103,14 @@ impl SpreadsheetApp {
                     }
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
-                },
-        }
-    }
-    fn export_to_csv(
-        &mut self,
-        filename: &str,
-    ) {
-        let filename = if filename.ends_with(".csv") { filename.to_string() } else { format!("{}.csv", filename) };
-
-        match File::create(&filename) {
-            Ok(file) => {
-                let mut wtr = Writer::from_writer(file);
-                for row in &self.sheet {
-                    let record: Vec<String> = row
-                        .iter()
-                        .map(|cell| match &cell.value {
-                            Valtype::Int(n) => n.to_string(),
-                            Valtype::Str(s) => s.to_string(),
-                        })
-                        .collect();
-
-                    if let Err(e) = wtr.write_record(&record) {
-                        self.status_message = format!("CSV write error: {}", e);
-                        return;
-                    }
                 }
-                wtr.flush().unwrap();
-                self.status_message = format!("Exported to {}", filename);
             }
-            Err(e) => self.status_message = format!("File error: {}", e),
         }
-    }
-    fn move_selection_n(
-        &mut self,
-        direction: Direction,
-        amount: usize,
-    ) {
-        let total_rows = self.sheet.len();
-        let total_cols = self.sheet[0].len();
-        match direction {
-            Direction::Up => crate::utils_gui::w(&mut self.start_row, amount),
-            Direction::Down => crate::utils_gui::s(&mut self.start_row, total_rows, amount),
-            Direction::Right => crate::utils_gui::d(&mut self.start_col, total_cols, amount),
-            Direction::Left => crate::utils_gui::a(&mut self.start_row, amount),
-        };
-        self.status_message = format!("Moved to cell {}{}", col_label(self.start_col), (self.start_row + 1).to_string());
     }
 
     fn reset_theme(&mut self) {
         self.style = SpreadsheetStyle::default();
         self.status_message = "Theme reset to default".to_string();
-    }
-
-    fn goto_cell(
-        &mut self,
-        cell_ref: &str,
-    ) {
-        if let Some(pos) = cell_ref.chars().position(|c| c.is_ascii_digit()) {
-            let col_str = &cell_ref[..pos];
-            let row_str = &cell_ref[pos..];
-            let mut col_index: usize = 0;
-            for c in col_str.chars() {
-                let c = c.to_ascii_uppercase();
-                col_index = col_index * 26 + ((c as u8 - b'A') as usize + 1);
-            }
-            let col = col_index - 1;
-            if let Ok(row) = row_str.parse::<usize>() {
-                let row_index = row - 1;
-                let total_rows = self.sheet.len();
-                let total_cols = self.sheet[0].len();
-                if row > 0 && row <= total_rows && col < total_cols {
-                    self.selected = Some((row_index, col));
-                    self.status_message = format!("Moved to cell {}", cell_ref);
-                    return;
-                }
-            }
-        }
-        self.status_message = format!("Invalid cell reference: {}", cell_ref);
     }
 
     fn show_command_help(&mut self) {
@@ -625,21 +382,8 @@ impl SpreadsheetApp {
             }
         });
     }
-
-    // Handle cell selection changes
-    fn handle_selection_change(
-        &mut self,
-        new_selection: Option<(usize, usize)>,
-    ) {
-        if let Some((i, j)) = new_selection {
-            self.selected = Some((i, j));
-            self.formula_input = self.get_cell_formula(i, j);
-            self.status_message = format!("Selected cell {}{}", col_label(j), i + 1);
-        }
-    }
 }
 
-#[cfg(feature = "gui")]
 impl eframe::App for SpreadsheetApp {
     fn update(
         &mut self,

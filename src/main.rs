@@ -14,6 +14,8 @@ use std::{
 
 #[cfg(feature = "gui")]
 use eframe::egui;
+#[cfg(feature = "gui")]
+use gui_defs::SpreadsheetApp;
 
 // Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -58,7 +60,7 @@ impl std::str::FromStr for CellName {
 //////////////////////////////////////////////////////////////////////////////
 
 #[cfg(feature = "gui")]
-mod gui;
+mod render_gui;
 mod parser;
 #[cfg(not(feature = "gui"))]
 mod scrolling;
@@ -66,7 +68,13 @@ mod scrolling;
 mod tests;
 mod utils;
 #[cfg(feature = "gui")]
+mod gui_defs;
+#[cfg(feature = "gui")]
 mod utils_gui;
+#[cfg(feature = "gui")]
+mod scroll_gui;
+#[cfg(feature = "gui")]
+mod impl_helpers;
 
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
@@ -188,6 +196,7 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
         return Err("Usage: <program> <num_rows> <num_columns>");
     }
 }
+
 #[cfg(not(feature = "gui"))]
 fn interactive_mode(
     total_rows: usize,
@@ -277,7 +286,7 @@ fn main() {
     #[cfg(feature = "gui")]
     {
         let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]).with_resizable(true), ..Default::default() };
-        eframe::run_native("Rust Spreadsheet", options, Box::new(move |_cc| Ok(Box::new(gui::SpreadsheetApp::new(total_rows, total_cols, 0, 0))))).unwrap();
+        eframe::run_native("Rust Spreadsheet", options, Box::new(move |_cc| Ok(Box::new(SpreadsheetApp::new(total_rows, total_cols, 0, 0))))).unwrap();
     }
     #[cfg(not(feature = "gui"))]
     interactive_mode(total_rows, total_cols);
