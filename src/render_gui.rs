@@ -49,8 +49,10 @@ impl SpreadsheetApp {
         match cmd {
             "q" => std::process::exit(0),
             "tr" => self.reset_theme(),
-            "copy" => self.status_message = "Copy function not implemented yet".to_string(),
-            "paste" => self.status_message = "Paste function not implemented yet".to_string(),
+            "copy" => self.copy_selected_cell(),
+            "paste" => self.paste_to_selected_cell(),
+            "undo" => self.undo(),
+            "redo" => self.redo(),
             "help" => self.show_command_help(),
             _ => {
                 if cmd.starts_with("scroll_to ") {
@@ -378,6 +380,18 @@ impl SpreadsheetApp {
                     self.formula_input.clear();
                     self.status_message = "Selection cleared, command mode".to_string();
                     self.request_formula_focus = true;
+                }
+            }
+            if input.modifiers.ctrl {
+                if input.key_pressed(egui::Key::C) {
+                    self.copy_selected_cell();
+                } else if input.key_pressed(egui::Key::V) {
+                    self.paste_to_selected_cell();
+                } else if input.key_pressed(egui::Key::Z) {
+                    self.undo();
+                } else if input.key_pressed(egui::Key::Y) || 
+                      (input.modifiers.shift && input.key_pressed(egui::Key::Z)) {
+                    self.redo();
                 }
             }
         });

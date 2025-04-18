@@ -40,6 +40,7 @@ impl Default for SpreadsheetStyle {
             cell_size: Vec2::new(60.0, 25.0),
             font_size: 14.0,
             prev_base_color: Color32::from_rgb(120, 120, 180),
+            
         }
     }
 }
@@ -57,6 +58,11 @@ pub struct SpreadsheetApp {
     pub(crate) should_reset_scroll: bool,
     pub(crate) focus_on: usize,
     pub(crate) request_formula_focus: bool,
+    pub(crate) clipboard: Option<Cell>,
+    pub(crate) clipboard_formula: String,
+    pub(crate) undo_stack: Vec<UndoAction>,
+    pub(crate) redo_stack: Vec<UndoAction>,
+    pub(crate) max_undo_levels: usize,
 }
 
 impl SpreadsheetApp{
@@ -67,6 +73,33 @@ impl SpreadsheetApp{
         start_col: usize,
     ) -> Self {
         let sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; cols]; rows];
-        Self { sheet, selected: Some((0, 0)), formula_input: String::new(), editing_cell: false, style: SpreadsheetStyle::default(), status_message: String::new(), start_row, start_col, scroll_to_cell: String::new(), should_reset_scroll: false, focus_on: 0, request_formula_focus: false }
+        Self { 
+            sheet, 
+            selected: Some((0, 0)), 
+            formula_input: String::new(), 
+            editing_cell: false, 
+            style: SpreadsheetStyle::default(), 
+            status_message: String::new(), 
+            start_row, 
+            start_col, 
+            scroll_to_cell: String::new(), 
+            should_reset_scroll: false, 
+            focus_on: 0, 
+            request_formula_focus: false,
+            
+            // New fields
+            clipboard: None,
+            clipboard_formula: String::new(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            max_undo_levels: 100, // Configure this as needed
+        }
     }
+    
+}
+
+pub struct UndoAction {
+    pub position: (usize, usize),  // (row, col)
+    pub old_cell: Cell,
+    pub old_formula: String,
 }
