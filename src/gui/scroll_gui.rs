@@ -1,4 +1,4 @@
-use crate::{gui_defs::{Direction, SpreadsheetApp}, utils_gui::col_label};
+use crate::{gui::gui_defs::{Direction, SpreadsheetApp}, gui::utils_gui::col_label};
 
 pub fn w(
     start_row: &mut usize,

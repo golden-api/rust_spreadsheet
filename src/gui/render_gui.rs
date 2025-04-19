@@ -2,8 +2,8 @@ use egui::{Color32, Stroke};
 
 use crate::{
     Valtype,
-    gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
-    utils_gui::{col_label, parse_cell_name},
+    gui::gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
+    gui::utils_gui::{col_label, parse_cell_name},
 };
 
 impl SpreadsheetApp {

@@ -2,8 +2,8 @@ use std::fs::File;
 
 use csv::Writer;
 
-use crate::{CellData, STATUS, STATUS_CODE, Valtype, gui_defs::SpreadsheetApp, parser, utils_gui::col_label};
-use crate::gui_defs::UndoAction;
+use crate::{CellData, STATUS, STATUS_CODE, Valtype, gui::gui_defs::SpreadsheetApp, parser, gui::utils_gui::col_label};
+use crate::gui::gui_defs::UndoAction;
 
 impl SpreadsheetApp {
     // Helper: Extract formula from cell
