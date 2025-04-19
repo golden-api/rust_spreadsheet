@@ -63,6 +63,8 @@ pub struct SpreadsheetApp {
     pub(crate) undo_stack: Vec<UndoAction>,
     pub(crate) redo_stack: Vec<UndoAction>,
     pub(crate) max_undo_levels: usize,
+    pub(crate) show_save_dialog: bool,
+    pub(crate) save_filename: String,
 }
 
 impl SpreadsheetApp{
@@ -86,13 +88,13 @@ impl SpreadsheetApp{
             should_reset_scroll: false, 
             focus_on: 0, 
             request_formula_focus: false,
-            
-            // New fields
             clipboard: None,
             clipboard_formula: String::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            max_undo_levels: 100, // Configure this as needed
+            max_undo_levels: 100, 
+            show_save_dialog: false,
+            save_filename: String::new(),
         }
     }
     

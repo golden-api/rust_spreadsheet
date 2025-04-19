@@ -199,6 +199,57 @@ impl SpreadsheetApp {
         self.scroll_to_cell = String::new();
     }
 
+    fn render_save(
+        &mut self,
+        ui: &mut egui::Ui,
+    ) {
+        ui.label(egui::RichText::new("Save as:").size(self.style.font_size).color(self.style.header_text));
+        
+        // Add the filename input field
+        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename)
+            .hint_text("filename.csv")
+            .desired_width(200.0)
+            .font(egui::TextStyle::Monospace)
+            .text_color(self.style.header_text));
+        
+        // Auto-focus the input field when dialog opens
+        if self.show_save_dialog && self.focus_on == 0 {
+            response.request_focus();
+            self.focus_on = 3; // Use 3 as the focus ID for save dialog
+        }
+        
+        // Handle Enter key and Save button
+        let enter_pressed = (self.focus_on == 3) && ui.input(|i| i.key_pressed(egui::Key::Enter));
+        let save_clicked = ui.add(egui::Button::new(egui::RichText::new("Save")
+            .size(self.style.font_size)
+            .color(self.style.selected_cell_text))
+            .fill(self.style.selected_cell_bg)
+            .min_size(egui::Vec2::new(60.0, 25.0)))
+            .clicked();
+        
+        if enter_pressed || save_clicked {
+            if !self.save_filename.is_empty() {
+                let filename = self.save_filename.clone();
+                self.export_to_csv(&filename);
+                self.show_save_dialog = false;
+                self.focus_on = 0;
+            }
+        }
+        
+        // Handle Cancel button and Escape key
+        let cancel_clicked = ui.add(egui::Button::new(egui::RichText::new("Cancel")
+            .size(self.style.font_size)
+            .color(self.style.header_text))
+            .min_size(egui::Vec2::new(60.0, 25.0)))
+            .clicked();
+        
+        if cancel_clicked || (self.focus_on == 3 && ui.input(|i| i.key_pressed(egui::Key::Escape))) {
+            self.show_save_dialog = false;
+            self.focus_on = 0;
+            self.save_filename.clear();
+        }
+    }
+
     // Render a single cell
     fn render_cell(
         &mut self,
@@ -394,7 +445,10 @@ impl SpreadsheetApp {
                 }
             }
             if input.modifiers.ctrl {
-                if input.key_pressed(egui::Key::E) {
+                if input.key_pressed(egui::Key::S) {
+                    self.show_save_dialog = true;
+                    self.focus_on = 0;
+                } else if input.key_pressed(egui::Key::E) {
                     self.copy_selected_cell();
                 } else if input.key_pressed(egui::Key::R) {
                     self.paste_to_selected_cell();
@@ -426,6 +480,12 @@ impl eframe::App for SpreadsheetApp {
                 ui.separator();
                 ui.add_space(16.0);
                 self.render_colour(ui);
+                if self.show_save_dialog{
+                    ui.add_space(16.0);
+                    ui.separator();
+                    ui.add_space(16.0);
+                    self.render_save(ui);
+                }
                 ui.add_space(8.0);
                 ui.separator();
             });
