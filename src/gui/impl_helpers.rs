@@ -2,21 +2,16 @@ use std::fs::File;
 
 use csv::Writer;
 
-<<<<<<< HEAD:src/gui/impl_helpers.rs
-use crate::{CellData, STATUS, STATUS_CODE, Valtype, gui::gui_defs::SpreadsheetApp, parser, gui::utils_gui::col_label};
 use crate::gui::gui_defs::UndoAction;
-=======
-use crate::gui_defs::UndoAction;
 use crate::{
     CellData,
     STATUS,
     STATUS_CODE,
     Valtype,
-    gui_defs::SpreadsheetApp,
+    gui::gui_defs::SpreadsheetApp,
     parser,
-    utils_gui::col_label,
+    gui::utils_gui::col_label,
 };
->>>>>>> 75926940e654b6133427953a63d32c2cf8a26bdb:src/impl_helpers.rs
 
 impl SpreadsheetApp {
     // Helper: Extract formula from cell

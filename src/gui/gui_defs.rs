@@ -20,19 +20,6 @@ pub enum Direction {
 
 // Define your styling configuration.
 pub struct SpreadsheetStyle {
-<<<<<<< HEAD:src/gui/gui_defs.rs
-    pub(in crate::gui) header_bg: Color32,
-    pub(in crate::gui) header_text: Color32,
-    pub(in crate::gui) cell_bg_even: Color32,
-    pub(in crate::gui) cell_bg_odd: Color32,
-    pub(in crate::gui) cell_text: Color32,
-    pub(in crate::gui) selected_cell_bg: Color32,
-    pub(in crate::gui) selected_cell_text: Color32,
-    pub(in crate::gui) grid_line: Stroke,
-    pub(in crate::gui) cell_size: Vec2,
-    pub(in crate::gui) font_size: f32,
-    pub(in crate::gui) prev_base_color: Color32,
-=======
     pub(crate) header_bg:          Color32,
     pub(crate) header_text:        Color32,
     pub(crate) cell_bg_even:       Color32,
@@ -44,7 +31,6 @@ pub struct SpreadsheetStyle {
     pub(crate) cell_size:          Vec2,
     pub(crate) font_size:          f32,
     pub(crate) prev_base_color:    Color32,
->>>>>>> 75926940e654b6133427953a63d32c2cf8a26bdb:src/gui_defs.rs
 }
 
 impl Default for SpreadsheetStyle {
@@ -66,27 +52,6 @@ impl Default for SpreadsheetStyle {
 }
 
 pub struct SpreadsheetApp {
-<<<<<<< HEAD:src/gui/gui_defs.rs
-    pub(in crate::gui) sheet: Vec<Vec<Cell>>,
-    pub(in crate::gui) selected: Option<(usize, usize)>,
-    pub(in crate::gui) formula_input: String,
-    pub(in crate::gui) editing_cell: bool,
-    pub(in crate::gui) style: SpreadsheetStyle,
-    pub(in crate::gui) status_message: String,
-    pub(in crate::gui) start_row: usize,
-    pub(in crate::gui) start_col: usize,
-    pub(in crate::gui) scroll_to_cell: String,
-    pub(in crate::gui) should_reset_scroll: bool,
-    pub(in crate::gui) focus_on: usize,
-    pub(in crate::gui) request_formula_focus: bool,
-    pub(in crate::gui) clipboard: Option<Cell>,
-    pub(in crate::gui) clipboard_formula: String,
-    pub(in crate::gui) undo_stack: Vec<UndoAction>,
-    pub(in crate::gui) redo_stack: Vec<UndoAction>,
-    pub(in crate::gui) max_undo_levels: usize,
-    pub(in crate::gui) show_save_dialog: bool,
-    pub(in crate::gui) save_filename: String,
-=======
     pub(crate) sheet:                 Vec<Vec<Cell>>,
     pub(crate) selected:              Option<(usize, usize)>,
     pub(crate) formula_input:         String,
@@ -106,7 +71,6 @@ pub struct SpreadsheetApp {
     pub(crate) max_undo_levels:       usize,
     pub(crate) show_save_dialog:      bool,
     pub(crate) save_filename:         String,
->>>>>>> 75926940e654b6133427953a63d32c2cf8a26bdb:src/gui_defs.rs
 }
 
 impl SpreadsheetApp {
@@ -141,14 +105,8 @@ impl SpreadsheetApp {
     }
 }
 
-<<<<<<< HEAD:src/gui/gui_defs.rs
-pub(in crate::gui) struct UndoAction {
-    pub position: (usize, usize),  // (row, col)
-    pub old_cell: Cell,
-=======
 pub struct UndoAction {
     pub position:    (usize, usize), // (row, col)
     pub old_cell:    Cell,
->>>>>>> 75926940e654b6133427953a63d32c2cf8a26bdb:src/gui_defs.rs
     pub old_formula: String,
 }

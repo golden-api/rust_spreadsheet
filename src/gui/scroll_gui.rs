@@ -1,14 +1,10 @@
-<<<<<<< HEAD:src/gui/scroll_gui.rs
-use crate::{gui::gui_defs::{Direction, SpreadsheetApp}, gui::utils_gui::col_label};
-=======
 use crate::{
-    gui_defs::{
+    gui::gui_defs::{
         Direction,
         SpreadsheetApp,
     },
-    utils_gui::col_label,
+    gui::utils_gui::col_label,
 };
->>>>>>> 75926940e654b6133427953a63d32c2cf8a26bdb:src/scroll_gui.rs
 
 pub fn w(
     start_row: &mut usize,

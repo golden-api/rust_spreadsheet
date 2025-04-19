@@ -5,20 +5,15 @@ use egui::{
 
 use crate::{
     Valtype,
-<<<<<<< HEAD:src/gui/render_gui.rs
-    gui::gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
-    gui::utils_gui::{col_label, parse_cell_name},
-=======
-    gui_defs::{
+    gui::gui_defs::{
         Direction,
         SpreadsheetApp,
         SpreadsheetStyle,
     },
-    utils_gui::{
+    gui::utils_gui::{
         col_label,
         parse_cell_name,
     },
->>>>>>> 75926940e654b6133427953a63d32c2cf8a26bdb:src/render_gui.rs
 };
 
 impl SpreadsheetApp {
