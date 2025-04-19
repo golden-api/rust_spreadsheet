@@ -1,4 +1,3 @@
-
 // Helper: Convert column index to Excel-style label (A, B, …, Z, AA, etc.)
 pub fn col_label(mut col_index: usize) -> String {
     let mut name = String::new();
@@ -43,4 +42,3 @@ pub fn col_label_to_index(label: &str) -> Option<usize> {
     }
     Some(col - 1)
 }
-

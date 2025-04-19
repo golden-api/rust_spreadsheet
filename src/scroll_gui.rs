@@ -1,4 +1,10 @@
-use crate::{gui_defs::{Direction, SpreadsheetApp}, utils_gui::col_label};
+use crate::{
+    gui_defs::{
+        Direction,
+        SpreadsheetApp,
+    },
+    utils_gui::col_label,
+};
 
 pub fn w(
     start_row: &mut usize,
@@ -10,7 +16,6 @@ pub fn w(
         *start_row = 0;
     }
 }
-
 
 pub fn s(
     start_row: &mut usize,
@@ -26,7 +31,6 @@ pub fn s(
     }
 }
 
-
 pub fn a(
     start_col: &mut usize,
     amount: usize,
@@ -37,7 +41,6 @@ pub fn a(
         *start_col = 0;
     }
 }
-
 
 pub fn d(
     start_col: &mut usize,
@@ -53,7 +56,7 @@ pub fn d(
     }
 }
 
-impl SpreadsheetApp{
+impl SpreadsheetApp {
     pub fn move_selection_n(
         &mut self,
         direction: Direction,
@@ -65,10 +68,8 @@ impl SpreadsheetApp{
             Direction::Up => w(&mut self.start_row, amount),
             Direction::Down => s(&mut self.start_row, total_rows, amount),
             Direction::Right => d(&mut self.start_col, total_cols, amount),
-            Direction::Left => a(&mut self.start_row, amount),
+            Direction::Left => a(&mut self.start_col, amount),
         };
         self.status_message = format!("Moved to cell {}{}", col_label(self.start_col), (self.start_row + 1).to_string());
     }
-
-    
 }
