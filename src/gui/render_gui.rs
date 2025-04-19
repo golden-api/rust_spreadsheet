@@ -1,9 +1,24 @@
-use egui::{Color32, Stroke};
+use egui::{
+    Color32,
+    Stroke,
+};
 
 use crate::{
     Valtype,
+<<<<<<< HEAD:src/gui/render_gui.rs
     gui::gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
     gui::utils_gui::{col_label, parse_cell_name},
+=======
+    gui_defs::{
+        Direction,
+        SpreadsheetApp,
+        SpreadsheetStyle,
+    },
+    utils_gui::{
+        col_label,
+        parse_cell_name,
+    },
+>>>>>>> 75926940e654b6133427953a63d32c2cf8a26bdb:src/render_gui.rs
 };
 
 impl SpreadsheetApp {
@@ -52,21 +67,18 @@ impl SpreadsheetApp {
             "undo" => self.undo(),
             "redo" => self.redo(),
             "help" => self.show_command_help(),
-            _ => {
+            _ =>
                 if cmd.starts_with("copy ") {
                     if let Some(cell_ref) = cmd.strip_prefix("copy ") {
                         self.goto_cell(cell_ref);
                         self.copy_selected_cell();
                     }
-                }
-                else if cmd.starts_with("paste ") {
+                } else if cmd.starts_with("paste ") {
                     if let Some(cell_ref) = cmd.strip_prefix("paste ") {
                         self.goto_cell(cell_ref);
                         self.paste_to_selected_cell();
                     }
-                }
-
-                else if cmd.starts_with("scroll_to ") {
+                } else if cmd.starts_with("scroll_to ") {
                     if let Some(cell_ref) = cmd.strip_prefix("scroll_to ") {
                         self.scroll_to_cell = cell_ref.to_string();
                         self.process_scroll_to_cell();
@@ -116,8 +128,7 @@ impl SpreadsheetApp {
                     }
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
-                }
-            }
+                },
         }
     }
 
@@ -204,29 +215,20 @@ impl SpreadsheetApp {
         ui: &mut egui::Ui,
     ) {
         ui.label(egui::RichText::new("Save as:").size(self.style.font_size).color(self.style.header_text));
-        
+
         // Add the filename input field
-        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename)
-            .hint_text("filename.csv")
-            .desired_width(200.0)
-            .font(egui::TextStyle::Monospace)
-            .text_color(self.style.header_text));
-        
+        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename).hint_text("filename.csv").desired_width(200.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
+
         // Auto-focus the input field when dialog opens
         if self.show_save_dialog && self.focus_on == 0 {
             response.request_focus();
             self.focus_on = 3; // Use 3 as the focus ID for save dialog
         }
-        
+
         // Handle Enter key and Save button
         let enter_pressed = (self.focus_on == 3) && ui.input(|i| i.key_pressed(egui::Key::Enter));
-        let save_clicked = ui.add(egui::Button::new(egui::RichText::new("Save")
-            .size(self.style.font_size)
-            .color(self.style.selected_cell_text))
-            .fill(self.style.selected_cell_bg)
-            .min_size(egui::Vec2::new(60.0, 25.0)))
-            .clicked();
-        
+        let save_clicked = ui.add(egui::Button::new(egui::RichText::new("Save").size(self.style.font_size).color(self.style.selected_cell_text)).fill(self.style.selected_cell_bg).min_size(egui::Vec2::new(60.0, 25.0))).clicked();
+
         if enter_pressed || save_clicked {
             if !self.save_filename.is_empty() {
                 let filename = self.save_filename.clone();
@@ -235,14 +237,10 @@ impl SpreadsheetApp {
                 self.focus_on = 0;
             }
         }
-        
+
         // Handle Cancel button and Escape key
-        let cancel_clicked = ui.add(egui::Button::new(egui::RichText::new("Cancel")
-            .size(self.style.font_size)
-            .color(self.style.header_text))
-            .min_size(egui::Vec2::new(60.0, 25.0)))
-            .clicked();
-        
+        let cancel_clicked = ui.add(egui::Button::new(egui::RichText::new("Cancel").size(self.style.font_size).color(self.style.header_text)).min_size(egui::Vec2::new(60.0, 25.0))).clicked();
+
         if cancel_clicked || (self.focus_on == 3 && ui.input(|i| i.key_pressed(egui::Key::Escape))) {
             self.show_save_dialog = false;
             self.focus_on = 0;
@@ -454,8 +452,7 @@ impl SpreadsheetApp {
                     self.paste_to_selected_cell();
                 } else if input.key_pressed(egui::Key::Z) {
                     self.undo();
-                } else if input.key_pressed(egui::Key::Y) || 
-                      (input.modifiers.shift && input.key_pressed(egui::Key::Z)) {
+                } else if input.key_pressed(egui::Key::Y) || (input.modifiers.shift && input.key_pressed(egui::Key::Z)) {
                     self.redo();
                 }
             }
@@ -480,7 +477,7 @@ impl eframe::App for SpreadsheetApp {
                 ui.separator();
                 ui.add_space(16.0);
                 self.render_colour(ui);
-                if self.show_save_dialog{
+                if self.show_save_dialog {
                     ui.add_space(16.0);
                     ui.separator();
                     ui.add_space(16.0);
