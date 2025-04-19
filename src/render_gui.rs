@@ -62,6 +62,8 @@ impl SpreadsheetApp {
             "undo" => self.undo(),
             "redo" => self.redo(),
             "help" => self.show_command_help(),
+            "rainbow1" => {self.style.rainbow=1;}
+            "rainbow2" => {self.style.rainbow=2;}
             _ =>
                 if cmd.starts_with("copy ") {
                     if let Some(cell_ref) = cmd.strip_prefix("copy ") {
@@ -159,8 +161,11 @@ impl SpreadsheetApp {
         ui: &mut egui::Ui,
     ) {
         ui.label(egui::RichText::new("Theme:").size(self.style.font_size).color(self.style.header_text));
+        
+        // Original color picking logic when no rainbow mode is active
         let mut base_color = self.style.prev_base_color.clone();
         if ui.color_edit_button_srgba(&mut base_color).changed() {
+            self.style.rainbow=0;
             fn adjust_brightness(
                 color: Color32,
                 factor: f32,
@@ -191,7 +196,162 @@ impl SpreadsheetApp {
             self.style.grid_line = Stroke::new(1.0, adjust_brightness(base_color, 0.7));
             self.style.prev_base_color = base_color;
         }
+        // Check if rainbow2 mode is active - single color with brightness variation
+        if self.style.rainbow==2 {
+            // Get the current time for animation
+            let time = ui.ctx().input(|i| i.time);
+            let time_f32 = time as f32;
+            
+            // HSV to RGB conversion for smooth color cycling through spectrum
+            fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
+                let h = h % 360.0;
+                let c = v * s;
+                let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+                let m = v - c;
+                
+                let (r, g, b) = if h < 60.0 {
+                    (c, x, 0.0)
+                } else if h < 120.0 {
+                    (x, c, 0.0)
+                } else if h < 180.0 {
+                    (0.0, c, x)
+                } else if h < 240.0 {
+                    (0.0, x, c)
+                } else if h < 300.0 {
+                    (x, 0.0, c)
+                } else {
+                    (c, 0.0, x)
+                };
+                
+                let r = ((r + m) * 255.0) as u8;
+                let g = ((g + m) * 255.0) as u8;
+                let b = ((b + m) * 255.0) as u8;
+                
+                (r, g, b)
+            }
+            
+            // Generate a cycling hue value (0-360)
+            let hue = (time_f32 * 20.0) % 360.0; // Complete cycle every 18 seconds
+            
+            // Convert to RGB with full saturation and value
+            let (r, g, b) = hsv_to_rgb(hue, 0.9, 0.9);
+            
+            // Create our base color
+            let base_color = Color32::from_rgb(r, g, b);
+            
+            // Helper function for brightness adjustment - same as original
+            fn adjust_brightness(
+                color: Color32,
+                factor: f32,
+            ) -> Color32 {
+                let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
+                let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
+                let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
+                Color32::from_rgb(r, g, b)
+            }
+            
+            // Helper function for calculating contrasting text color
+            fn contrast_color(bg: Color32) -> Color32 {
+                let r = bg.r() as f32;
+                let g = bg.g() as f32;
+                let b = bg.b() as f32;
+                let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                if luminance < 128.0 { Color32::WHITE } else { Color32::from_rgb(0, 0, 0) }
+            }
+            
+            // Create inverted color for selection
+            fn invert(bg: Color32) -> Color32 {
+                let r = (255.0 - (bg.r() as f32)) as u8;
+                let g = (255.0 - (bg.g() as f32)) as u8;
+                let b = (255.0 - (bg.b() as f32)) as u8;
+                Color32::from_rgb(r, g, b)
+            }
+            
+            // Apply colors exactly like the original style but with our cycling base color
+            self.style.selected_cell_bg = invert(base_color);
+            self.style.cell_bg_even = adjust_brightness(base_color, 0.8);
+            self.style.cell_bg_odd = adjust_brightness(base_color, 1.2);
+            self.style.cell_text = contrast_color(base_color);
+            self.style.selected_cell_text = contrast_color(invert(base_color));
+            self.style.grid_line = Stroke::new(1.0, adjust_brightness(base_color, 0.7));
+            
+            // Request repaint for animation
+            ui.ctx().request_repaint();
+            
+            // Show color picker but changes ignored in rainbow mode
+            // ui.color_edit_button_srgba(&mut self.style.prev_base_color);
+            
+            return;
+        }
+        
+        // Check if rainbow mode is active
+        else if self.style.rainbow==1 {
+            // Get the current time for animation - this returns f64
+            let time = ui.ctx().input(|i| i.time);
+            
+            // Convert time to f32 to work with other f32 values
+            let time_f32 = time as f32;
+            
+            // Frequency controls speed of color change
+            let frequency: f32 = 0.2;
+            
+            // Calculate RGB values cycling smoothly over time using sine waves
+            // Using all f32 values to avoid type mismatches
+            let red = ((std::f32::consts::PI * frequency * time_f32).sin() * 0.5 + 0.5) * 255.0;
+            let green = ((std::f32::consts::PI * frequency * time_f32 + 2.0 * std::f32::consts::PI / 3.0).sin() * 0.5 + 0.5) * 255.0;
+            let blue = ((std::f32::consts::PI * frequency * time_f32 + 4.0 * std::f32::consts::PI / 3.0).sin() * 0.5 + 0.5) * 255.0;
+            
+            let primary_color = Color32::from_rgb(red as u8, green as u8, blue as u8);
+            
+            // Secondary color with phase shift for contrast
+            let phase_shift: f32 = std::f32::consts::PI / 2.0;
+            let red2 = ((std::f32::consts::PI * frequency * time_f32 + phase_shift).sin() * 0.5 + 0.5) * 255.0;
+            let green2 = ((std::f32::consts::PI * frequency * time_f32 + 2.0 * std::f32::consts::PI / 3.0 + phase_shift).sin() * 0.5 + 0.5) * 255.0;
+            let blue2 = ((std::f32::consts::PI * frequency * time_f32 + 4.0 * std::f32::consts::PI / 3.0 + phase_shift).sin() * 0.5 + 0.5) * 255.0;
+            let secondary_color = Color32::from_rgb(red2 as u8, green2 as u8, blue2 as u8);
+            
+            // Helper function for calculating contrasting text color
+            fn contrast_color(bg: Color32) -> Color32 {
+                let r = bg.r() as f32;
+                let g = bg.g() as f32;
+                let b = bg.b() as f32;
+                let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                if luminance < 128.0 { Color32::WHITE } else { Color32::from_rgb(0, 0, 0) }
+            }
+            
+            // Apply colors to UI elements
+            self.style.cell_bg_even = primary_color;
+            self.style.cell_bg_odd = secondary_color;
+            self.style.selected_cell_bg = Color32::from_rgb(
+                (255.0 - red) as u8,
+                (255.0 - green) as u8,
+                (255.0 - blue) as u8
+            );
+            self.style.cell_text = contrast_color(primary_color);
+            self.style.selected_cell_text = contrast_color(self.style.selected_cell_bg);
+            
+            // Grid line color
+            self.style.grid_line = Stroke::new(1.0, Color32::from_rgba_unmultiplied(
+                (blue * 0.7) as u8,
+                (red * 0.7) as u8,
+                (green * 0.7) as u8,
+                200
+            ));
+            
+            // Request repaint for animation
+            ui.ctx().request_repaint();
+            
+            // Show color picker but changes ignored in rainbow mode
+            // ui.color_edit_button_srgba(&mut self.style.prev_base_color);
+            
+            return;
+        }
+        
+        
     }
+
+
+
 
     fn process_scroll_to_cell(&mut self) {
         if let Some((target_row, target_col)) = parse_cell_name(&self.scroll_to_cell) {
