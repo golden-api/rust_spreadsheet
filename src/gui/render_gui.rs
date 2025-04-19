@@ -84,6 +84,18 @@ impl SpreadsheetApp {
                     if let Some(cell_ref) = cmd.strip_prefix("goto ") {
                         self.goto_cell(cell_ref);
                     }
+                }
+                else if cmd.starts_with("frequency ") {
+                    let arg = cmd["frequency ".len()..].trim();  // Ooh yes, gently remove that prefix
+                    if arg.is_empty() {
+                        self.status_message = format!("Please enter frequency");
+                    } else if let Ok(count) = arg.parse::<f32>() {
+                        self.style.frequency = count * 0.2 / 10.0;
+                    } else {
+                        self.status_message = format!("Unknown command: {}", cmd);
+                    }
+                
+                
                 } else if cmd.starts_with("w") {
                     let arg = &cmd[1..].trim();
                     if arg.is_empty() {
@@ -205,6 +217,9 @@ impl SpreadsheetApp {
             let time = ui.ctx().input(|i| i.time);
             let time_f32 = time as f32;
             
+            // Frequency controls speed of color change - higher = faster
+            let frequency: f32 = self.style.frequency;
+            
             // HSV to RGB conversion for smooth color cycling through spectrum
             fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
                 let h = h % 360.0;
@@ -234,7 +249,9 @@ impl SpreadsheetApp {
             }
             
             // Generate a cycling hue value (0-360)
-            let hue = (time_f32 * 20.0) % 360.0; // Complete cycle every 18 seconds
+            // Using frequency parameter similar to rainbow mode 1
+            // One full cycle every (360 / (frequency * 100)) seconds
+            let hue = (time_f32 * frequency * 100.0) % 360.0;
             
             // Convert to RGB with full saturation and value
             let (r, g, b) = hsv_to_rgb(hue, 0.9, 0.9);
@@ -281,9 +298,6 @@ impl SpreadsheetApp {
             // Request repaint for animation
             ui.ctx().request_repaint();
             
-            // Show color picker but changes ignored in rainbow mode
-            // ui.color_edit_button_srgba(&mut self.style.prev_base_color);
-            
             return;
         }
         
@@ -295,8 +309,8 @@ impl SpreadsheetApp {
             // Convert time to f32 to work with other f32 values
             let time_f32 = time as f32;
             
-            // Frequency controls speed of color change
-            let frequency: f32 = 0.2;
+            // Frequency controls speed of color change - higher = faster
+            let frequency: f32 = self.style.frequency;
             
             // Calculate RGB values cycling smoothly over time using sine waves
             // Using all f32 values to avoid type mismatches
@@ -344,12 +358,8 @@ impl SpreadsheetApp {
             // Request repaint for animation
             ui.ctx().request_repaint();
             
-            // Show color picker but changes ignored in rainbow mode
-            // ui.color_edit_button_srgba(&mut self.style.prev_base_color);
-            
             return;
         }
-        
         
     }
 

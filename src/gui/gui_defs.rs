@@ -32,6 +32,7 @@ pub struct SpreadsheetStyle {
     pub(crate) font_size:          f32,
     pub(crate) prev_base_color:    Color32,
     pub(crate) rainbow:            u32,
+    pub(crate) frequency:          f32,
 }
 
 impl Default for SpreadsheetStyle {
@@ -49,6 +50,7 @@ impl Default for SpreadsheetStyle {
             font_size:          14.0,
             prev_base_color:    Color32::from_rgb(120, 120, 180),
             rainbow:            0,
+            frequency:          0.2,
         }
     }
 }
