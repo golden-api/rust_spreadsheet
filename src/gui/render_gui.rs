@@ -94,6 +94,9 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("csv ") {
                     let filename = cmd.strip_prefix("csv ").unwrap().trim();
                     self.export_to_csv(filename);
+                } else if cmd.starts_with("excel ") {
+                    let filename = cmd.strip_prefix("excel ").unwrap().trim();
+                    self.export_formulas_to_csv(filename);
                 } else if cmd.starts_with("s") {
                     let arg = &cmd[1..].trim();
                     if arg.is_empty() {
