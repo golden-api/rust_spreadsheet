@@ -15,7 +15,7 @@ use std::{
 #[cfg(feature = "gui")]
 use eframe::egui;
 #[cfg(feature = "gui")]
-use gui_defs::SpreadsheetApp;
+use gui::gui_defs::SpreadsheetApp;
 
 // Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -59,22 +59,14 @@ impl std::str::FromStr for CellName {
 }
 //////////////////////////////////////////////////////////////////////////////
 
-#[cfg(feature = "gui")]
-mod gui_defs;
-#[cfg(feature = "gui")]
-mod impl_helpers;
 mod parser;
-#[cfg(feature = "gui")]
-mod render_gui;
-#[cfg(feature = "gui")]
-mod scroll_gui;
 #[cfg(not(feature = "gui"))]
 mod scrolling;
-#[cfg(test)]
-mod tests;
+
+mod test;
 mod utils;
 #[cfg(feature = "gui")]
-mod utils_gui;
+mod gui;
 
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;

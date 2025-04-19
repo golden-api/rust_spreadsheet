@@ -5,12 +5,12 @@ use egui::{
 
 use crate::{
     Valtype,
-    gui_defs::{
+    gui::gui_defs::{
         Direction,
         SpreadsheetApp,
         SpreadsheetStyle,
     },
-    utils_gui::{
+    gui::utils_gui::{
         col_label,
         parse_cell_name,
     },
@@ -96,6 +96,9 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("csv ") {
                     let filename = cmd.strip_prefix("csv ").unwrap().trim();
                     self.export_to_csv(filename);
+                } else if cmd.starts_with("excel ") {
+                    let filename = cmd.strip_prefix("excel ").unwrap().trim();
+                    self.export_formulas_to_csv(filename);
                 } else if cmd.starts_with("s") {
                     let arg = &cmd[1..].trim();
                     if arg.is_empty() {
@@ -554,6 +557,7 @@ impl SpreadsheetApp {
                         }
                     }
                 }
+                self.formula_input.clear();
             } else if input.key_pressed(egui::Key::ArrowUp) {
                 if let Some((row, col)) = self.selected {
                     if row > 0 {
@@ -564,6 +568,7 @@ impl SpreadsheetApp {
                         }
                     }
                 }
+                self.formula_input.clear();
             } else if input.key_pressed(egui::Key::ArrowRight) {
                 if let Some((row, col)) = self.selected {
                     if col + 1 < self.sheet[0].len() {
@@ -574,6 +579,7 @@ impl SpreadsheetApp {
                         }
                     }
                 }
+                self.formula_input.clear();
             } else if input.key_pressed(egui::Key::ArrowLeft) {
                 if let Some((row, col)) = self.selected {
                     if col > 0 {
@@ -584,6 +590,7 @@ impl SpreadsheetApp {
                         }
                     }
                 }
+                self.formula_input.clear();
             } else if input.key_pressed(egui::Key::Escape) {
                 if self.editing_cell {
                     self.editing_cell = false;
@@ -595,6 +602,13 @@ impl SpreadsheetApp {
                     self.formula_input.clear();
                     self.status_message = "Selection cleared, command mode".to_string();
                     self.request_formula_focus = true;
+                }
+            } else if input.key_pressed(egui::Key::Space) {
+                if let Some((row, col)) = self.selected {
+                    self.formula_input = self.get_cell_formula(row, col);
+                    self.editing_cell = true;
+                    self.request_formula_focus = true;
+                    // self.formula_input.clear();
                 }
             }
             if input.modifiers.ctrl {

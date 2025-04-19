@@ -2,15 +2,17 @@ use std::fs::File;
 
 use csv::Writer;
 
-use crate::gui_defs::UndoAction;
+use crate::gui::gui_defs::UndoAction;
 use crate::{
     CellData,
     STATUS,
     STATUS_CODE,
     Valtype,
-    gui_defs::SpreadsheetApp,
+    gui::gui_defs::SpreadsheetApp,
     parser,
-    utils_gui::col_label,
+    gui::utils_gui::col_label,
+    gui::utils_gui::cell_data_to_formula_string,
+    gui::utils_gui::valtype_to_string,
 };
 
 impl SpreadsheetApp {
@@ -130,7 +132,48 @@ impl SpreadsheetApp {
             Err(e) => self.status_message = format!("File error: {}", e),
         }
     }
+    pub fn export_formulas_to_csv(
+        &mut self,
+        filename: &str,
+    ) {
+        // ensure .csv extension
+        let filename = if filename.ends_with(".csv") {
+            filename.to_string()
+        } else {
+            format!("{}.csv", filename)
+        };
 
+        match File::create(&filename) {
+            Ok(file) => {
+                let mut wtr = Writer::from_writer(file);
+
+                for row in &self.sheet {
+                    let record: Vec<String> = row
+                        .iter()
+                        .map(|cell| {
+                            // emit formula if available, otherwise the computed value
+                            cell_data_to_formula_string(&cell.data)
+                                .unwrap_or_else(|| valtype_to_string(&cell.value))
+                        })
+                        .collect();
+
+                    if let Err(e) = wtr.write_record(&record) {
+                        self.status_message = format!("CSV write error: {}", e);
+                        return;
+                    }
+                }
+
+                if let Err(e) = wtr.flush() {
+                    self.status_message = format!("CSV flush error: {}", e);
+                } else {
+                    self.status_message = format!("Exported formulas to {}", filename);
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("File error: {}", e);
+            }
+        }
+    }
     // Handle cell selection changes
     pub fn handle_selection_change(
         &mut self,

@@ -1,9 +1,9 @@
 use crate::{
-    gui_defs::{
+    gui::gui_defs::{
         Direction,
         SpreadsheetApp,
     },
-    utils_gui::col_label,
+    gui::utils_gui::col_label,
 };
 
 pub fn w(

@@ -1,3 +1,6 @@
+use crate::CellData;
+use crate::Valtype;
+
 // Helper: Convert column index to Excel-style label (A, B, …, Z, AA, etc.)
 pub fn col_label(mut col_index: usize) -> String {
     let mut name = String::new();
@@ -41,4 +44,28 @@ pub fn col_label_to_index(label: &str) -> Option<usize> {
         col += ((c as u8 - b'A') as usize + 1) * 26_usize.pow(i as u32);
     }
     Some(col - 1)
+}
+pub fn valtype_to_string(v: &Valtype) -> String {
+    match v {
+        Valtype::Int(n) => n.to_string(),
+        Valtype::Str(s) => s.to_string(),
+    }
+}
+
+/// Helper: reconstruct an Excel‐style formula from `CellData`.
+/// Returns `None` if the cell has no formula (e.g. `Empty` or `Const`).
+pub fn cell_data_to_formula_string(data: &CellData) -> Option<String> {
+    use CellData::*;
+    match data {
+        Empty | Const => None,
+        Ref { cell1 } => Some(format!("={}", cell1)),
+        CoC { op_code, value2 }     => Some(format!("={}{}{}", /* left operand? */ "", op_code, valtype_to_string(value2))),
+        CoR { op_code, value2, cell2 } => Some(format!("={}{}{}", valtype_to_string(value2), op_code, cell2)),
+        RoC { op_code, value2, cell1 } => Some(format!("={}{}{}", cell1, op_code, valtype_to_string(value2))),
+        RoR { op_code, cell1, cell2 }  => Some(format!("={}{}{}", cell1, op_code, cell2)),
+        Range { cell1, cell2, value2 } => Some(format!("=RANGE({}:{},{})", cell1, cell2, valtype_to_string(value2))),
+        SleepC                         => Some("=SLEEP()".into()),
+        SleepR { cell1 }               => Some(format!("=SLEEP({})", cell1)),
+        Invalid                        => Some("#INVALID".into()),
+    }
 }
