@@ -49,13 +49,24 @@ impl SpreadsheetApp {
         match cmd {
             "q" => std::process::exit(0),
             "tr" => self.reset_theme(),
-            "copy" => self.copy_selected_cell(),
-            "paste" => self.paste_to_selected_cell(),
             "undo" => self.undo(),
             "redo" => self.redo(),
             "help" => self.show_command_help(),
             _ => {
-                if cmd.starts_with("scroll_to ") {
+                if cmd.starts_with("copy ") {
+                    if let Some(cell_ref) = cmd.strip_prefix("copy ") {
+                        self.goto_cell(cell_ref);
+                        self.copy_selected_cell();
+                    }
+                }
+                else if cmd.starts_with("paste ") {
+                    if let Some(cell_ref) = cmd.strip_prefix("paste ") {
+                        self.goto_cell(cell_ref);
+                        self.paste_to_selected_cell();
+                    }
+                }
+
+                else if cmd.starts_with("scroll_to ") {
                     if let Some(cell_ref) = cmd.strip_prefix("scroll_to ") {
                         self.scroll_to_cell = cell_ref.to_string();
                         self.process_scroll_to_cell();
@@ -383,9 +394,9 @@ impl SpreadsheetApp {
                 }
             }
             if input.modifiers.ctrl {
-                if input.key_pressed(egui::Key::C) {
+                if input.key_pressed(egui::Key::E) {
                     self.copy_selected_cell();
-                } else if input.key_pressed(egui::Key::V) {
+                } else if input.key_pressed(egui::Key::R) {
                     self.paste_to_selected_cell();
                 } else if input.key_pressed(egui::Key::Z) {
                     self.undo();
