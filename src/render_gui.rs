@@ -127,7 +127,7 @@ impl SpreadsheetApp {
     }
 
     fn show_command_help(&mut self) {
-        self.status_message = "Available commands: w,a,s,d (navigation), q (quit), theme_reset, help, goto [cell]".to_string();
+        self.status_message = "Available commands: w,a,s,d Option<Amount> (navigation), q (quit), tr (theme_reset), help, goto [cell], scroll_to [cell], undo, redo, copy [cell], paste [cell], csv <filename>".to_string();
     }
 
     // Render the scroll-to-cell feature
