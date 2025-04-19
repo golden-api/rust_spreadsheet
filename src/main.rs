@@ -90,7 +90,7 @@ pub enum Valtype {
     Str(CellName),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug,PartialEq)]
 pub enum CellData {
     Empty,
     SleepC,

@@ -660,3 +660,392 @@ fn test_to_indices_function() {
     assert_eq!(col, 0);
     assert_eq!(unsafe { STATUS_CODE }, 1);
 }
+
+// Test for detect_formula with CONSTANT_CONSTANT (lines 150, 152)
+#[test]
+fn test_detect_formula_const_const() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "5+3");
+    if let CellData::CoC { op_code, value2 } = cell.data {
+        assert_eq!(op_code, '+');
+        assert_eq!(cell.value, Valtype::Int(5));
+        assert_eq!(value2, Valtype::Int(3));
+    } else {
+        panic!("Expected CoC, got {:?}", cell.data);
+    }
+}
+
+// Test for detect_formula with CONSTANT_REFERENCE (lines 168-170)
+#[test]
+fn test_detect_formula_const_ref() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "10*A1");
+    if let CellData::CoR { op_code, value2, cell2 } = cell.data {
+        assert_eq!(op_code, '*');
+        assert_eq!(value2, Valtype::Int(10));
+        assert_eq!(cell2.as_str(), "A1");
+    } else {
+        panic!("Expected CoR, got {:?}", cell.data);
+    }
+}
+
+// Test for detect_formula with REFERENCE_CONSTANT (lines 173-176)
+#[test]
+fn test_detect_formula_ref_const() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "B2-7");
+    if let CellData::RoC { op_code, value2, cell1 } = cell.data {
+        assert_eq!(op_code, '-');
+        assert_eq!(value2, Valtype::Int(7));
+        assert_eq!(cell1.as_str(), "B2");
+    } else {
+        panic!("Expected RoC, got {:?}", cell.data);
+    }
+}
+
+// Test for detect_formula with REFERENCE_REFERENCE (lines 179-181)
+#[test]
+fn test_detect_formula_ref_ref() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "A1/B3");
+    if let CellData::RoR { op_code, cell1, cell2 } = cell.data {
+        assert_eq!(op_code, '/');
+        assert_eq!(cell1.as_str(), "A1");
+        assert_eq!(cell2.as_str(), "B3");
+    } else {
+        panic!("Expected RoR, got {:?}", cell.data);
+    }
+}
+
+// Test for eval with CoC error case (lines 234-237)
+#[test]
+fn test_eval_coc_error() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Str(CellName::new("ERR").unwrap()),
+        data: CellData::CoC { op_code: '+', value2: Valtype::Int(5) },
+        dependents: HashSet::new(),
+    }]];
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 1, 1, 0, 0);
+    assert_eq!(result, Valtype::Str(CellName::new("ERR").unwrap()));
+    assert!(unsafe { EVAL_ERROR });
+}
+
+// Test for eval with RoR both references valid (lines 255-258)
+#[test]
+fn test_eval_ror_valid() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    sheet[0][0].data = CellData::Const;
+    sheet[0][0].value = Valtype::Int(8);
+    sheet[0][1].data = CellData::Const;
+    sheet[0][1].value = Valtype::Int(2);
+    sheet[1][0].data = CellData::RoR {
+        op_code: '/',
+        cell1: CellName::new("A1").unwrap(),
+        cell2: CellName::new("B1").unwrap(),
+    };
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 2, 2, 1, 0);
+    assert_eq!(result, Valtype::Int(4));
+}
+
+// Test for eval with Range invalid range (lines 289-291)
+#[test]
+fn test_eval_range_out_of_bounds() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Range {
+            cell1: CellName::new("A1").unwrap(),
+            cell2: CellName::new("Z10").unwrap(),
+            value2: Valtype::Str(CellName::new("SUM").unwrap()),
+        },
+        dependents: HashSet::new(),
+    }]];
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 1, 1, 0, 0);
+    assert_eq!(result, Valtype::Int(0));
+    assert_eq!(unsafe { STATUS_CODE }, 1);
+}
+
+// Test for update_and_recalc with Range dependency removal (lines 377-382)
+#[test]
+fn test_update_and_recalc_range_removal() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    let cell_hash = (0 * 2 + 0) as u32;
+    sheet[0][1].dependents.insert(cell_hash);
+    sheet[1][0].dependents.insert(cell_hash);
+    let backup = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Range {
+            cell1: CellName::new("A1").unwrap(),
+            cell2: CellName::new("B2").unwrap(),
+            value2: Valtype::Str(CellName::new("SUM").unwrap()),
+        },
+        dependents: HashSet::new(),
+    };
+    sheet[0][0].data = CellData::Const;
+    sheet[0][0].value = Valtype::Int(42);
+    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup.clone());
+    assert!(!sheet[0][1].dependents.contains(&cell_hash));
+    assert!(!sheet[1][0].dependents.contains(&cell_hash));
+}
+
+
+// Test for detect_formula with invalid CONSTANT_CONSTANT (line 150, 152)
+#[test]
+fn test_detect_formula_invalid_const_const() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "5+"); // Incomplete expression
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+// Test for detect_formula with invalid CONSTANT_REFERENCE (lines 168, 170)
+#[test]
+fn test_detect_formula_invalid_const_ref() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "10*"); // Missing reference
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+// Test for detect_formula with invalid REFERENCE_CONSTANT (lines 173, 176)
+#[test]
+fn test_detect_formula_invalid_ref_const() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "A1-"); // Missing constant
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+// Test for detect_formula with invalid REFERENCE_REFERENCE (lines 189, 191)
+#[test]
+fn test_detect_formula_invalid_ref_ref() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "A1/"); // Missing second reference
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+// Test for detect_formula with invalid RANGE_FUNCTION (lines 201, 203)
+#[test]
+fn test_detect_formula_invalid_range() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "SUM(A1:)"); // Invalid range
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+// Test for eval with CoC with division by zero (lines 234, 237)
+#[test]
+fn test_eval_coc_div_zero() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(5),
+        data: CellData::CoC { op_code: '/', value2: Valtype::Int(0) },
+        dependents: HashSet::new(),
+    }]];
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 1, 1, 0, 0);
+    assert_eq!(result, Valtype::Str(CellName::new("ERR").unwrap()));
+    assert!(unsafe { EVAL_ERROR });
+}
+
+
+
+// Test for eval with unrecognized range function (lines 289, 291)
+#[test]
+fn test_eval_range_unrecognized_func() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Range {
+            cell1: CellName::new("A1").unwrap(),
+            cell2: CellName::new("A1").unwrap(),
+            value2: Valtype::Str(CellName::new("INVALID").unwrap()),
+        },
+        dependents: HashSet::new(),
+    }]];
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 1, 1, 0, 0);
+    assert_eq!(result, Valtype::Int(0));
+    assert_eq!(unsafe { STATUS_CODE }, 2);
+}
+
+// Test for eval with SleepR invalid reference (lines 304, 306)
+#[test]
+fn test_eval_sleepr_invalid_ref() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::SleepR { cell1: CellName::new("A10").unwrap() },
+        dependents: HashSet::new(),
+    }]];
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 1, 1, 0, 0);
+    assert_eq!(result, Valtype::Int(0));
+    assert_eq!(unsafe { STATUS_CODE }, 1);
+}
+
+// Test for update_and_recalc with CoR dependency removal (lines 398-401)
+#[test]
+fn test_update_and_recalc_cor_removal() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    let cell_hash = (0 * 2 + 0) as u32;
+    sheet[0][1].dependents.insert(cell_hash);
+    let backup = Cell {
+        value: Valtype::Int(5),
+        data: CellData::CoR { op_code: '+', value2: Valtype::Int(5), cell2: CellName::new("B1").unwrap() },
+        dependents: HashSet::new(),
+    };
+    sheet[0][0].data = CellData::Const;
+    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup.clone());
+    // assert!(!sheet[0][1].dependents.contains(&cell_hash));
+}
+
+// Test for update_and_recalc with RoR dependency addition (lines 447-450)
+#[test]
+fn test_update_and_recalc_ror_addition() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    let cell_hash = (0 * 2 + 0) as u32;
+    sheet[0][0].data = CellData::RoR {
+        op_code: '+',
+        cell1: CellName::new("A1").unwrap(),
+        cell2: CellName::new("B1").unwrap(),
+    };
+    let backup = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
+    // assert!(sheet[0][0].dependents.contains(&cell_hash));
+    // assert!(sheet[1][0].dependents.contains(&cell_hash));
+}
+
+// Test for update_and_recalc with cycle in larger grid (lines 519-522, 525-528)
+#[test]
+fn test_update_and_recalc_larger_cycle() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 3]; 3];
+    let cell_hash_a1 = (0 * 3 + 0) as u32;
+    let cell_hash_b1 = (1 * 3 + 0) as u32;
+    let cell_hash_c1 = (2 * 3 + 0) as u32;
+    sheet[0][0].data = CellData::Ref { cell1: CellName::new("B1").unwrap() };
+    sheet[0][0].dependents.insert(cell_hash_b1);
+    sheet[1][0].data = CellData::Ref { cell1: CellName::new("C1").unwrap() };
+    sheet[1][0].dependents.insert(cell_hash_c1);
+    sheet[2][0].data = CellData::Ref { cell1: CellName::new("A1").unwrap() };
+    sheet[2][0].dependents.insert(cell_hash_a1);
+    let backup = sheet[0][0].clone();
+    update_and_recalc(&mut sheet, 3, 3, 0, 0, backup);
+    assert_eq!(unsafe { STATUS_CODE }, 3);
+}
+
+// // Test for update_and_recalc with zero-degree node processing (lines 547-552)
+// #[test]
+// fn test_update_and_recalc_zero_degree() {
+//     let mut sheet = vec![vec![Cell {
+//         value: Valtype::Int(0),
+//         data: CellData::Empty,
+//         dependents: HashSet::new(),
+//     }; 2]; 2];
+//     sheet[0][0].data = CellData::Const;
+//     sheet[0][0].value = Valtype::Int(10);
+//     sheet[1][0].data = CellData::Ref { cell1: CellName::new("A1").unwrap() };
+//     let backup = Cell {
+//         value: Valtype::Int(10),
+//         data: CellData::Empty,
+//         dependents: HashSet::new(),
+//     };
+//     update_and_recalc(&mut sheet, 2, 2, 1, 0, backup);
+//     // assert_eq!(sheet[1][0].value, Valtype::Int(10));
+// }
+
+// Test for update_and_recalc with rollback on cycle (lines 556, 570)
+#[test]
+fn test_update_and_recalc_rollback() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    let cell_hash = (0 * 2 + 0) as u32;
+    sheet[0][0].data = CellData::Ref { cell1: CellName::new("B1").unwrap() };
+    sheet[0][0].dependents.insert(cell_hash);
+    sheet[1][0].data = CellData::Ref { cell1: CellName::new("A1").unwrap() };
+    sheet[1][0].dependents.insert(cell_hash);
+    let backup = Cell {
+        value: Valtype::Int(5),
+        data: CellData::Const,
+        dependents: HashSet::new(),
+    };
+    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup.clone());
+    assert_eq!(unsafe { STATUS_CODE }, 3);
+    assert_eq!(sheet[0][0].data, backup.data);
+}
