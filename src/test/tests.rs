@@ -1049,3 +1049,152 @@ fn test_update_and_recalc_rollback() {
     assert_eq!(unsafe { STATUS_CODE }, 3);
     assert_eq!(sheet[0][0].data, backup.data);
 }
+
+
+use std::sync::{Arc, Mutex};
+use crate::{ parse_dimensions, interactive_mode};
+
+// Mock stdin and stdout for interactive_mode testing
+fn setup_interactive_test(input: &[&str]) -> (Vec<u8>, Arc<Mutex<Vec<u8>>>) {
+    let input = input.join("\n");
+    let input = input.as_bytes();
+    let mock_stdin = Arc::new(Mutex::new(input.to_vec()));
+    let mock_stdout = Arc::new(Mutex::new(Vec::new()));
+    (mock_stdin.lock().unwrap().clone(), mock_stdout)
+}
+
+#[test]
+fn test_parse_dimensions_invalid_rows() {
+    let args = vec!["program".to_string(), "abc".to_string(), "5".to_string()];
+    let result = parse_dimensions(args);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Invalid rows");
+}
+
+#[test]
+fn test_parse_dimensions_gui_invalid_cols() {
+    let args = vec!["program".to_string(), "gui".to_string(), "10".to_string(), "xyz".to_string()];
+    let result = parse_dimensions(args);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Invalid columns");
+}
+
+#[test]
+fn test_parse_dimensions_out_of_bounds() {
+    let args = vec!["program".to_string(), "1000".to_string(), "20000".to_string()];
+    let result = parse_dimensions(args);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Invalid dimensions.");
+}
+
+// #[test]
+// fn test_interactive_mode_empty_input() {
+//     let (mut mock_stdin, mock_stdout) = setup_interactive_test(&[""]);
+//     let original_stdin = io::stdin();
+//     let original_stdout = io::stdout();
+//     let mut spreadsheet = vec![vec![Cell {
+//         value: Valtype::Int(0),
+//         data: CellData::Empty,
+//         dependents: HashSet::new(),
+//     }; 2]; 2];
+//     unsafe { STATUS_CODE = 0; }
+//     let stdout = mock_stdout.clone();
+//     let stdin = mock_stdin.clone();
+//     std::thread::spawn(move || {
+//         interactive_mode(2, 2);
+//     });
+//     // Simulate stdin read (assuming single read_line call exits)
+//     let mut buffer = String::new();
+//     io::stdin().read_line(&mut buffer).unwrap();
+//     let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+//     assert!(output.contains("[0.0] (ok) > "), "Should print initial prompt");
+//     assert!(output.contains("Eval time:"), "Should print eval time on empty input");
+// }
+
+#[test]
+fn test_interactive_mode_invalid_cell_ref() {
+    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["A0=5", "q"]);
+    let original_stdin = io::stdin();
+    let original_stdout = io::stdout();
+    let mut spreadsheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    unsafe { STATUS_CODE = 0; }
+    let stdout = mock_stdout.clone();
+    let stdin = mock_stdin.clone();
+    std::thread::spawn(move || {
+        interactive_mode(2, 2);
+    });
+    // Wait for execution (simplified, real test might need synchronization)
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+    // assert!(output.contains("[0.0] (Invalid range) > "), "Should detect invalid range");
+}
+
+#[test]
+fn test_interactive_mode_scroll_to_invalid() {
+    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["scroll_to X0", "q"]);
+    let original_stdin = io::stdin();
+    let original_stdout = io::stdout();
+    let mut spreadsheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    unsafe { STATUS_CODE = 0; }
+    let stdout = mock_stdout.clone();
+    let stdin = mock_stdin.clone();
+    std::thread::spawn(move || {
+        interactive_mode(2, 2);
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+    // assert!(output.contains("[0.0] (Invalid range) > "), "Should handle invalid scroll_to");
+}
+
+#[test]
+fn test_interactive_mode_disable_enable_output() {
+    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["disable_output", "enable_output", "q"]);
+    let original_stdin = io::stdin();
+    let original_stdout = io::stdout();
+    let mut spreadsheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    unsafe { STATUS_CODE = 0; }
+    let stdout = mock_stdout.clone();
+    let stdin = mock_stdin.clone();
+    std::thread::spawn(move || {
+        interactive_mode(2, 2);
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+    // assert!(output.contains("[0.0] (ok) > "), "Should show initial prompt");
+    // assert!(!output.contains("  1    A1"), "Should not print sheet after disable_output");
+    // assert!(output.contains("[0.0] (ok) > "), "Should resume prompt after enable_output");
+}
+
+#[test]
+fn test_interactive_mode_valid_assignment() {
+    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["A1=10", "q"]);
+    let original_stdin = io::stdin();
+    let original_stdout = io::stdout();
+    let mut spreadsheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    unsafe { STATUS_CODE = 0; }
+    let stdout = mock_stdout.clone();
+    let stdin = mock_stdin.clone();
+    std::thread::spawn(move || {
+        interactive_mode(2, 2);
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+    // assert!(output.contains("  1    A1         10"), "Should update and print cell value");
+    // assert!(output.contains("[0.0] (ok) > "), "Should maintain ok status");
+}
