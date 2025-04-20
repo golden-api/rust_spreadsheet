@@ -14,6 +14,7 @@ use crate::{
         col_label,
         parse_cell_name,
     },
+    utils::to_indices
 };
 
 impl SpreadsheetApp {
@@ -40,7 +41,7 @@ impl SpreadsheetApp {
                         self.update_selected_cell();
                         self.editing_cell = false;
                     } else {
-                        let cmd = self.formula_input.trim().to_lowercase();
+                        let cmd = self.formula_input.clone();
                         self.process_command(&cmd);
                         self.formula_input.clear();
                     }
@@ -98,8 +99,6 @@ impl SpreadsheetApp {
                     } else {
                         self.status_message = format!("Unknown command: {}", cmd);
                     }
-                
-                
                 } else if cmd.starts_with("w") {
                     let arg = &cmd[1..].trim();
                     if arg.is_empty() {
@@ -142,6 +141,20 @@ impl SpreadsheetApp {
                     } else {
                         self.status_message = format!("Unknown command: {}", cmd);
                     }
+                } else if cmd.contains('=') {
+                    let parts: Vec<&str> = cmd.splitn(2, '=').map(str::trim).collect();
+                    if parts.len() == 2 {
+                        let (cell_ref, formula) = (parts[0], parts[1]);
+                        let (row, col) = to_indices(cell_ref);
+                        self.selected=Some((row,col));
+                        self.formula_input = formula.to_string() ;
+                        self.update_selected_cell();
+                        self.formula_input.clear();
+                        self.selected=None;
+                        self.request_formula_focus=true;
+                    }else{
+                        self.status_message = format!("unrecognized command: {}", cmd);
+                    }
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
                 },
@@ -154,7 +167,7 @@ impl SpreadsheetApp {
     }
 
     fn show_command_help(&mut self) {
-        self.status_message = "Available commands: w,a,s,d Option<Amount> (navigation), q (quit), tr (theme_reset), help, goto [cell], scroll_to [cell], undo, redo, copy [cell], paste [cell], csv <filename>".to_string();
+        self.status_message = "Available commands: w,a,s,d Option<Amount> (navigation), q (quit), tr (theme_reset), help, goto [cell], scroll_to [cell], undo, redo, copy [cell], paste [cell], csv <filename>, cell=formula".to_string();
     }
 
     // Render the scroll-to-cell feature
