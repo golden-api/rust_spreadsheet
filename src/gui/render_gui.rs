@@ -64,6 +64,10 @@ impl SpreadsheetApp {
             "help" => self.show_command_help(),
             "rainbow1" => {self.style.rainbow=1;}
             "rainbow2" => {self.style.rainbow=2;}
+            "matrix1" => {self.style.rainbow=3;}
+            "matrix2" => {self.style.rainbow=5;}
+            "matrix3" => {self.style.rainbow=6;}
+            "love" => {self.style.rainbow=4;}
             _ =>
                 if cmd.starts_with("copy ") {
                     if let Some(cell_ref) = cmd.strip_prefix("copy ") {
@@ -180,6 +184,7 @@ impl SpreadsheetApp {
         // Original color picking logic when no rainbow mode is active
         let mut base_color = self.style.prev_base_color.clone();
         if ui.color_edit_button_srgba(&mut base_color).changed() {
+            self.style.get_cell_bg=None;
             self.style.rainbow=0;
             fn adjust_brightness(
                 color: Color32,
@@ -211,12 +216,249 @@ impl SpreadsheetApp {
             self.style.grid_line = Stroke::new(1.0, adjust_brightness(base_color, 0.7));
             self.style.prev_base_color = base_color;
         }
+
+        // Check if Matrix Rain effect is active
+        // Check if Matrix rain effect is active
+        else if self.style.rainbow==6 {
+            // Get the current time for animation
+            let time = ui.ctx().input(|i| i.time);
+            let time_f32 = time as f32;
+            
+            // Define Matrix colors
+            let matrix_bright_green = Color32::from_rgb(0, 255, 70);  // Bright digital green
+            let black = Color32::from_rgb(0, 0, 0);                   // Pure black
+            
+            // Set base theme to black
+            self.style.cell_bg_even = black;
+            self.style.cell_bg_odd = black;
+            self.style.cell_text = matrix_bright_green;
+            self.style.selected_cell_bg = matrix_bright_green;
+            self.style.selected_cell_text = black;
+            self.style.grid_line = Stroke::new(1.0, Color32::from_rgb(0, 0, 0));
+            
+            // Import rand functionality
+            use rand::Rng;
+            
+            // Access the matrix raindrops data
+            if self.style.matrix_raindrops.is_empty() {
+                // Initialize raindrops if first time
+                let columns = 50;  // Number of raindrop columns
+                let mut rng = rand::thread_rng();
+                
+                for _i in 0..columns {
+                    // Create truly random positions, speeds, and lengths using the rand crate
+                    let column = rng.gen_range(0..100); // Random column position
+                    let row = rng.gen_range(0..100);    // Random starting row
+                    let speed = rng.gen_range(3.0..8.0); // Random speed between 3 and 8
+                    let length = rng.gen_range(5..15);  // Random trail length between 5 and 15
+                    
+                    self.style.matrix_raindrops.push((column, row, speed, length));
+                }
+            }
+            
+            // Update raindrop positions based on time, using frequency to control speed
+            for (_, row, speed, _) in &mut self.style.matrix_raindrops {
+                // Move the raindrop down based on its speed multiplied by frequency
+                *row = (*row + (time_f32 * *speed * self.style.frequency / 20.0) as usize) % 200;
+            }
+            
+            // Create a clone of the raindrops to avoid capturing self in the closure
+            let matrix_raindrops = self.style.matrix_raindrops.clone();
+            let matrix_bright_green_copy = matrix_bright_green;
+            
+            // Set the cell background function using a boxed closure
+            self.style.get_cell_bg = Some(Box::new(move |row, col| {
+                // Check each raindrop to see if it affects this cell
+                for &(drop_col, drop_row, _, length) in &matrix_raindrops {
+                    // Is this cell in a raindrop column?
+                    if col % 100 == drop_col {
+                        // Calculate position in the column
+                        let cell_pos = row % 200;
+                        let head_pos = drop_row;
+                        
+                        // Head of the raindrop (brightest)
+                        if cell_pos == head_pos {
+                            return matrix_bright_green_copy;
+                        }
+                        
+                        // Trailing characters (fading)
+                        if cell_pos < head_pos && head_pos - cell_pos <= length {
+                            // Calculate fade based on distance from head
+                            let fade = (head_pos - cell_pos) as f32 / length as f32;
+                            let green_value = ((1.0 - fade) * 255.0) as u8;
+                            return Color32::from_rgb(0, green_value, 0);
+                        }
+                    }
+                }
+                
+                // Default background for cells not in a raindrop
+                black
+            }));
+            
+            // Add UI slider to adjust the rain speed (frequency)
+            ui.horizontal(|ui| {
+                ui.label("Matrix Speed:");
+                ui.add(egui::Slider::new(&mut self.style.frequency, 0.05..=0.5)
+                    .logarithmic(true));
+            });
+            
+            // Force a repaint on each frame for smooth animation
+            ui.ctx().request_repaint();
+            
+            return;
+        }
+        
+
+
+        // Check if Matrix theme is active
+        else if self.style.rainbow==3 {
+            self.style.get_cell_bg=None;
+            // Matrix theme with black background and fluorescent green text
+            
+            // Define the Matrix green color (fluorescent digital green)
+            let matrix_green = Color32::from_rgb(0, 255, 0);  // Bright #00FF00 green
+            // let matrix_dark_green = Color32::from_rgb(43, 77, 62);  // Darker shade #2B4D3E
+            let black = Color32::from_rgb(0, 0, 0);  // Pure black
+            let white = Color32::from_rgb(255, 255, 255);  // Pure white
+            
+            // Apply Matrix colors to UI elements
+            self.style.cell_bg_even = black;
+            self.style.cell_bg_odd = black;
+            self.style.cell_text = matrix_green;
+            
+            // Selected cell has green background with white text for contrast
+            self.style.selected_cell_bg = matrix_green;
+            self.style.selected_cell_text = white;
+            
+            // Grid lines in a darker shade of matrix green
+            self.style.grid_line = Stroke::new(1.0, Color32::from_rgb(0, 128, 0));
+            
+            // Create a subtle digital "rain" animation effect
+            let time = ui.ctx().input(|i| i.time);
+            let time_f32 = time as f32;
+            
+            // Pulse the brightness of the text slightly for that digital effect
+            let pulse = ((time_f32*1.55*self.style.frequency/0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
+
+            self.style.cell_text = Color32::from_rgb(
+                0,
+                (255.0 * pulse) as u8,
+                0
+            );
+            
+            // Request repaint for animation
+            ui.ctx().request_repaint();
+            
+            return;
+        }
+
+        else if self.style.rainbow==5 {
+            self.style.get_cell_bg=None;
+            // Matrix theme with black background and fluorescent green text
+            
+            // Define the Matrix green color (fluorescent digital green)
+            let matrix_green = Color32::from_rgb(0, 255, 0);  // Bright #00FF00 green
+            // let matrix_dark_green = Color32::from_rgb(43, 77, 62);  // Darker shade #2B4D3E
+            let black = Color32::from_rgb(0, 0, 0);  // Pure black
+            let white = Color32::from_rgb(255, 255, 255);  // Pure white
+            
+            // Apply Matrix colors to UI elements
+            self.style.cell_bg_even = black;
+            self.style.cell_bg_odd = black;
+            self.style.cell_text = matrix_green;
+            
+            // Selected cell has green background with white text for contrast
+            self.style.selected_cell_bg = matrix_green;
+            self.style.selected_cell_text = white;
+            
+            // Grid lines in a darker shade of matrix green
+            self.style.grid_line = Stroke::new(1.0, Color32::from_rgb(0, 0, 0));
+            
+            // Create a subtle digital "rain" animation effect
+            let time = ui.ctx().input(|i| i.time);
+            let time_f32 = time as f32;
+            
+            // Pulse the brightness of the text slightly for that digital effect
+            let pulse = ((time_f32*1.5*self.style.frequency/0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
+
+            self.style.cell_text = Color32::from_rgb(
+                0,
+                (255.0 * pulse) as u8,
+                0
+            );
+            
+            // Request repaint for animation
+            ui.ctx().request_repaint();
+            
+            return;
+        }
+
+
+        // Check if Love theme is active
+        else if self.style.rainbow==4 {
+            // Love theme with pink background and complementary colors
+            self.style.get_cell_bg=None;
+            // Define love theme color palette
+            let soft_pink = Color32::from_rgb(255, 192, 203);  // #FFC0CB
+            let deep_pink = Color32::from_rgb(193, 28, 132);   // #C11C84
+            let cream = Color32::from_rgb(255, 248, 231);      // #FFF8E7
+            let burgundy = Color32::from_rgb(128, 0, 32);      // #800020
+            let light_gold = Color32::from_rgb(250, 214, 165); // #FAD6A5
+            
+            // Apply love colors to UI elements
+            self.style.cell_bg_even = soft_pink;
+            self.style.cell_bg_odd = Color32::from_rgb(255, 218, 224);  // Slightly lighter pink
+            
+            // Selected cell uses deep pink with cream text for luxury feel
+            self.style.selected_cell_bg = deep_pink;
+            self.style.selected_cell_text = cream;
+            
+            // Regular cell text in burgundy for elegant contrast
+            self.style.cell_text = burgundy;
+            
+            // Grid lines in a subtle golden hue for a romantic accent
+            self.style.grid_line = Stroke::new(1.0, Color32::from_rgba_unmultiplied(
+                light_gold.r(),
+                light_gold.g(),
+                light_gold.b(),
+                180
+            ));
+            
+            // Add a subtle pulsing animation to the selected cell
+            let time = ui.ctx().input(|i| i.time);
+            let time_f32 = time as f32;
+            let beat = (time_f32 % 4.0) * 1.5; // Slower cycle, beat range: 0 to 3
+
+            let pulse = if beat < 0.4 {
+                0.5 // First thump – darker 💚
+            } else if beat < 0.7 {
+                1.3 // Second thump – slightly less dark
+            } else if beat < 1.0{
+                0.6 // Second thump – slightly less dark
+            } else {
+                1.3 // Resting state – back to normal
+            };
+
+            
+            // Make the selected cell subtly pulse in intensity
+            self.style.selected_cell_bg = Color32::from_rgb(
+                (deep_pink.r() as f32 * pulse) as u8,
+                (deep_pink.g() as f32 * pulse) as u8,
+                (deep_pink.b() as f32 * pulse) as u8
+            );
+            
+            // Request repaint for animation
+            ui.ctx().request_repaint();
+            
+            return;
+        }
+
         // Check if rainbow2 mode is active - single color with brightness variation
         if self.style.rainbow==2 {
             // Get the current time for animation
             let time = ui.ctx().input(|i| i.time);
             let time_f32 = time as f32;
-            
+            self.style.get_cell_bg=None;
             // Frequency controls speed of color change - higher = faster
             let frequency: f32 = self.style.frequency;
             
@@ -303,6 +545,7 @@ impl SpreadsheetApp {
         
         // Check if rainbow mode is active
         else if self.style.rainbow==1 {
+            self.style.get_cell_bg=None;
             // Get the current time for animation - this returns f64
             let time = ui.ctx().input(|i| i.time);
             
@@ -433,14 +676,25 @@ impl SpreadsheetApp {
                 Valtype::Int(n) => n.to_string(),
                 Valtype::Str(s) => s.as_str().to_string(),
             };
+            
+            // REPLACE THIS BLOCK with the new background color logic
             let bg_color = if is_selected {
                 self.style.selected_cell_bg
+            } else if let Some(get_bg) = &self.style.get_cell_bg {
+                // Use matrix rain effect when available
+                get_bg(row, col)
             } else if row % 2 == 0 {
                 self.style.cell_bg_even
             } else {
                 self.style.cell_bg_odd
             };
-            let text_color = if is_selected { self.style.selected_cell_text } else { self.style.cell_text };
+            
+            let text_color = if is_selected { 
+                self.style.selected_cell_text 
+            } else { 
+                self.style.cell_text 
+            };
+            
             ui.put(rect, egui::Button::new(egui::RichText::new(text).size(self.style.font_size).color(text_color)).fill(bg_color).stroke(self.style.grid_line));
             let response = ui.interact(rect, ui.make_persistent_id((row, col)), egui::Sense::click());
             if response.clicked() {
@@ -452,6 +706,7 @@ impl SpreadsheetApp {
         }
         new_selection
     }
+
 
     // Render an editable cell (when editing)
     fn render_editable_cell(
