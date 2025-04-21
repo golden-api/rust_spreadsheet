@@ -239,6 +239,7 @@ fn test_print_sheet() {
     let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 5]; 5];
     sheet[0][0].value = Valtype::Int(1);
     sheet[1][1].value = Valtype::Int(2);
+    sheet[1][2].value = Valtype::Str(CellName::new("err").unwrap());
     {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
@@ -252,16 +253,8 @@ fn test_print_sheet() {
 
 #[test]
 fn test_parse_dimensions() {
-    let args_gui = vec!["prog".to_string(), "gui".to_string(), "5".to_string(), "10".to_string()];
     let args_cli = vec!["prog".to_string(), "5".to_string(), "10".to_string()];
-    let args_invalid = vec!["prog".to_string(), "0".to_string(), "10".to_string()];
-
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    let result = crate::parse_dimensions(args_gui);
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), (5, 10));
+    let args_invalid = vec!["prog".to_string(),"gui".to_string(), "0".to_string(), "10".to_string()];
 
     unsafe {
         STATUS_CODE = 0;
@@ -840,7 +833,7 @@ use crate::{interactive_mode, parse_dimensions};
 
 // Mock stdin and stdout for interactive_mode testing
 fn setup_interactive_test(input: &[&str]) -> (Vec<u8>, Arc<Mutex<Vec<u8>>>) {
-    let input = input.join("\n");
+    let input = input.join("\0");
     let input = input.as_bytes();
     let mock_stdin = Arc::new(Mutex::new(input.to_vec()));
     let mock_stdout = Arc::new(Mutex::new(Vec::new()));
@@ -853,14 +846,6 @@ fn test_parse_dimensions_invalid_rows() {
     let result = parse_dimensions(args);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err(), "Invalid rows");
-}
-
-#[test]
-fn test_parse_dimensions_gui_invalid_cols() {
-    let args = vec!["program".to_string(), "gui".to_string(), "10".to_string(), "xyz".to_string()];
-    let result = parse_dimensions(args);
-    assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "Invalid columns");
 }
 
 #[test]

@@ -161,8 +161,6 @@ fn print_sheet(
                     Valtype::Int(v) => print!("{:<10}  ", v),
                     Valtype::Str(s) => print!("{:<10}         ", s),
                 }
-            } else {
-                print!("{:<10}  ", 0);
             }
         }
         println!();
@@ -170,14 +168,7 @@ fn print_sheet(
 }
 
 fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
-    if args.len() == 4 && args[1] == "gui" {
-        let total_rows = args[2].parse::<usize>().map_err(|_| "Invalid rows")?;
-        let total_cols = args[3].parse::<usize>().map_err(|_| "Invalid columns")?;
-        if !(1..=999).contains(&total_rows) || !(1..=18278).contains(&total_cols) {
-            return Err("Invalid dimensions.");
-        }
-        Ok((total_rows, total_cols))
-    } else if args.len() == 3 {
+    if args.len() == 3 {
         let total_rows = args[1].parse::<usize>().map_err(|_| "Invalid rows")?;
         let total_cols = args[2].parse::<usize>().map_err(|_| "Invalid columns")?;
         if !(1..=999).contains(&total_rows) || !(1..=18278).contains(&total_cols) {
