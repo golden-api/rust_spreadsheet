@@ -1,0 +1,7 @@
+disable_output
+A1=5
+scroll_to B2
+A2=A1+3
+A1=A2
+enable_output
+q
