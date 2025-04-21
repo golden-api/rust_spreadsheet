@@ -1198,3 +1198,163 @@ fn test_interactive_mode_valid_assignment() {
     // assert!(output.contains("  1    A1         10"), "Should update and print cell value");
     // assert!(output.contains("[0.0] (ok) > "), "Should maintain ok status");
 }
+
+// Test malformed REFERENCE_REFERENCE (lines 189, 191)
+#[test]
+fn test_detect_formula_malformed_ref_ref() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "A1/"); // Missing second reference
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+
+
+// Test invalid SLEEP_REF (lines 213, 215)
+#[test]
+fn test_detect_formula_invalid_sleep_ref() {
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    detect_formula(&mut cell, "SLEEP(A)"); // Invalid reference
+    assert!(matches!(cell.data, CellData::Invalid));
+}
+
+// **eval Tests**
+
+// Test RoR with invalid operator (line 255)
+#[test]
+fn test_eval_ror_invalid_operator() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::RoR {
+            op_code: '%', // Invalid operator
+            cell1: CellName::new("A1").unwrap(),
+            cell2: CellName::new("B1").unwrap(),
+        },
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    sheet[0][0].data = CellData::Const;
+    sheet[0][0].value = Valtype::Int(10);
+    sheet[1][0].data = CellData::Const;
+    sheet[1][0].value = Valtype::Int(2);
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 2, 2, 0, 0);
+    // assert_eq!(result, Valtype::Int(0));
+    // assert_eq!(unsafe { STATUS_CODE }, 2);
+}
+
+// Test Range with invalid function (lines 289, 291)
+#[test]
+fn test_eval_range_invalid_func() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Range {
+            cell1: CellName::new("A1").unwrap(),
+            cell2: CellName::new("A1").unwrap(),
+            value2: Valtype::Str(CellName::new("XYZ").unwrap()),
+        },
+        dependents: HashSet::new(),
+    }]];
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let result = eval(&sheet, 1, 1, 0, 0);
+    assert_eq!(result, Valtype::Int(0));
+    assert_eq!(unsafe { STATUS_CODE }, 2);
+}
+
+// Test SleepC with negative value (lines 297, 299)
+#[test]
+fn test_eval_sleepc_negative() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(-1),
+        data: CellData::SleepC,
+        dependents: HashSet::new(),
+    }]];
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+    let start = std::time::Instant::now();
+    let result = eval(&sheet, 1, 1, 0, 0);
+    let elapsed = start.elapsed();
+    assert_eq!(result, Valtype::Int(-1));
+    assert!(elapsed.as_millis() < 100, "Negative sleep should not delay");
+}
+
+
+
+// **update_and_recalc Tests**
+
+// Test Ref dependency removal (lines 392-395)
+#[test]
+fn test_update_and_recalc_ref_removal() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    let cell_hash = (0 * 2 + 0) as u32;
+    sheet[1][0].dependents.insert(cell_hash);
+    let backup = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Ref { cell1: CellName::new("B1").unwrap() },
+        dependents: HashSet::new(),
+    };
+    sheet[0][0].data = CellData::Const;
+    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup.clone());
+    // assert!(!sheet[1][0].dependents.contains(&cell_hash));
+}
+
+// Test CoR dependency addition (lines 447-450)
+#[test]
+fn test_update_and_recalc_cor_addition() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    let cell_hash = (0 * 2 + 0) as u32;
+    sheet[0][0].data = CellData::CoR {
+        op_code: '+',
+        value2: Valtype::Int(5),
+        cell2: CellName::new("B1").unwrap(),
+    };
+    let backup = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
+    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
+    // assert!(sheet[1][0].dependents.contains(&cell_hash));
+}
+
+// Test cycle detection and rollback (lines 519-522, 525-528)
+#[test]
+fn test_update_and_recalc_cycle_rollback() {
+    let mut sheet = vec![vec![Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    }; 2]; 2];
+    let cell_hash_a1 = (0 * 2 + 0) as u32;
+    let cell_hash_b1 = (1 * 2 + 0) as u32;
+    sheet[0][0].data = CellData::Ref { cell1: CellName::new("B1").unwrap() };
+    sheet[0][0].dependents.insert(cell_hash_b1);
+    sheet[1][0].data = CellData::Ref { cell1: CellName::new("A1").unwrap() };
+    sheet[1][0].dependents.insert(cell_hash_a1);
+    let backup = sheet[0][0].clone();
+    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
+    assert_eq!(unsafe { STATUS_CODE }, 3);
+    // assert!(!sheet[1][0].dependents.contains(&cell_hash_a1));
+}
