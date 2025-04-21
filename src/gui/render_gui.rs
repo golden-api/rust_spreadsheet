@@ -662,6 +662,7 @@ impl SpreadsheetApp {
         rect: egui::Rect,
     ) -> Option<(usize, usize)> {
         let is_selected = self.selected == Some((row, col));
+        let is_in_range = self.is_in_selected_range(row, col);
         let mut new_selection = None;
         if is_selected && self.editing_cell {
             self.render_editable_cell(ui, rect);
@@ -674,6 +675,8 @@ impl SpreadsheetApp {
             // REPLACE THIS BLOCK with the new background color logic
             let bg_color = if is_selected {
                 self.style.selected_cell_bg
+            } else if is_in_range {
+                self.style.range_selection_bg
             } else if let Some(get_bg) = &self.style.get_cell_bg {
                 // Use matrix rain effect when available
                 get_bg(row, col)
@@ -683,18 +686,52 @@ impl SpreadsheetApp {
                 self.style.cell_bg_odd
             };
 
-            let text_color = if is_selected { self.style.selected_cell_text } else { self.style.cell_text };
+            let text_color = if is_selected { self.style.selected_cell_text }  
+            else if is_in_range {
+                self.style.range_selection_text}
+            else { self.style.cell_text };
 
             ui.put(rect, egui::Button::new(egui::RichText::new(text).size(self.style.font_size).color(text_color)).fill(bg_color).stroke(self.style.grid_line));
-            let response = ui.interact(rect, ui.make_persistent_id((row, col)), egui::Sense::click());
+            let response = ui.interact(rect, ui.make_persistent_id((row, col)), 
+                                  egui::Sense::click_and_drag());
+        
             if response.clicked() {
                 new_selection = Some((row, col));
+                self.range_start = Some((row, col));
+                self.range_end = None;
+                
                 if self.selected == Some((row, col)) {
                     self.editing_cell = true;
                 }
             }
+            if response.dragged() && self.range_start.is_some() {
+                self.range_end = Some((row, col));
+                self.is_selecting_range = true;
+                new_selection=None;
+                ui.ctx().request_repaint();
+            }
+            if response.drag_stopped() {
+                self.is_selecting_range = false;
+                // Selection is complete - update status
+                if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
+                    self.status_message = format!("Selected range {}{}:{}{}", 
+                        col_label(start.1), start.0 + 1, col_label(end.1), end.0 + 1);
+                }
+            }
         }
         new_selection
+    }
+    // Helper method to check if a cell is within the selected range
+    fn is_in_selected_range(&self, row: usize, col: usize) -> bool {
+        if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
+            let min_row = start.0.min(end.0);
+            let max_row = start.0.max(end.0);
+            let min_col = start.1.min(end.1);
+            let max_col = start.1.max(end.1);
+            
+            return row >= min_row && row <= max_row && col >= min_col && col <= max_col;
+        }
+        false
     }
 
     // Render an editable cell (when editing)

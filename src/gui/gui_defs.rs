@@ -20,43 +20,47 @@ pub enum Direction {
 
 // Define your styling configuration.
 pub struct SpreadsheetStyle {
-    pub(crate) header_bg:          Color32,
-    pub(crate) header_text:        Color32,
-    pub(crate) cell_bg_even:       Color32,
-    pub(crate) cell_bg_odd:        Color32,
-    pub(crate) cell_text:          Color32,
-    pub(crate) selected_cell_bg:   Color32,
-    pub(crate) selected_cell_text: Color32,
-    pub(crate) grid_line:          Stroke,
-    pub(crate) cell_size:          Vec2,
-    pub(crate) font_size:          f32,
-    pub(crate) prev_base_color:    Color32,
-    pub(crate) rainbow:            u32,
-    pub(crate) frequency:          f32,
+    pub(crate) header_bg:            Color32,
+    pub(crate) header_text:          Color32,
+    pub(crate) cell_bg_even:         Color32,
+    pub(crate) cell_bg_odd:          Color32,
+    pub(crate) cell_text:            Color32,
+    pub(crate) selected_cell_bg:     Color32,
+    pub(crate) selected_cell_text:   Color32,
+    pub(crate) grid_line:            Stroke,
+    pub(crate) cell_size:            Vec2,
+    pub(crate) font_size:            f32,
+    pub(crate) prev_base_color:      Color32,
+    pub(crate) rainbow:              u32,
+    pub(crate) frequency:            f32,
     // pub(crate) frequency1:          f32,
-    pub(crate) matrix_raindrops:   Vec<(usize, usize, f32, usize)>,              // (column, row, speed, length)
-    pub(crate) get_cell_bg:        Option<Box<dyn Fn(usize, usize) -> Color32>>, // Function to get cell background
+    pub(crate) matrix_raindrops:     Vec<(usize, usize, f32, usize)>,              // (column, row, speed, length)
+    pub(crate) get_cell_bg:          Option<Box<dyn Fn(usize, usize) -> Color32>>, // Function to get cell background
+    pub(crate) range_selection_bg:   Color32,
+    pub(crate) range_selection_text: Color32,
 }
 
 impl Default for SpreadsheetStyle {
     fn default() -> Self {
         Self {
-            header_bg:          Color32::from_rgb(60, 63, 100),
-            header_text:        Color32::from_rgb(220, 220, 220),
-            cell_bg_even:       Color32::from_rgb(65, 50, 85),
-            cell_bg_odd:        Color32::from_rgb(45, 45, 45),
-            cell_text:          Color32::LIGHT_GRAY,
-            selected_cell_bg:   Color32::from_rgb(120, 120, 180),
-            selected_cell_text: Color32::WHITE,
-            grid_line:          Stroke::new(1.0, Color32::from_rgb(70, 70, 70)),
-            cell_size:          Vec2::new(60.0, 25.0),
-            font_size:          14.0,
-            prev_base_color:    Color32::from_rgb(120, 120, 180),
-            rainbow:            0,
-            frequency:          0.2,
+            header_bg:            Color32::from_rgb(60, 63, 100),
+            header_text:          Color32::from_rgb(220, 220, 220),
+            cell_bg_even:         Color32::from_rgb(65, 50, 85),
+            cell_bg_odd:          Color32::from_rgb(45, 45, 45),
+            cell_text:            Color32::LIGHT_GRAY,
+            selected_cell_bg:     Color32::from_rgb(120, 120, 180),
+            selected_cell_text:   Color32::WHITE,
+            grid_line:            Stroke::new(1.0, Color32::from_rgb(70, 70, 70)),
+            cell_size:            Vec2::new(60.0, 25.0),
+            font_size:            14.0,
+            prev_base_color:      Color32::from_rgb(120, 120, 180),
+            rainbow:              0,
+            frequency:            0.2,
             // frequency1:          0.0,
-            matrix_raindrops:   Vec::new(),
-            get_cell_bg:        None,
+            matrix_raindrops:     Vec::new(),
+            get_cell_bg:          None,
+            range_selection_bg:   Color32::from_rgb(100, 100, 160), // Lighter blue
+            range_selection_text: Color32::WHITE,
         }
     }
 }
@@ -81,6 +85,9 @@ pub struct SpreadsheetApp {
     pub(crate) max_undo_levels:       usize,
     pub(crate) show_save_dialog:      bool,
     pub(crate) save_filename:         String,
+    pub(crate) range_start:           Option<(usize, usize)>,
+    pub(crate) range_end:             Option<(usize, usize)>,
+    pub(crate) is_selecting_range:    bool,
 }
 
 impl SpreadsheetApp {
@@ -111,6 +118,9 @@ impl SpreadsheetApp {
             max_undo_levels: 100,
             show_save_dialog: false,
             save_filename: String::new(),
+            range_start: None,
+            range_end: None,
+            is_selecting_range: false,
         }
     }
 }
