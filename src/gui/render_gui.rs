@@ -88,7 +88,12 @@ impl SpreadsheetApp {
                         self.goto_cell(cell_ref);
                         self.copy_selected_cell();
                     }
-                } else if cmd.starts_with("paste ") {
+                } else if cmd.starts_with("cut ") {
+                    if let Some(cell_ref) = cmd.strip_prefix("cut ") {
+                        self.goto_cell(cell_ref);
+                        self.cut_selected_cell();
+                    }
+                }else if cmd.starts_with("paste ") {
                     if let Some(cell_ref) = cmd.strip_prefix("paste ") {
                         self.goto_cell(cell_ref);
                         self.paste_to_selected_cell();
@@ -899,7 +904,6 @@ impl SpreadsheetApp {
                     self.formula_input = self.get_cell_formula(row, col);
                     self.editing_cell = true;
                     self.request_formula_focus = true;
-                    // self.formula_input.clear();
                 }
             }
             if input.modifiers.ctrl {
@@ -910,6 +914,8 @@ impl SpreadsheetApp {
                     self.copy_selected_cell();
                 } else if input.key_pressed(egui::Key::R) {
                     self.paste_to_selected_cell();
+                }else if input.key_pressed(egui::Key::T) {
+                    self.cut_selected_cell();
                 } else if input.key_pressed(egui::Key::Z) {
                     self.undo();
                 } else if input.key_pressed(egui::Key::Y) || (input.modifiers.shift && input.key_pressed(egui::Key::Z)) {

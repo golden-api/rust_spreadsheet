@@ -210,7 +210,6 @@ impl SpreadsheetApp {
 }
 
 impl SpreadsheetApp {
-    // Copy the currently selected cell to clipboard
     pub fn copy_selected_cell(&mut self) {
         if let Some((row, col)) = self.selected {
             self.clipboard = Some(self.sheet[row][col].clone());
@@ -220,11 +219,17 @@ impl SpreadsheetApp {
             self.status_message = "No cell selected for copy".to_string();
         }
     }
-
-    // Paste the clipboard content to the selected cell
-}
-
-impl SpreadsheetApp {
+    pub fn cut_selected_cell(&mut self){
+        self.copy_selected_cell();
+        if let Some((row, col)) = self.selected{
+            use crate::Cell;
+            use std::collections::HashSet;
+            self.sheet[row][col] = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new()};
+            self.status_message = format!("Moved cell {}{}", col_label(col), row + 1);
+        }else {
+            self.status_message = "No cell selected for cut".to_string();
+        }
+    }
     // Push an action to the undo stack
     fn push_undo_action(
         &mut self,
