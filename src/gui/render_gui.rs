@@ -57,6 +57,7 @@ impl SpreadsheetApp {
         &mut self,
         cmd: &str,
     ) {
+        let mut flag = true;
         match cmd {
             "q" => std::process::exit(0),
             "tr" => self.reset_theme(),
@@ -100,6 +101,7 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("goto ") {
                     if let Some(cell_ref) = cmd.strip_prefix("goto ") {
                         self.goto_cell(cell_ref);
+                        flag=false;
                     }
                 } else if cmd.starts_with("frequency ") {
                     let arg = cmd["frequency ".len()..].trim(); // Ooh yes, gently remove that prefix
@@ -122,8 +124,8 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("csv ") {
                     let filename = cmd.strip_prefix("csv ").unwrap().trim();
                     self.export_to_csv(filename);
-                } else if cmd.starts_with("excel ") {
-                    let filename = cmd.strip_prefix("excel ").unwrap().trim();
+                } else if cmd.starts_with("fcsv ") {
+                    let filename = cmd.strip_prefix("fcsv ").unwrap().trim();
                     self.export_formulas_to_csv(filename);
                 } else if cmd.starts_with("s") {
                     let arg = &cmd[1..].trim();
@@ -169,6 +171,9 @@ impl SpreadsheetApp {
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
                 },
+        }
+        if flag {
+            self.request_formula_focus=true;
         }
     }
 
@@ -617,7 +622,7 @@ impl SpreadsheetApp {
         ui.label(egui::RichText::new("Save as:").size(self.style.font_size).color(self.style.header_text));
 
         // Add the filename input field
-        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename).hint_text("filename.csv").desired_width(200.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
+        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename).hint_text("filename").desired_width(200.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
 
         // Auto-focus the input field when dialog opens
         if self.show_save_dialog && self.focus_on == 0 {
