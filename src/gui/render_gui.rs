@@ -57,6 +57,7 @@ impl SpreadsheetApp {
         &mut self,
         cmd: &str,
     ) {
+        let mut flag = true;
         match cmd {
             "q" => std::process::exit(0),
             "tr" => self.reset_theme(),
@@ -100,6 +101,7 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("goto ") {
                     if let Some(cell_ref) = cmd.strip_prefix("goto ") {
                         self.goto_cell(cell_ref);
+                        flag=false;
                     }
                 } else if cmd.starts_with("frequency ") {
                     let arg = cmd["frequency ".len()..].trim(); // Ooh yes, gently remove that prefix
@@ -169,6 +171,9 @@ impl SpreadsheetApp {
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
                 },
+        }
+        if flag {
+            self.request_formula_focus=true;
         }
     }
 
