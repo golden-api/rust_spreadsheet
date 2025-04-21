@@ -59,13 +59,13 @@ pub fn cell_data_to_formula_string(data: &CellData) -> Option<String> {
     match data {
         Empty | Const => None,
         Ref { cell1 } => Some(format!("={}", cell1)),
-        CoC { op_code, value2 }     => Some(format!("={}{}{}", /* left operand? */ "", op_code, valtype_to_string(value2))),
+        CoC { op_code, value2 } => Some(format!("={}{}{}", /* left operand? */ "", op_code, valtype_to_string(value2))),
         CoR { op_code, value2, cell2 } => Some(format!("={}{}{}", valtype_to_string(value2), op_code, cell2)),
         RoC { op_code, value2, cell1 } => Some(format!("={}{}{}", cell1, op_code, valtype_to_string(value2))),
-        RoR { op_code, cell1, cell2 }  => Some(format!("={}{}{}", cell1, op_code, cell2)),
+        RoR { op_code, cell1, cell2 } => Some(format!("={}{}{}", cell1, op_code, cell2)),
         Range { cell1, cell2, value2 } => Some(format!("=RANGE({}:{},{})", cell1, cell2, valtype_to_string(value2))),
-        SleepC                         => Some("=SLEEP()".into()),
-        SleepR { cell1 }               => Some(format!("=SLEEP({})", cell1)),
-        Invalid                        => Some("#INVALID".into()),
+        SleepC => Some("=SLEEP()".into()),
+        SleepR { cell1 } => Some(format!("=SLEEP({})", cell1)),
+        Invalid => Some("#INVALID".into()),
     }
 }

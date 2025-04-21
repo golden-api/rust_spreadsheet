@@ -34,8 +34,8 @@ pub struct SpreadsheetStyle {
     pub(crate) rainbow:            u32,
     pub(crate) frequency:          f32,
     // pub(crate) frequency1:          f32,
-    pub(crate) matrix_raindrops:   Vec<(usize, usize, f32, usize)>, // (column, row, speed, length)
-    pub(crate) get_cell_bg: Option<Box<dyn Fn(usize, usize) -> Color32>>, // Function to get cell background
+    pub(crate) matrix_raindrops:   Vec<(usize, usize, f32, usize)>,              // (column, row, speed, length)
+    pub(crate) get_cell_bg:        Option<Box<dyn Fn(usize, usize) -> Color32>>, // Function to get cell background
 }
 
 impl Default for SpreadsheetStyle {

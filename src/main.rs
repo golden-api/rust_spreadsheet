@@ -63,10 +63,10 @@ mod parser;
 #[cfg(not(feature = "gui"))]
 mod scrolling;
 
-mod test;
-mod utils;
 #[cfg(feature = "gui")]
 mod gui;
+mod test;
+mod utils;
 
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 pub static mut STATUS_CODE: usize = 0;
@@ -90,7 +90,7 @@ pub enum Valtype {
     Str(CellName),
 }
 
-#[derive(Clone, Debug,PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CellData {
     Empty,
     SleepC,

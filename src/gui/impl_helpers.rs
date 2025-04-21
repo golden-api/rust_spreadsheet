@@ -9,10 +9,10 @@ use crate::{
     STATUS_CODE,
     Valtype,
     gui::gui_defs::SpreadsheetApp,
-    parser,
-    gui::utils_gui::col_label,
     gui::utils_gui::cell_data_to_formula_string,
+    gui::utils_gui::col_label,
     gui::utils_gui::valtype_to_string,
+    parser,
 };
 
 impl SpreadsheetApp {
@@ -137,11 +137,7 @@ impl SpreadsheetApp {
         filename: &str,
     ) {
         // ensure .csv extension
-        let filename = if filename.ends_with(".csv") {
-            filename.to_string()
-        } else {
-            format!("{}.csv", filename)
-        };
+        let filename = if filename.ends_with(".csv") { filename.to_string() } else { format!("{}.csv", filename) };
 
         match File::create(&filename) {
             Ok(file) => {
@@ -152,8 +148,7 @@ impl SpreadsheetApp {
                         .iter()
                         .map(|cell| {
                             // emit formula if available, otherwise the computed value
-                            cell_data_to_formula_string(&cell.data)
-                                .unwrap_or_else(|| valtype_to_string(&cell.value))
+                            cell_data_to_formula_string(&cell.data).unwrap_or_else(|| valtype_to_string(&cell.value))
                         })
                         .collect();
 
