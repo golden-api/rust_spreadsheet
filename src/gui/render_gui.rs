@@ -124,8 +124,8 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("csv ") {
                     let filename = cmd.strip_prefix("csv ").unwrap().trim();
                     self.export_to_csv(filename);
-                } else if cmd.starts_with("excel ") {
-                    let filename = cmd.strip_prefix("excel ").unwrap().trim();
+                } else if cmd.starts_with("fcsv ") {
+                    let filename = cmd.strip_prefix("fcsv ").unwrap().trim();
                     self.export_formulas_to_csv(filename);
                 } else if cmd.starts_with("s") {
                     let arg = &cmd[1..].trim();
@@ -622,7 +622,7 @@ impl SpreadsheetApp {
         ui.label(egui::RichText::new("Save as:").size(self.style.font_size).color(self.style.header_text));
 
         // Add the filename input field
-        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename).hint_text("filename.csv").desired_width(200.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
+        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename).hint_text("filename").desired_width(200.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
 
         // Auto-focus the input field when dialog opens
         if self.show_save_dialog && self.focus_on == 0 {
