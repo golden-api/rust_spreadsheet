@@ -254,7 +254,7 @@ fn test_print_sheet() {
 #[test]
 fn test_parse_dimensions() {
     let args_cli = vec!["prog".to_string(), "5".to_string(), "10".to_string()];
-    let args_invalid = vec!["prog".to_string(),"gui".to_string(), "0".to_string(), "10".to_string()];
+    let args_invalid = vec!["prog".to_string(), "gui".to_string(), "0".to_string(), "10".to_string()];
 
     unsafe {
         STATUS_CODE = 0;
@@ -869,7 +869,6 @@ fn test_interactive_mode_invalid_cell_ref() {
     // invalid range");
 }
 
-
 #[test]
 fn test_update_and_recalc_cor_addition_invalid() {
     let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
@@ -897,38 +896,56 @@ fn test_update_and_recalc_roc_addition_out_of_bounds() {
     assert_eq!(unsafe { STATUS_CODE }, 1); // Should fail validation
 }
 
+use std::fs::read_to_string;
+use std::io::Read;
+use std::thread;
+use std::time::Duration;
+
+// Custom stdin implementation to read commands line by line from input.txt
+struct LineBufferedStdin {
+    lines: Vec<String>,
+    current_line: usize,
+}
+
+impl LineBufferedStdin {
+    fn new(path: &str) -> io::Result<Self> {
+        let content = read_to_string(path)?;
+        let lines = content.lines().map(String::from).collect();
+        Ok(LineBufferedStdin { lines, current_line: 0 })
+    }
+}
+
+impl Read for LineBufferedStdin {
+    fn read(
+        &mut self,
+        buf: &mut [u8],
+    ) -> io::Result<usize> {
+        if self.current_line >= self.lines.len() {
+            return Ok(0); // EOF when all lines are processed
+        }
+        let line = self.lines[self.current_line].as_bytes();
+        let bytes_to_read = buf.len().min(line.len());
+        buf[..bytes_to_read].copy_from_slice(&line[..bytes_to_read]);
+        if bytes_to_read == line.len() {
+            self.current_line += 1;
+            if self.current_line < self.lines.len() {
+                buf[bytes_to_read] = b'\n'; // Add newline for read_line
+                Ok(bytes_to_read + 1)
+            } else {
+                Ok(bytes_to_read)
+            }
+        } else {
+            Ok(bytes_to_read)
+        }
+    }
+}
+
 #[test]
-fn test_interactive_flow() {
-    //scroll_to bad
-    let (_, mock_stdout) = setup_interactive_test(&["scroll_to X0", "q"]);
+fn test_interactive_mode_compare_output() {
     unsafe {
         STATUS_CODE = 0;
     }
-    std::thread::spawn(move || {
-        interactive_mode(2, 2);
-    });
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
-    //disable,enable
-    let (_, mock_stdout) = setup_interactive_test(&["disable_output", "enable_output", "q"]);
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    std::thread::spawn(move || {
-        interactive_mode(2, 2);
-    });
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
-    //wrong command
-    let (_, mock_stdout) = setup_interactive_test(&["A1=10", "q"]);
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    std::thread::spawn(move || {
-        interactive_mode(2, 2);
-    });
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
 
-
+    let val=interactive_mode(999, 18278);
+    assert_eq!(val,5);
 }
