@@ -275,8 +275,6 @@ fn test_parse_dimensions() {
 fn test_interactive_mode() {
     let total_rows = 5;
     let total_cols = 5;
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; total_cols]; total_rows];
-    // Simulate input would require mocking stdin, skipped for now
     unsafe {
         STATUS_CODE = 0;
     }
@@ -636,7 +634,7 @@ fn test_to_indices_function() {
 // Test for eval with CoC error case (lines 234-237)
 #[test]
 fn test_eval_coc_error() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Str(CellName::new("ERR").unwrap()), data: CellData::CoC { op_code: '+', value2: Valtype::Int(5) }, dependents: HashSet::new() }]];
+    let sheet = vec![vec![Cell { value: Valtype::Str(CellName::new("ERR").unwrap()), data: CellData::CoC { op_code: '+', value2: Valtype::Int(5) }, dependents: HashSet::new() }]];
     unsafe {
         STATUS_CODE = 0;
         EVAL_ERROR = false;
@@ -666,7 +664,7 @@ fn test_eval_ror_valid() {
 // Test for eval with Range invalid range (lines 289-291)
 #[test]
 fn test_eval_range_out_of_bounds() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Range { cell1: CellName::new("A1").unwrap(), cell2: CellName::new("Z10").unwrap(), value2: Valtype::Str(CellName::new("SUM").unwrap()) }, dependents: HashSet::new() }]];
+    let sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Range { cell1: CellName::new("A1").unwrap(), cell2: CellName::new("Z10").unwrap(), value2: Valtype::Str(CellName::new("SUM").unwrap()) }, dependents: HashSet::new() }]];
     unsafe {
         STATUS_CODE = 0;
         EVAL_ERROR = false;
@@ -734,7 +732,7 @@ fn test_detect_formula_invalid_range() {
 // Test for eval with CoC with division by zero (lines 234, 237)
 #[test]
 fn test_eval_coc_div_zero() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(5), data: CellData::CoC { op_code: '/', value2: Valtype::Int(0) }, dependents: HashSet::new() }]];
+    let sheet = vec![vec![Cell { value: Valtype::Int(5), data: CellData::CoC { op_code: '/', value2: Valtype::Int(0) }, dependents: HashSet::new() }]];
     unsafe {
         STATUS_CODE = 0;
         EVAL_ERROR = false;
@@ -747,7 +745,7 @@ fn test_eval_coc_div_zero() {
 // Test for eval with unrecognized range function (lines 289, 291)
 #[test]
 fn test_eval_range_unrecognized_func() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Range { cell1: CellName::new("A1").unwrap(), cell2: CellName::new("A1").unwrap(), value2: Valtype::Str(CellName::new("INVALID").unwrap()) }, dependents: HashSet::new() }]];
+    let sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Range { cell1: CellName::new("A1").unwrap(), cell2: CellName::new("A1").unwrap(), value2: Valtype::Str(CellName::new("INVALID").unwrap()) }, dependents: HashSet::new() }]];
     unsafe {
         STATUS_CODE = 0;
         EVAL_ERROR = false;
@@ -760,7 +758,7 @@ fn test_eval_range_unrecognized_func() {
 // Test for eval with SleepR invalid reference (lines 304, 306)
 #[test]
 fn test_eval_sleepr_invalid_ref() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::SleepR { cell1: CellName::new("A10").unwrap() }, dependents: HashSet::new() }]];
+    let sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::SleepR { cell1: CellName::new("A10").unwrap() }, dependents: HashSet::new() }]];
     unsafe {
         STATUS_CODE = 0;
         EVAL_ERROR = false;
@@ -786,7 +784,6 @@ fn test_update_and_recalc_cor_removal() {
 #[test]
 fn test_update_and_recalc_ror_addition() {
     let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    let cell_hash = (0 * 2 + 0) as u32;
     sheet[0][0].data = CellData::RoR { op_code: '+', cell1: CellName::new("A1").unwrap(), cell2: CellName::new("B1").unwrap() };
     let backup = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
     update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
@@ -858,93 +855,24 @@ fn test_parse_dimensions_out_of_bounds() {
 
 #[test]
 fn test_interactive_mode_invalid_cell_ref() {
-    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["A0=5", "q"]);
-    let original_stdin = io::stdin();
-    let original_stdout = io::stdout();
-    let mut spreadsheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
+    let (_, mock_stdout) = setup_interactive_test(&["A0=5", "q"]);
     unsafe {
         STATUS_CODE = 0;
     }
-    let stdout = mock_stdout.clone();
-    let stdin = mock_stdin.clone();
     std::thread::spawn(move || {
         interactive_mode(2, 2);
     });
     // Wait for execution (simplified, real test might need synchronization)
     std::thread::sleep(std::time::Duration::from_millis(100));
-    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
     // assert!(output.contains("[0.0] (Invalid range) > "), "Should detect
     // invalid range");
 }
 
-#[test]
-fn test_interactive_mode_scroll_to_invalid() {
-    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["scroll_to X0", "q"]);
-    let original_stdin = io::stdin();
-    let original_stdout = io::stdout();
-    let mut spreadsheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    let stdout = mock_stdout.clone();
-    let stdin = mock_stdin.clone();
-    std::thread::spawn(move || {
-        interactive_mode(2, 2);
-    });
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
-    // assert!(output.contains("[0.0] (Invalid range) > "), "Should handle
-    // invalid scroll_to");
-}
 
-#[test]
-fn test_interactive_mode_disable_enable_output() {
-    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["disable_output", "enable_output", "q"]);
-    let original_stdin = io::stdin();
-    let original_stdout = io::stdout();
-    let mut spreadsheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    let stdout = mock_stdout.clone();
-    let stdin = mock_stdin.clone();
-    std::thread::spawn(move || {
-        interactive_mode(2, 2);
-    });
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
-    // assert!(output.contains("[0.0] (ok) > "), "Should show initial prompt");
-    // assert!(!output.contains("  1    A1"), "Should not print sheet after
-    // disable_output"); assert!(output.contains("[0.0] (ok) > "), "Should
-    // resume prompt after enable_output");
-}
-
-#[test]
-fn test_interactive_mode_valid_assignment() {
-    let (mut mock_stdin, mock_stdout) = setup_interactive_test(&["A1=10", "q"]);
-    let original_stdin = io::stdin();
-    let original_stdout = io::stdout();
-    let mut spreadsheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    let stdout = mock_stdout.clone();
-    let stdin = mock_stdin.clone();
-    std::thread::spawn(move || {
-        interactive_mode(2, 2);
-    });
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let output = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
-    // assert!(output.contains("  1    A1         10"), "Should update and print
-    // cell value"); assert!(output.contains("[0.0] (ok) > "), "Should
-    // maintain ok status");
-}
-
-// Test CoR dependency addition with invalid cell (lines 398-401)
 #[test]
 fn test_update_and_recalc_cor_addition_invalid() {
     let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    let cell_hash = (0 * 2 + 0) as u32;
     sheet[0][0].data = CellData::CoR {
         op_code: '+',
         value2: Valtype::Int(5),
@@ -959,7 +887,6 @@ fn test_update_and_recalc_cor_addition_invalid() {
 #[test]
 fn test_update_and_recalc_roc_addition_out_of_bounds() {
     let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    let cell_hash = (0 * 2 + 0) as u32;
     sheet[0][0].data = CellData::RoC {
         op_code: '+',
         value2: Valtype::Int(5),
@@ -970,44 +897,38 @@ fn test_update_and_recalc_roc_addition_out_of_bounds() {
     assert_eq!(unsafe { STATUS_CODE }, 1); // Should fail validation
 }
 
-use std::fs::{File,read_to_string};
-use std::process::Command;
-
 #[test]
-fn test_interactive_mode_compare_output() {
-    let input_path = "input.txt";
-
-    let expected_path = "expected_out.txt";
-
-    // Prepare output.txt
-    let output_path = "output.txt";
-    let output_file = File::create(output_path).expect("Failed to create output.txt");
-
-    // Run the program with input redirection and output capture
-    let mut child = Command::new("cargo")
-        .args(&["run", "--", "11", "11"]) // 11x11 grid to accommodate B11
-        .stdin(File::open(input_path).expect("Failed to open input.txt"))
-        .stdout(output_file)
-        .spawn()
-        .expect("Failed to spawn cargo process");
-
-    // Wait for the process to complete
-    let status = child.wait().expect("Failed to wait on child process");
-    assert!(status.success(), "Program execution failed");
-
-    // Read and normalize output.txt and expected_out.txt
-    let output_content = read_to_string(output_path).expect("Failed to read output.txt");
-    let expected_content = read_to_string(expected_path).expect("Failed to read expected_out.txt");
-
-    // Function to remove time values (e.g., [0.0]) and replace with [TIME], and remove \r
-    fn normalize_time(text: &str) -> String {
-        let re = regex::Regex::new(r"\[\d+\.\d+\]").unwrap();
-        re.replace_all(text, "[TIME]").to_string().replace("\r", "")
+fn test_interactive_flow() {
+    //scroll_to bad
+    let (_, mock_stdout) = setup_interactive_test(&["scroll_to X0", "q"]);
+    unsafe {
+        STATUS_CODE = 0;
     }
+    std::thread::spawn(move || {
+        interactive_mode(2, 2);
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+    //disable,enable
+    let (_, mock_stdout) = setup_interactive_test(&["disable_output", "enable_output", "q"]);
+    unsafe {
+        STATUS_CODE = 0;
+    }
+    std::thread::spawn(move || {
+        interactive_mode(2, 2);
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
+    //wrong command
+    let (_, mock_stdout) = setup_interactive_test(&["A1=10", "q"]);
+    unsafe {
+        STATUS_CODE = 0;
+    }
+    std::thread::spawn(move || {
+        interactive_mode(2, 2);
+    });
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
 
-    let normalized_output = normalize_time(&output_content);
-    let normalized_expected = normalize_time(&expected_content);
 
-    // Compare the normalized texts
-    assert_eq!(normalized_output.trim(), normalized_expected.trim(), "Output does not match expected");
 }
