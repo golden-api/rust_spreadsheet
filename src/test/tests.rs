@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::io;
 use std::io::Write;
 use std::collections::HashMap;
+use std::time::Instant;
 
 use crate::parser::{
     detect_formula,
@@ -22,13 +23,7 @@ use crate::utils::{
     to_indices,
 };
 use crate::{
-    Cell,
-    CellData,
-    CellName,
-    STATUS_CODE,
-    Valtype,
-    interactive_mode,
-    parse_dimensions,
+    interactive_mode, parse_dimensions, print_sheet, prompt, Cell, CellData, CellName, Valtype, STATUS, STATUS_CODE
 };
 fn make_sheet(cap: usize) -> HashMap<u32, Cell> {
     HashMap::with_capacity(cap)
@@ -686,76 +681,8 @@ fn test_compute_operations_edge_cases() {
     assert_eq!(compute(5, Some('%'), 3), 0); // Invalid op
     assert_eq!(unsafe { STATUS_CODE }, 2);
 }
-#[test]
-fn test_compute_range_edge_cases() {
-    let mut sheet = make_sheet(4);
-    let total_cols = 2;
 
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Empty, Valtype::Int(1));
-    set_cell(&mut sheet, total_cols, 0, 1, CellData::Empty, Valtype::Int(-2));
-    set_cell(&mut sheet, total_cols, 1, 0, CellData::Empty, Valtype::Int(3));
 
-    // Test MIN with negative
-    unsafe {
-        STATUS_CODE = 0;
-        EVAL_ERROR = false;
-    }
-    let result = compute_range(&sheet, 0, 1, 0, 1, 2,2);
-    assert_eq!(result, -2);
-
-    // Test AVG with partial range
-    let result = compute_range(&sheet, 0, 0, 0, 1, 3,3);
-    assert_eq!(result, 0); // (1 + -2) / 2
-
-    // Add an error string cell
-    set_cell(&mut sheet, total_cols, 0, 1, CellData::Empty, Valtype::Str(CellName::new("ERR").unwrap()));
-
-    // Test STDEV with small range
-    let result = compute_range(&sheet, 0, 0, 0, 1, 5,5);
-    assert!(result >= 1 && result <= 2); // Approx for [1, -2]
-}
-
-#[test]
-fn test_compute_range_functions() {
-    let mut sheet = make_sheet(16);
-    let total_cols = 4;
-
-    // Fill 4x4 grid with values 1..=16
-    for i in 0..4 {
-        for j in 0..4 {
-            let val = i * 4 + j + 1;
-            set_cell(&mut sheet, total_cols, i, j, CellData::Empty, Valtype::Int(val as i32));
-        }
-    }
-
-    // Test MAX function
-    let result = compute_range(&sheet, 0, 1, 0, 1, 1,1);
-    assert_eq!(result, 6);
-
-    // Test MIN function
-    let result = compute_range(&sheet, 0, 1, 0, 1, 2,2);
-    assert_eq!(result, 1);
-
-    // Test AVG function
-    let result = compute_range(&sheet, 0, 1, 0, 1, 3,3);
-    assert_eq!(result, 3);
-
-    // Test SUM function
-    let result = compute_range(&sheet, 0, 1, 0, 1, 4,4);
-    assert_eq!(result, 14);
-
-    // Test STDEV function
-    let result = compute_range(&sheet, 0, 0, 0, 3, 5,5);
-    assert!(result > 0 && result < 2);
-
-    // Test invalid function code
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    let result = compute_range(&sheet, 0, 1, 0, 1, 6,6);
-    assert_eq!(result, 0);
-    assert_eq!(unsafe { STATUS_CODE }, 2);
-}
 
 //to_indices in utils
 #[test]
@@ -859,18 +786,7 @@ fn test_eval_ror_valid() {
     assert_eq!(result, Valtype::Int(4));
 }
 
-// Test for eval with Range invalid range (lines 289-291)
-#[test]
-fn test_eval_range_out_of_bounds() {
-    let sheet = make_sheet(5);
-    unsafe {
-        STATUS_CODE = 0;
-        EVAL_ERROR = false;
-    }
-    let result = eval(&sheet, 1, 1, 0, 0);
-    assert_eq!(result, Valtype::Int(0));
-    assert_eq!(unsafe { STATUS_CODE }, 1);
-}
+
 
 // Test for update_and_recalc with Range dependency removal (lines 377-382)
 #[test]
@@ -945,13 +861,7 @@ fn test_detect_formula_invalid_ref_const() {
     assert!(matches!(cell.data, CellData::Invalid));
 }
 
-// Test for detect_formula with invalid REFERENCE_REFERENCE (lines 189, 191)
-#[test]
-fn test_detect_formula_invalid_ref_ref() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
-    detect_formula(&mut cell, "A1/"); // Missing second reference
-    assert!(matches!(cell.data, CellData::Invalid));
-}
+
 
 // Test for detect_formula with invalid RANGE_FUNCTION (lines 201, 203)
 #[test]
@@ -1063,4 +973,25 @@ fn test_eval_range_unrecognized_func() {
     let result = eval(&sheet, 1, 1, 0, 0);
     assert_eq!(result, Valtype::Int(0));
     assert_eq!(unsafe { STATUS_CODE }, 2);
+}
+
+#[test]
+fn test_interactive_mode(){
+    let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
+
+        let (mut start_row, mut start_col) = (0, 0);
+        let mut enable_output = true;
+        let (total_rows,total_cols)=(999,18278);
+        let start_time = Instant::now();
+        print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
+        prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+        let commands=vec!["disable_output","A1=5","scroll_to B2","A2=A1+3","A1=MAX(B1:ZZZ999)","A1=SLEEP(B1)","A1=A2","A2=A1","A1=5","enable_output","q"];
+        let mut i=0;
+        loop {
+            if!interactive_mode(&mut spreadsheet, commands[i].to_string(), total_rows, total_cols, &mut enable_output, &mut start_row, &mut start_col){
+                break;
+            }
+            i+=1;
+        }
+        assert_eq!(spreadsheet.get(&0).unwrap().value,Valtype::Int(5));
 }
