@@ -219,14 +219,15 @@ impl SpreadsheetApp {
             self.status_message = "No cell selected for copy".to_string();
         }
     }
-    pub fn cut_selected_cell(&mut self){
+    pub fn cut_selected_cell(&mut self) {
         self.copy_selected_cell();
-        if let Some((row, col)) = self.selected{
-            use crate::Cell;
+        if let Some((row, col)) = self.selected {
             use std::collections::HashSet;
-            self.sheet[row][col] = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new()};
+
+            use crate::Cell;
+            self.sheet[row][col] = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
             self.status_message = format!("Moved cell {}{}", col_label(col), row + 1);
-        }else {
+        } else {
             self.status_message = "No cell selected for cut".to_string();
         }
     }

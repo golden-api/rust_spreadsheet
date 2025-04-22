@@ -2,10 +2,33 @@ use std::collections::HashSet;
 use std::io;
 use std::io::Write;
 
-use crate::parser::{detect_formula, eval, update_and_recalc};
-use crate::scrolling::{a, d, s, scroll_to, w};
-use crate::utils::{EVAL_ERROR, compute, compute_range, to_indices};
-use crate::{interactive_mode, parse_dimensions, Cell, CellData, CellName, Valtype, STATUS_CODE};
+use crate::parser::{
+    detect_formula,
+    eval,
+    update_and_recalc,
+};
+use crate::scrolling::{
+    a,
+    d,
+    s,
+    scroll_to,
+    w,
+};
+use crate::utils::{
+    EVAL_ERROR,
+    compute,
+    compute_range,
+    to_indices,
+};
+use crate::{
+    Cell,
+    CellData,
+    CellName,
+    STATUS_CODE,
+    Valtype,
+    interactive_mode,
+    parse_dimensions,
+};
 
 #[test]
 fn test_detect_formula_various_types() {
@@ -114,8 +137,8 @@ fn test_eval_complex_scenarios() {
     }
     sheet[3][0].data = CellData::RoR {
         op_code: '-',
-        cell1: CellName::new("A1").unwrap(),
-        cell2: CellName::new("E6").unwrap(), // Out of bounds
+        cell1:   CellName::new("A1").unwrap(),
+        cell2:   CellName::new("E6").unwrap(), // Out of bounds
     };
     let _ = eval(&sheet, 5, 5, 3, 0);
     assert_eq!(unsafe { STATUS_CODE }, 1);
@@ -784,15 +807,13 @@ fn test_parse_dimensions_out_of_bounds() {
     assert_eq!(result.unwrap_err(), "Invalid dimensions.");
 }
 
-
-
 #[test]
 fn test_update_and_recalc_cor_addition_invalid() {
     let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
     sheet[0][0].data = CellData::CoR {
         op_code: '+',
-        value2: Valtype::Int(5),
-        cell2: CellName::new("C1").unwrap(), // Out of bounds
+        value2:  Valtype::Int(5),
+        cell2:   CellName::new("C1").unwrap(), // Out of bounds
     };
     let backup = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
     update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
@@ -805,8 +826,8 @@ fn test_update_and_recalc_roc_addition_out_of_bounds() {
     let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
     sheet[0][0].data = CellData::RoC {
         op_code: '+',
-        value2: Valtype::Int(5),
-        cell1: CellName::new("C1").unwrap(), // Out of bounds
+        value2:  Valtype::Int(5),
+        cell1:   CellName::new("C1").unwrap(), // Out of bounds
     };
     let backup = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
     update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
@@ -819,6 +840,6 @@ fn test_interactive_mode_compare_output() {
         STATUS_CODE = 0;
     }
 
-    let val=interactive_mode(999, 18278);
-    assert_eq!(val,5);
+    let val = interactive_mode(999, 18278);
+    assert_eq!(val, 5);
 }

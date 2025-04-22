@@ -184,7 +184,7 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 fn interactive_mode(
     total_rows: usize,
     total_cols: usize,
-) -> i32{
+) -> i32 {
     let mut spreadsheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; total_cols]; total_rows];
 
     let (mut start_row, mut start_col) = (0, 0);
@@ -218,10 +218,11 @@ fn interactive_mode(
             "s" => scrolling::s(&mut start_row, total_rows),
             "a" => scrolling::a(&mut start_col),
             "d" => scrolling::d(&mut start_col, total_cols),
-            "q" => break match spreadsheet[0][0].value{
-                Valtype::Int(some) => some,
-                _ => -1
-            },
+            "q" =>
+                break match spreadsheet[0][0].value {
+                    Valtype::Int(some) => some,
+                    _ => -1,
+                },
             _ if input.contains('=') => {
                 let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
                 if parts.len() == 2 {
@@ -274,7 +275,8 @@ fn main() {
         let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]).with_resizable(true), ..Default::default() };
         eframe::run_native("Rust Spreadsheet", options, Box::new(move |_cc| Ok(Box::new(SpreadsheetApp::new(total_rows, total_cols, 0, 0))))).unwrap();
     }
-    #[cfg(not(feature = "gui"))]{
-    interactive_mode(total_rows, total_cols);
+    #[cfg(not(feature = "gui"))]
+    {
+        interactive_mode(total_rows, total_cols);
     }
 }

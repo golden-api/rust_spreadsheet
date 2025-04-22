@@ -93,7 +93,7 @@ impl SpreadsheetApp {
                         self.goto_cell(cell_ref);
                         self.cut_selected_cell();
                     }
-                }else if cmd.starts_with("paste ") {
+                } else if cmd.starts_with("paste ") {
                     if let Some(cell_ref) = cmd.strip_prefix("paste ") {
                         self.goto_cell(cell_ref);
                         self.paste_to_selected_cell();
@@ -106,7 +106,7 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("goto ") {
                     if let Some(cell_ref) = cmd.strip_prefix("goto ") {
                         self.goto_cell(cell_ref);
-                        flag=false;
+                        flag = false;
                     }
                 } else if cmd.starts_with("frequency ") {
                     let arg = cmd["frequency ".len()..].trim(); // Ooh yes, gently remove that prefix
@@ -178,7 +178,7 @@ impl SpreadsheetApp {
                 },
         }
         if flag {
-            self.request_formula_focus=true;
+            self.request_formula_focus = true;
         }
     }
 
@@ -691,20 +691,22 @@ impl SpreadsheetApp {
                 self.style.cell_bg_odd
             };
 
-            let text_color = if is_selected { self.style.selected_cell_text }  
-            else if is_in_range {
-                self.style.range_selection_text}
-            else { self.style.cell_text };
+            let text_color = if is_selected {
+                self.style.selected_cell_text
+            } else if is_in_range {
+                self.style.range_selection_text
+            } else {
+                self.style.cell_text
+            };
 
             ui.put(rect, egui::Button::new(egui::RichText::new(text).size(self.style.font_size).color(text_color)).fill(bg_color).stroke(self.style.grid_line));
-            let response = ui.interact(rect, ui.make_persistent_id((row, col)), 
-                                  egui::Sense::click_and_drag());
-        
+            let response = ui.interact(rect, ui.make_persistent_id((row, col)), egui::Sense::click_and_drag());
+
             if response.clicked() {
                 new_selection = Some((row, col));
                 self.range_start = Some((row, col));
                 self.range_end = None;
-                
+
                 if self.selected == Some((row, col)) {
                     self.editing_cell = true;
                 }
@@ -712,28 +714,31 @@ impl SpreadsheetApp {
             if response.dragged() && self.range_start.is_some() {
                 self.range_end = Some((row, col));
                 self.is_selecting_range = true;
-                new_selection=None;
+                new_selection = None;
                 ui.ctx().request_repaint();
             }
             if response.drag_stopped() {
                 self.is_selecting_range = false;
                 // Selection is complete - update status
                 if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
-                    self.status_message = format!("Selected range {}{}:{}{}", 
-                        col_label(start.1), start.0 + 1, col_label(end.1), end.0 + 1);
+                    self.status_message = format!("Selected range {}{}:{}{}", col_label(start.1), start.0 + 1, col_label(end.1), end.0 + 1);
                 }
             }
         }
         new_selection
     }
     // Helper method to check if a cell is within the selected range
-    fn is_in_selected_range(&self, row: usize, col: usize) -> bool {
+    fn is_in_selected_range(
+        &self,
+        row: usize,
+        col: usize,
+    ) -> bool {
         if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
             let min_row = start.0.min(end.0);
             let max_row = start.0.max(end.0);
             let min_col = start.1.min(end.1);
             let max_col = start.1.max(end.1);
-            
+
             return row >= min_row && row <= max_row && col >= min_col && col <= max_col;
         }
         false
@@ -914,7 +919,7 @@ impl SpreadsheetApp {
                     self.copy_selected_cell();
                 } else if input.key_pressed(egui::Key::R) {
                     self.paste_to_selected_cell();
-                }else if input.key_pressed(egui::Key::T) {
+                } else if input.key_pressed(egui::Key::T) {
                     self.cut_selected_cell();
                 } else if input.key_pressed(egui::Key::Z) {
                     self.undo();
