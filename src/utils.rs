@@ -1,8 +1,5 @@
 use std::{
-    cmp::{
-        max,
-        min,
-    },
+    collections::HashMap,
     f64,
     thread::sleep,
     time::Duration,
@@ -60,55 +57,65 @@ pub fn sleepy(x: i32) {
         sleep(Duration::from_secs(x as u64))
     }
 }
+/// Compute MIN, MAX, SUM, AVG, or STDEV over a rectangular block in a sparse sheet.
 pub fn compute_range(
-    sheet: &[Vec<Cell>],
+    sheet: &HashMap<u32, Cell>,
+    total_cols: usize,
     r_min: usize,
     r_max: usize,
     c_min: usize,
     c_max: usize,
     choice: i32,
 ) -> i32 {
-    let width = (c_max - c_min + 1) as i32;
+    let width  = (c_max - c_min + 1) as i32;
     let height = (r_max - r_min + 1) as i32;
-    let area = width * height;
+    let area   = width * height;
+
+    // initial accumulator
     let mut res: i32 = match choice {
-        1 => i32::MIN,
-        2 => i32::MAX,
-        _ => 0,
+        1 => i32::MIN,  // MAX
+        2 => i32::MAX,  // MIN
+        _ => 0,         // SUM/AVG/STDEV
     };
     let mut variance: f64 = 0.0;
-    sheet.iter().skip(r_min).take(r_max - r_min + 1).flat_map(|row| &row[c_min..=c_max]).for_each(|cell| {
-        match &cell.value {
-            Valtype::Str(_) => unsafe { EVAL_ERROR = true },
-            Valtype::Int(val) => match choice {
-                1 => res = max(res, *val),
-                2 => res = min(res, *val),
-                3..=5 => res += *val, // Combined range
-                _ => unsafe { STATUS_CODE = 2 },
-            },
+    // iterate every cell in the rectangle
+    for rr in r_min..=r_max {
+        for cc in c_min..=c_max {
+            let key = (rr * total_cols + cc) as u32;
+            let val = match sheet.get(&key).map(|c| &c.value).unwrap_or(&Valtype::Int(0)) {
+                Valtype::Int(v) => *v,
+                Valtype::Str(_) => {
+                    unsafe { EVAL_ERROR = true; }
+                    continue;
+                }
+            };
+            match choice {
+                1 => res = res.max(val),
+                2 => res = res.min(val),
+                3 | 4 | 5 => res += val,
+                _ => unsafe { STATUS_CODE = 2; }, 
+            }
         }
-    });
+    }
 
-    if choice == 3 {
-        return res / area;
+    match choice {
+        3 => { // AVG
+            res / area
+        }
+        5 => { // STDEV
+            let mean = res as f64 / area as f64;
+            // second pass for variance
+            for rr in r_min..=r_max {
+                for cc in c_min..=c_max {
+                    let key = (rr * total_cols + cc) as u32;
+                    if let Some(Valtype::Int(v)) = sheet.get(&key).map(|c| c.value.clone()) {
+                        variance += (v as f64 - mean).powi(2);
+                    }
+                }
+            }
+            variance = variance / area as f64;
+            variance.sqrt().round() as i32
+        }
+        _ => res, // SUM (4) or if choice was 1/2
     }
-    if choice == 5 {
-        let n = area;
-        let mean = res / n;
-        sheet
-            .iter()
-            .skip(r_min)
-            .take(r_max - r_min + 1)
-            .flat_map(|row| &row[c_min..=c_max])
-            .filter_map(|cell| match cell.value {
-                Valtype::Int(val) => Some(val),
-                _ => None,
-            })
-            .for_each(|val| {
-                variance += ((val - mean) as f64).powi(2);
-            });
-        variance /= n as f64;
-        return variance.sqrt().round() as i32;
-    }
-    res
 }

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     env,
     process,
 };
@@ -43,10 +43,7 @@ impl CellName {
 }
 
 impl std::fmt::Display for CellName {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
@@ -57,7 +54,7 @@ impl std::str::FromStr for CellName {
         CellName::new(s)
     }
 }
-//////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 mod parser;
 #[cfg(not(feature = "gui"))]
@@ -130,7 +127,7 @@ impl Cell {
 
 #[cfg(not(feature = "gui"))]
 fn print_sheet(
-    spreadsheet: &[Vec<Cell>],
+    spreadsheet: &HashMap<u32, Cell>,
     pointer: &(usize, usize),
     dimension: &(usize, usize),
 ) {
@@ -156,11 +153,11 @@ fn print_sheet(
         for j in 0..view_cols {
             let row = pointer.0 + i;
             let col = pointer.1 + j;
-            if row < dimension.0 && col < spreadsheet[row].len() {
-                match &spreadsheet[row][col].value {
-                    Valtype::Int(v) => print!("{:<10}  ", v),
-                    Valtype::Str(s) => print!("{:<10}         ", s),
-                }
+            let idx = (row as u32) * (dimension.1 as u32) + (col as u32);
+            let cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() });
+            match &cell.value {
+                Valtype::Int(v) => print!("{:<10}  ", v),
+                Valtype::Str(s) => print!("{:<10}         ", s),
             }
         }
         println!();
@@ -176,7 +173,7 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
         }
         Ok((total_rows, total_cols))
     } else {
-        return Err("Usage: <program> <num_rows> <num_columns>");
+        Err("Usage: <program> <num_rows> <num_columns>")
     }
 }
 
@@ -185,7 +182,7 @@ fn interactive_mode(
     total_rows: usize,
     total_cols: usize,
 ) -> i32 {
-    let mut spreadsheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; total_cols]; total_rows];
+    let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
 
     let (mut start_row, mut start_col) = (0, 0);
     let mut enable_output = true;
@@ -197,7 +194,7 @@ fn interactive_mode(
 
     let start_time = Instant::now();
     print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
-    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }] );
 
     let start = Instant::now();
     loop {
@@ -210,48 +207,42 @@ fn interactive_mode(
         println!();
         let start_time = Instant::now();
         let input = input.trim();
-        unsafe {
-            STATUS_CODE = 0;
-        }
+        unsafe { STATUS_CODE = 0; }
         match input {
             "w" => scrolling::w(&mut start_row),
             "s" => scrolling::s(&mut start_row, total_rows),
             "a" => scrolling::a(&mut start_col),
             "d" => scrolling::d(&mut start_col, total_cols),
-            "q" =>
-                break match spreadsheet[0][0].value {
-                    Valtype::Int(some) => some,
-                    _ => -1,
-                },
+            "q" => break match spreadsheet.get(&0).map(|c| &c.value) {
+                Some(Valtype::Int(v)) => *v,
+                _ => -1,
+            },
             _ if input.contains('=') => {
                 let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
                 if parts.len() == 2 {
                     let (cell_ref, formula) = (parts[0], parts[1]);
                     let (row, col) = utils::to_indices(cell_ref);
                     if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
-                        let old_cell = spreadsheet[row][col].my_clone();
-                        parser::detect_formula(&mut spreadsheet[row][col], formula);
+                        let idx = (row as u32) * (total_cols as u32) + (col as u32);
+                        let old_cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() });
+                        let mut new_cell = old_cell.clone();
+                        parser::detect_formula(&mut new_cell, formula);
+                        spreadsheet.insert(idx, new_cell);
                         parser::update_and_recalc(&mut spreadsheet, total_rows, total_cols, row, col, old_cell);
                     } else {
-                        unsafe {
-                            STATUS_CODE = 1;
-                        }
+                        unsafe { STATUS_CODE = 1; }
                     }
                 }
             }
             _ if input.starts_with("scroll_to ") => {
                 let cell_ref = input.trim_start_matches("scroll_to ").trim();
                 if cell_ref.is_empty() || !cell_ref.chars().next().unwrap().is_alphabetic() || scrolling::scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, cell_ref).is_err() {
-                    unsafe {
-                        STATUS_CODE = 1;
-                    }
+                    unsafe { STATUS_CODE = 1; }
                 }
             }
             "disable_output" => enable_output = false,
             "enable_output" => enable_output = true,
-            _ => unsafe {
-                STATUS_CODE = 2;
-            },
+            _ => unsafe { STATUS_CODE = 2; },
         }
         if enable_output {
             print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
