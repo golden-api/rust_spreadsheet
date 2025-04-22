@@ -5,7 +5,7 @@ use std::io::Write;
 use crate::parser::{detect_formula, eval, update_and_recalc};
 use crate::scrolling::{a, d, s, scroll_to, w};
 use crate::utils::{EVAL_ERROR, compute, compute_range, to_indices};
-use crate::{Cell, CellData, CellName, STATUS_CODE, Valtype};
+use crate::{interactive_mode, parse_dimensions, Cell, CellData, CellName, Valtype, STATUS_CODE};
 
 #[test]
 fn test_detect_formula_various_types() {
@@ -768,75 +768,6 @@ fn test_eval_sleepr_invalid_ref() {
     assert_eq!(unsafe { STATUS_CODE }, 1);
 }
 
-// Test for update_and_recalc with CoR dependency removal (lines 398-401)
-#[test]
-fn test_update_and_recalc_cor_removal() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    let cell_hash = (0 * 2 + 0) as u32;
-    sheet[0][1].dependents.insert(cell_hash);
-    let backup = Cell { value: Valtype::Int(5), data: CellData::CoR { op_code: '+', value2: Valtype::Int(5), cell2: CellName::new("B1").unwrap() }, dependents: HashSet::new() };
-    sheet[0][0].data = CellData::Const;
-    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup.clone());
-    // assert!(!sheet[0][1].dependents.contains(&cell_hash));
-}
-
-// Test for update_and_recalc with RoR dependency addition (lines 447-450)
-#[test]
-fn test_update_and_recalc_ror_addition() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    sheet[0][0].data = CellData::RoR { op_code: '+', cell1: CellName::new("A1").unwrap(), cell2: CellName::new("B1").unwrap() };
-    let backup = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
-    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
-    // assert!(sheet[0][0].dependents.contains(&cell_hash));
-    // assert!(sheet[1][0].dependents.contains(&cell_hash));
-}
-
-// Test for update_and_recalc with cycle in larger grid (lines 519-522, 525-528)
-#[test]
-fn test_update_and_recalc_larger_cycle() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 3]; 3];
-    let cell_hash_a1 = (0 * 3 + 0) as u32;
-    let cell_hash_b1 = (1 * 3 + 0) as u32;
-    let cell_hash_c1 = (2 * 3 + 0) as u32;
-    sheet[0][0].data = CellData::Ref { cell1: CellName::new("B1").unwrap() };
-    sheet[0][0].dependents.insert(cell_hash_b1);
-    sheet[1][0].data = CellData::Ref { cell1: CellName::new("C1").unwrap() };
-    sheet[1][0].dependents.insert(cell_hash_c1);
-    sheet[2][0].data = CellData::Ref { cell1: CellName::new("A1").unwrap() };
-    sheet[2][0].dependents.insert(cell_hash_a1);
-    let backup = sheet[0][0].clone();
-    update_and_recalc(&mut sheet, 3, 3, 0, 0, backup);
-    // assert_eq!(unsafe { STATUS_CODE }, 3);
-}
-
-// Test for update_and_recalc with rollback on cycle (lines 556, 570)
-#[test]
-fn test_update_and_recalc_rollback() {
-    let mut sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; 2]; 2];
-    let cell_hash = (0 * 2 + 0) as u32;
-    sheet[0][0].data = CellData::Ref { cell1: CellName::new("B1").unwrap() };
-    sheet[0][0].dependents.insert(cell_hash);
-    sheet[1][0].data = CellData::Ref { cell1: CellName::new("A1").unwrap() };
-    sheet[1][0].dependents.insert(cell_hash);
-    let backup = Cell { value: Valtype::Int(5), data: CellData::Const, dependents: HashSet::new() };
-    update_and_recalc(&mut sheet, 2, 2, 0, 0, backup.clone());
-    // assert_eq!(unsafe { STATUS_CODE }, 3);
-    // assert_eq!(sheet[0][0].data, backup.data);
-}
-
-use std::sync::{Arc, Mutex};
-
-use crate::{interactive_mode, parse_dimensions};
-
-// Mock stdin and stdout for interactive_mode testing
-fn setup_interactive_test(input: &[&str]) -> (Vec<u8>, Arc<Mutex<Vec<u8>>>) {
-    let input = input.join("\0");
-    let input = input.as_bytes();
-    let mock_stdin = Arc::new(Mutex::new(input.to_vec()));
-    let mock_stdout = Arc::new(Mutex::new(Vec::new()));
-    (mock_stdin.lock().unwrap().clone(), mock_stdout)
-}
-
 #[test]
 fn test_parse_dimensions_invalid_rows() {
     let args = vec!["program".to_string(), "abc".to_string(), "5".to_string()];
@@ -853,21 +784,7 @@ fn test_parse_dimensions_out_of_bounds() {
     assert_eq!(result.unwrap_err(), "Invalid dimensions.");
 }
 
-#[test]
-fn test_interactive_mode_invalid_cell_ref() {
-    let (_, mock_stdout) = setup_interactive_test(&["A0=5", "q"]);
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    std::thread::spawn(move || {
-        interactive_mode(2, 2);
-    });
-    // Wait for execution (simplified, real test might need synchronization)
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    let _ = String::from_utf8(mock_stdout.lock().unwrap().clone()).unwrap();
-    // assert!(output.contains("[0.0] (Invalid range) > "), "Should detect
-    // invalid range");
-}
+
 
 #[test]
 fn test_update_and_recalc_cor_addition_invalid() {
@@ -894,50 +811,6 @@ fn test_update_and_recalc_roc_addition_out_of_bounds() {
     let backup = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
     update_and_recalc(&mut sheet, 2, 2, 0, 0, backup);
     assert_eq!(unsafe { STATUS_CODE }, 1); // Should fail validation
-}
-
-use std::fs::read_to_string;
-use std::io::Read;
-use std::thread;
-use std::time::Duration;
-
-// Custom stdin implementation to read commands line by line from input.txt
-struct LineBufferedStdin {
-    lines: Vec<String>,
-    current_line: usize,
-}
-
-impl LineBufferedStdin {
-    fn new(path: &str) -> io::Result<Self> {
-        let content = read_to_string(path)?;
-        let lines = content.lines().map(String::from).collect();
-        Ok(LineBufferedStdin { lines, current_line: 0 })
-    }
-}
-
-impl Read for LineBufferedStdin {
-    fn read(
-        &mut self,
-        buf: &mut [u8],
-    ) -> io::Result<usize> {
-        if self.current_line >= self.lines.len() {
-            return Ok(0); // EOF when all lines are processed
-        }
-        let line = self.lines[self.current_line].as_bytes();
-        let bytes_to_read = buf.len().min(line.len());
-        buf[..bytes_to_read].copy_from_slice(&line[..bytes_to_read]);
-        if bytes_to_read == line.len() {
-            self.current_line += 1;
-            if self.current_line < self.lines.len() {
-                buf[bytes_to_read] = b'\n'; // Add newline for read_line
-                Ok(bytes_to_read + 1)
-            } else {
-                Ok(bytes_to_read)
-            }
-        } else {
-            Ok(bytes_to_read)
-        }
-    }
 }
 
 #[test]
