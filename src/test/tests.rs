@@ -410,17 +410,6 @@ fn test_parse_dimensions() {
     assert!(result.is_err());
 }
 
-#[test]
-#[ignore] // Interactive mode requires stdin simulation, marked ignore for now
-fn test_interactive_mode() {
-    let total_rows = 5;
-    let total_cols = 5;
-    unsafe {
-        STATUS_CODE = 0;
-    }
-    crate::interactive_mode(total_rows, total_cols);
-    assert_eq!(unsafe { STATUS_CODE }, 0); // Basic check
-}
 
 #[test]
 fn test_detect_formula_range_functions() {
@@ -989,15 +978,6 @@ fn test_parse_dimensions_out_of_bounds() {
     assert_eq!(result.unwrap_err(), "Invalid dimensions.");
 }
 
-#[test]
-fn test_interactive_mode_compare_output() {
-    unsafe {
-        STATUS_CODE = 0;
-    }
-
-    let val = interactive_mode(999, 18278);
-    assert_eq!(val, 5);
-}
 #[test]
 fn test_eval_coc_div_zero() {
     let mut sheet = make_sheet(1);

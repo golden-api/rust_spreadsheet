@@ -1,14 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
-    env,
-    process,
+    env, process,
 };
 #[cfg(not(feature = "gui"))]
 use std::{
-    io::{
-        self,
-        Write,
-    },
+    io::{self, Write},
     time::Instant,
 };
 
@@ -20,7 +16,7 @@ use gui::gui_defs::SpreadsheetApp;
 // Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CellName {
-    len:  u8,
+    len: u8,
     data: [u8; 7],
 }
 
@@ -43,7 +39,10 @@ impl CellName {
 }
 
 impl std::fmt::Display for CellName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+    ) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
@@ -104,8 +103,8 @@ pub enum CellData {
 
 #[derive(Clone)]
 pub struct Cell {
-    pub value:      Valtype,
-    pub data:       CellData,
+    pub value: Valtype,
+    pub data: CellData,
     pub dependents: HashSet<u32>,
 }
 
@@ -118,8 +117,8 @@ impl Cell {
     /// Clones a cell for backup without dependents.
     pub fn my_clone(&self) -> Self {
         Self {
-            value:      self.value.clone(),
-            data:       self.data.clone(),
+            value: self.value.clone(),
+            data: self.data.clone(),
             dependents: HashSet::new(), // intentionally not cloning dependents
         }
     }
@@ -179,44 +178,28 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 
 #[cfg(not(feature = "gui"))]
 fn interactive_mode(
+    spreadsheet: &mut HashMap<u32, Cell>,
+    input: String,
     total_rows: usize,
     total_cols: usize,
-) -> i32 {
-    let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
-
-    let (mut start_row, mut start_col) = (0, 0);
-    let mut enable_output = true;
-
-    let prompt = |elapsed: f64, status: &str| {
-        print!("[{:.1}] ({}) > ", elapsed, status);
-        io::stdout().flush().unwrap();
-    };
-
-    let start_time = Instant::now();
-    print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
-    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }] );
-
-    let start = Instant::now();
-    loop {
-        let mut input = String::new();
-        let bytes_read = io::stdin().read_line(&mut input).unwrap();
-        if bytes_read == 0 {
-            println!("Eval time: {:?}", start.elapsed());
-            break 0;
-        }
+    enable_output:&mut bool,
+    start_row:&mut usize,
+    start_col:&mut usize,
+) -> bool{
+    
         println!();
         let start_time = Instant::now();
         let input = input.trim();
-        unsafe { STATUS_CODE = 0; }
+        unsafe {
+            STATUS_CODE = 0;
+        }
         match input {
-            "w" => scrolling::w(&mut start_row),
-            "s" => scrolling::s(&mut start_row, total_rows),
-            "a" => scrolling::a(&mut start_col),
-            "d" => scrolling::d(&mut start_col, total_cols),
-            "q" => break match spreadsheet.get(&0).map(|c| &c.value) {
-                Some(Valtype::Int(v)) => *v,
-                _ => -1,
-            },
+            "w" => scrolling::w(start_row),
+            "s" => scrolling::s(start_row, total_rows),
+            "a" => scrolling::a(start_col),
+            "d" => scrolling::d(start_col, total_cols),
+            "q" => return false,
+            
             _ if input.contains('=') => {
                 let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
                 if parts.len() == 2 {
@@ -228,27 +211,42 @@ fn interactive_mode(
                         let mut new_cell = old_cell.clone();
                         parser::detect_formula(&mut new_cell, formula);
                         spreadsheet.insert(idx, new_cell);
-                        parser::update_and_recalc(&mut spreadsheet, total_rows, total_cols, row, col, old_cell);
+                        // TODO: implement map-based recalculation for dependents
+                        parser::update_and_recalc(spreadsheet, total_rows, total_cols, row, col, old_cell);
                     } else {
-                        unsafe { STATUS_CODE = 1; }
+                        unsafe {
+                            STATUS_CODE = 1;
+                        }
                     }
                 }
             }
             _ if input.starts_with("scroll_to ") => {
                 let cell_ref = input.trim_start_matches("scroll_to ").trim();
-                if cell_ref.is_empty() || !cell_ref.chars().next().unwrap().is_alphabetic() || scrolling::scroll_to(&mut start_row, &mut start_col, total_rows, total_cols, cell_ref).is_err() {
-                    unsafe { STATUS_CODE = 1; }
+                if cell_ref.is_empty() || !cell_ref.chars().next().unwrap().is_alphabetic() || scrolling::scroll_to(start_row, start_col, total_rows, total_cols, cell_ref).is_err() {
+                    unsafe {
+                        STATUS_CODE = 1;
+                    }
                 }
             }
-            "disable_output" => enable_output = false,
-            "enable_output" => enable_output = true,
-            _ => unsafe { STATUS_CODE = 2; },
+            "disable_output" => *enable_output = false,
+            "enable_output" => *enable_output = true,
+            _ => unsafe {
+                STATUS_CODE = 2;
+            },
         }
-        if enable_output {
-            print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
+        if *enable_output {
+            print_sheet(&spreadsheet, &(*start_row, *start_col), &(total_rows, total_cols));
         }
         prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
-    }
+        return true;
+    
+}
+fn prompt(
+    elapsed: f64,
+    status: &str,
+) {
+    print!("[{:.1}] ({}) > ", elapsed, status);
+    io::stdout().flush().unwrap();
 }
 
 fn main() {
@@ -268,6 +266,24 @@ fn main() {
     }
     #[cfg(not(feature = "gui"))]
     {
-        interactive_mode(total_rows, total_cols);
+        let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
+
+        let (mut start_row, mut start_col) = (0, 0);
+        let mut enable_output = true;
+
+        let start_time = Instant::now();
+        print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
+        prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+        loop {
+            let mut input = String::new();
+            let bytes_read = io::stdin().read_line(&mut input).unwrap();
+            if bytes_read == 0 {
+                break;
+            }
+            if!interactive_mode(&mut spreadsheet, input, total_rows, total_cols, &mut enable_output, &mut start_row, &mut start_col){
+                break;
+            }
+            
+        }
     }
 }
