@@ -111,7 +111,7 @@ pub struct Cell {
 impl Cell {
     pub fn reset(&mut self) {
         let current_dependents = std::mem::take(&mut self.dependents);
-        *self = Self { value: Valtype::Int(0), data: CellData::Empty, dependents: current_dependents };
+        *self = Self { value: Valtype::Int(0), data: CellData::Empty, dependents: current_dependents};
     }
 
     /// Clones a cell for backup without dependents.
@@ -153,7 +153,7 @@ fn print_sheet(
             let row = pointer.0 + i;
             let col = pointer.1 + j;
             let idx = (row as u32) * (dimension.1 as u32) + (col as u32);
-            let cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() });
+            let cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new()});
             match &cell.value {
                 Valtype::Int(v) => print!("{:<10}  ", v),
                 Valtype::Str(s) => print!("{:<10}         ", s),
@@ -179,6 +179,8 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 #[cfg(not(feature = "gui"))]
 fn interactive_mode(
     spreadsheet: &mut HashMap<u32, Cell>,
+    ranged :&mut HashMap<u32,Vec<(u32,u32)>>,
+    is_range:&mut Vec<bool>,
     input: String,
     total_rows: usize,
     total_cols: usize,
@@ -186,7 +188,6 @@ fn interactive_mode(
     start_row:&mut usize,
     start_col:&mut usize,
 ) -> bool{
-    
         println!();
         let start_time = Instant::now();
         let input = input.trim();
@@ -199,7 +200,6 @@ fn interactive_mode(
             "a" => scrolling::a(start_col),
             "d" => scrolling::d(start_col, total_cols),
             "q" => return false,
-            
             _ if input.contains('=') => {
                 let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
                 if parts.len() == 2 {
@@ -211,8 +211,7 @@ fn interactive_mode(
                         let mut new_cell = old_cell.clone();
                         parser::detect_formula(&mut new_cell, formula);
                         spreadsheet.insert(idx, new_cell);
-                        // TODO: implement map-based recalculation for dependents
-                        parser::update_and_recalc(spreadsheet, total_rows, total_cols, row, col, old_cell);
+                        parser::update_and_recalc(spreadsheet,ranged,is_range, total_rows, total_cols, row, col, old_cell);
                     } else {
                         unsafe {
                             STATUS_CODE = 1;
@@ -267,10 +266,10 @@ fn main() {
     #[cfg(not(feature = "gui"))]
     {
         let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
-
+        let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(512);
+        let mut is_range: Vec<bool> = vec![false; total_rows * total_cols];
         let (mut start_row, mut start_col) = (0, 0);
         let mut enable_output = true;
-
         let start_time = Instant::now();
         print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
         prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
@@ -280,7 +279,7 @@ fn main() {
             if bytes_read == 0 {
                 break;
             }
-            if!interactive_mode(&mut spreadsheet, input, total_rows, total_cols, &mut enable_output, &mut start_row, &mut start_col){
+            if!interactive_mode(&mut spreadsheet,&mut ranged,&mut is_range,input,total_rows, total_cols, &mut enable_output, &mut start_row, &mut start_col){
                 break;
             }
             

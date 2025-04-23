@@ -119,3 +119,9 @@ pub fn compute_range(
         _ => res, // SUM (4) or if choice was 1/2
     }
 }
+pub fn in_range(idx: u32, start: u32, end: u32, total_cols: usize) -> bool {
+    let (r0, c0) = (idx as usize / total_cols, idx as usize % total_cols);
+    let (sr, sc) = (start as usize / total_cols, start as usize % total_cols);
+    let (er, ec) = (end as usize / total_cols, end as usize % total_cols);
+    (sr <= r0 && r0 <= er) && (sc <= c0 && c0 <= ec)
+}

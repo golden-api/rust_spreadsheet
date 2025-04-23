@@ -2,16 +2,9 @@ use std::collections::{
     HashMap,
     VecDeque,HashSet
 };
-
 use regex::Regex;
 
-use crate::utils::{
-    EVAL_ERROR,
-    compute,
-    compute_range,
-    sleepy,
-    to_indices,
-};
+use crate::utils::*;
 use crate::{
     Cell,
     CellData,
@@ -225,8 +218,11 @@ pub fn eval(
     if unsafe { EVAL_ERROR } { err_value } else { Valtype::Int(result) }
 }
 
+
 pub fn update_and_recalc(
     sheet: &mut HashMap<u32, Cell>,
+    ranged: &mut HashMap<u32, Vec<(u32, u32)>>,
+    is_r: &mut Vec<bool>,
     total_rows: usize,
     total_cols: usize,
     r: usize,
@@ -235,82 +231,74 @@ pub fn update_and_recalc(
 ) {
     type Coord = (usize, usize);
 
-    // 1) VALIDATION (identical to your old code)
+    // 1) VALIDATION (unchanged)
     {
         let data = &sheet
             .get(&((r * total_cols + c) as u32))
             .map(|cell| &cell.data)
             .unwrap_or(&CellData::Empty);
         match data {
-            CellData::Invalid => {
-                unsafe { STATUS_CODE = 2; }
-                return;
-            }
+            CellData::Invalid => { unsafe { STATUS_CODE = 2; } return; }
             CellData::Range { cell1, cell2, .. } => {
                 for name in &[cell1, cell2] {
                     let (ri, ci) = to_indices(name.as_str());
                     if ri >= total_rows || ci >= total_cols {
-                        unsafe { STATUS_CODE = 1; }
-                        return;
+                        unsafe { STATUS_CODE = 1; } return;
                     }
                 }
             }
             CellData::Ref { cell1 }
             | CellData::SleepR { cell1 }
-            | CellData::RoC { cell1, .. }
-            => {
+            | CellData::RoC { cell1, .. } => {
                 let (ri, ci) = to_indices(cell1.as_str());
                 if ri >= total_rows || ci >= total_cols {
-                    unsafe { STATUS_CODE = 1; }
-                    return;
+                    unsafe { STATUS_CODE = 1; } return;
                 }
             }
-            CellData::CoR { cell2, .. }
-            => {
+            CellData::CoR { cell2, .. } => {
                 let (ri, ci) = to_indices(cell2.as_str());
                 if ri >= total_rows || ci >= total_cols {
-                    unsafe { STATUS_CODE = 1; }
-                    return;
+                    unsafe { STATUS_CODE = 1; } return;
                 }
             }
             CellData::RoR { cell1, cell2, .. } => {
                 for name in &[cell1, cell2] {
                     let (ri, ci) = to_indices(name.as_str());
                     if ri >= total_rows || ci >= total_cols {
-                        unsafe { STATUS_CODE = 1; }
-                        return;
+                        unsafe { STATUS_CODE = 1; } return;
                     }
                 }
             }
             _ => {}
         }
     }
-    if unsafe { STATUS_CODE } != 0 {
-        return;
-    }
+    if unsafe { STATUS_CODE } != 0 { return; }
 
     let cell_key = (r * total_cols + c) as u32;
 
-    // 2) REMOVE old dependency edges (from backup.data)
-    //    mirror your original match—but iterate by computing each idx and
-    //    doing `if let Some(dep) = sheet.get_mut(&idx) { dep.dependents.remove(&cell_key); }`
+    // 2) REMOVE old dependency edges
     macro_rules! remove_dep {
-        ($ri:expr, $ci:expr) => {
-            {
-                let idx = ($ri * total_cols + $ci) as u32;
-                if let Some(dep) = sheet.get_mut(&idx) {
-                    dep.dependents.remove(&cell_key);
-                }
+        ($ri:expr, $ci:expr) => {{
+            let idx = ($ri * total_cols + $ci) as u32;
+            if let Some(dep) = sheet.get_mut(&idx) {
+                dep.dependents.remove(&cell_key);
             }
-        }
+        }};
     }
     match &backup.data {
         CellData::Range { cell1, cell2, .. } => {
             let (sr, sc) = to_indices(cell1.as_str());
             let (er, ec) = to_indices(cell2.as_str());
+            // remove old mapping
+            ranged.remove(&cell_key);
+            // clear each child’s ranged flag only if not in any other range
             for rr in sr..=er {
                 for cc in sc..=ec {
-                    remove_dep!(rr, cc);
+                    let idx = (rr * total_cols + cc) as u32;
+                    let still_covered = ranged.iter().any(|(_, ranges)|
+                        ranges.iter().any(|&(s, e)| in_range(idx, s, e, total_cols))
+                    );
+                    is_r[idx as usize] = still_covered;
                 }
             }
         }
@@ -327,10 +315,8 @@ pub fn update_and_recalc(
             remove_dep!(ri, ci);
         }
         CellData::RoR { cell1, cell2, .. } => {
-            let (r1, c1) = to_indices(cell1.as_str());
-            let (r2, c2) = to_indices(cell2.as_str());
-            remove_dep!(r1, c1);
-            remove_dep!(r2, c2);
+            let (r1, c1) = to_indices(cell1.as_str()); remove_dep!(r1, c1);
+            let (r2, c2) = to_indices(cell2.as_str()); remove_dep!(r2, c2);
         }
         CellData::SleepR { cell1 } => {
             let (ri, ci) = to_indices(cell1.as_str());
@@ -339,96 +325,90 @@ pub fn update_and_recalc(
         _ => {}
     }
 
-    // 3) ADD new edges (from sheet[r,c].data)
-    let new_data = sheet
-        .get(&cell_key)
-        .map(|c| c.data.clone())
-        .unwrap_or(CellData::Empty);
+    // 3) ADD new edges
+    let new_data = sheet.get(&cell_key).map(|c| c.data.clone()).unwrap_or(CellData::Empty);
     match &new_data {
         CellData::Range { cell1, cell2, .. } => {
             let (sr, sc) = to_indices(cell1.as_str());
             let (er, ec) = to_indices(cell2.as_str());
+            ranged.entry(cell_key).or_insert_with(Vec::new)
+                .push(((sr * total_cols + sc) as u32, (er * total_cols + ec) as u32));
             for rr in sr..=er {
                 for cc in sc..=ec {
                     let idx = (rr * total_cols + cc) as u32;
-                    sheet.entry(idx).or_insert_with(|| Cell {
-                        value: Valtype::Int(0),
-                        data: CellData::Empty,
-                        dependents: HashSet::new(),
-                    }).dependents.insert(cell_key);
+                    is_r[idx as usize]=true;
                 }
             }
         }
         CellData::Ref { cell1 } => {
             let (ri, ci) = to_indices(cell1.as_str());
             let idx = (ri * total_cols + ci) as u32;
-            sheet.entry(idx).or_insert_with(|| Cell {
-                value: Valtype::Int(0),
-                data: CellData::Empty,
-                dependents: HashSet::new(),
-            }).dependents.insert(cell_key);
+            sheet.entry(idx).or_insert_with(|| Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() })
+                .dependents.insert(cell_key);
         }
         CellData::CoR { cell2, .. } => {
             let (ri, ci) = to_indices(cell2.as_str());
             let idx = (ri * total_cols + ci) as u32;
-            sheet.entry(idx).or_insert_with(|| Cell {
-                value: Valtype::Int(0),
-                data: CellData::Empty,
-                dependents: HashSet::new(),
-            }).dependents.insert(cell_key);
+            sheet.entry(idx).or_insert_with(|| Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() })
+                .dependents.insert(cell_key);
         }
         CellData::RoC { cell1, .. } => {
             let (ri, ci) = to_indices(cell1.as_str());
             let idx = (ri * total_cols + ci) as u32;
-            sheet.entry(idx).or_insert_with(|| Cell {
-                value: Valtype::Int(0),
-                data: CellData::Empty,
-                dependents: HashSet::new(),
-            }).dependents.insert(cell_key);
+            sheet.entry(idx).or_insert_with(|| Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() })
+                .dependents.insert(cell_key);
         }
         CellData::RoR { cell1, cell2, .. } => {
             for name in &[cell1, cell2] {
                 let (ri, ci) = to_indices(name.as_str());
                 let idx = (ri * total_cols + ci) as u32;
-                sheet.entry(idx).or_insert_with(|| Cell {
-                    value: Valtype::Int(0),
-                    data: CellData::Empty,
-                    dependents: HashSet::new(),
-                }).dependents.insert(cell_key);
+                sheet.entry(idx).or_insert_with(|| Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() })
+                    .dependents.insert(cell_key);
             }
         }
         CellData::SleepR { cell1 } => {
             let (ri, ci) = to_indices(cell1.as_str());
             let idx = (ri * total_cols + ci) as u32;
-            sheet.entry(idx).or_insert_with(|| Cell {
-                value: Valtype::Int(0),
-                data: CellData::Empty,
-                dependents: HashSet::new(),
-            }).dependents.insert(cell_key);
+            sheet.entry(idx).or_insert_with(|| Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() })
+                .dependents.insert(cell_key);
         }
         _ => {}
     }
 
-    // 4) BUILD affected‐list via BFS over dependents
+    // 4) BUILD affected-list via BFS
     let mut affected = Vec::<Coord>::new();
     let mut index_map = HashMap::<u32, usize>::new();
     let mut queue = VecDeque::<Coord>::new();
 
-    affected.push((r,c));
+    affected.push((r, c));
     index_map.insert(cell_key, 0);
-    queue.push_back((r,c));
+    queue.push_back((r, c));
 
     while let Some((rr, cc)) = queue.pop_front() {
         let idx = (rr * total_cols + cc) as u32;
+        // direct dependents
         if let Some(cell) = sheet.get(&idx) {
             for &dep_key in &cell.dependents {
                 if !index_map.contains_key(&dep_key) {
-                    let dep_r = (dep_key as usize) / total_cols;
-                    let dep_c = (dep_key as usize) % total_cols;
-                    let next_index = affected.len();
-                    index_map.insert(dep_key, next_index);
-                    affected.push((dep_r, dep_c));
-                    queue.push_back((dep_r, dep_c));
+                    let dr = (dep_key as usize) / total_cols;
+                    let dc = (dep_key as usize) % total_cols;
+                    let ni = affected.len();
+                    index_map.insert(dep_key, ni);
+                    affected.push((dr, dc));
+                    queue.push_back((dr, dc));
+                }
+            }
+        }
+        // range-based dependents without is_r check
+        for (&parent, ranges) in ranged.iter() {
+            for &(start, end) in ranges.iter() {
+                if in_range(idx, start, end, total_cols) && !index_map.contains_key(&parent) {
+                    let pr = (parent as usize) / total_cols;
+                    let pc = (parent as usize) % total_cols;
+                    let ni = affected.len();
+                    index_map.insert(parent, ni);
+                    affected.push((pr, pc));
+                    queue.push_back((pr, pc));
                 }
             }
         }
@@ -437,8 +417,7 @@ pub fn update_and_recalc(
     // 5) TOPOLOGICAL ORDER & EVAL
     let n = affected.len();
     let mut in_degree = vec![0; n];
-    // count edges within affected:
-    for &(rr,cc) in &affected{
+    for &(rr, cc) in &affected {
         let idx = (rr * total_cols + cc) as u32;
         if let Some(cell) = sheet.get(&idx) {
             for &dep_key in &cell.dependents {
@@ -447,11 +426,20 @@ pub fn update_and_recalc(
                 }
             }
         }
+        for (&parent, ranges) in ranged.iter() {
+            for &(start, end) in ranges.iter() {
+                if in_range(idx, start, end, total_cols) {
+                    if let Some(&j) = index_map.get(&parent) {
+                        in_degree[j] += 1;
+                    }
+                }
+            }
+        }
     }
 
-    // cycle?
+    // Cycle detection
     if in_degree[0] > 0 {
-        // --- remove the newly added dependency edges from sheet[r][c] ---
+        // Remove newly added dependency edges
         let new_data = sheet
             .get(&cell_key)
             .map(|c| c.data.clone())
@@ -463,11 +451,10 @@ pub fn update_and_recalc(
                 for rr in sr..=er {
                     for cc in sc..=ec {
                         let idx = (rr * total_cols + cc) as u32;
-                        if let Some(dep) = sheet.get_mut(&idx) {
-                            dep.dependents.remove(&cell_key);
-                        }
+                            is_r[idx as usize] = false;
                     }
                 }
+                ranged.remove(&cell_key);
             }
             CellData::Ref { cell1 } => {
                 let (ri, ci) = to_indices(cell1.as_str());
@@ -508,46 +495,41 @@ pub fn update_and_recalc(
             }
             _ => {}
         }
-    
-        // roll back the cell itself
+
+        // Roll back the cell
         *sheet.get_mut(&cell_key).unwrap() = backup;
         unsafe { STATUS_CODE = 3; }
         return;
-    } 
+    }
 
-    // Kahn’s algorithm:
-    let mut zero_q: Vec<usize> = in_degree
-        .iter()
-        .enumerate()
-        .filter_map(|(i,&d)| if d==0 { Some(i) } else { None })
-        .collect();
-
-    while let Some(idx) = zero_q.pop() {
-        let (r_curr, c_curr) = affected[idx];
-        let key = (r_curr * total_cols + c_curr) as u32;
-    
-        let new_value = {
-            if let Some(cell) = sheet.get(&key) {
-                if cell.data != CellData::Empty {
-                    Some(eval(sheet, total_rows, total_cols, r_curr, c_curr))
-                } else {
-                    None
+    // 6) Kahn’s algorithm
+    let mut zero_q: Vec<usize> = in_degree.iter().enumerate().filter_map(|(i, &d)| if d == 0 { Some(i) } else { None }).collect();
+    while let Some(idx0) = zero_q.pop() {
+        let (rr, cc) = affected[idx0];
+        let key = (rr * total_cols + cc) as u32;
+        if let Some(cell) = sheet.get(&key) {
+            if cell.data != CellData::Empty {
+                let val = eval(sheet, total_rows, total_cols, rr, cc);
+                sheet.get_mut(&key).unwrap().value = val;
+            }
+            for &dep_key in &sheet.get(&key).unwrap().dependents {
+                if let Some(&j) = index_map.get(&dep_key) {
+                    in_degree[j] -= 1;
+                    if in_degree[j] == 0 {
+                        zero_q.push(j);
+                    }
                 }
-            } else {
-                None
             }
-        };
-    
-        if let Some(cell_mut) = sheet.get_mut(&key) {
-            if let Some(val) = new_value {
-                cell_mut.value = val;
-            }
-            // now decrement in_degree of its dependents as before:
-            for &dep_key in &cell_mut.dependents {
-                if let Some(&dep_idx) = index_map.get(&dep_key) {
-                    in_degree[dep_idx] -= 1;
-                    if in_degree[dep_idx] == 0 {
-                        zero_q.push(dep_idx);
+        }
+        // ranged parents
+        for (&parent, ranges) in ranged.iter() {
+            for &(start, end) in ranges.iter() {
+                if in_range(key, start, end, total_cols) {
+                    if let Some(&j) = index_map.get(&parent) {
+                        in_degree[j] -= 1;
+                        if in_degree[j] == 0 {
+                            zero_q.push(j);
+                        }
                     }
                 }
             }
