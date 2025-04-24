@@ -1,5 +1,3 @@
-use std::collections::{HashSet,HashMap};
-
 use eframe::egui::{
     Color32,
     Stroke,
@@ -7,9 +5,7 @@ use eframe::egui::{
 };
 
 use crate::{
-    Cell,
-    CellData,
-    Valtype,
+    Cell,HashMap
 };
 pub enum Direction {
     Up,
@@ -64,50 +60,54 @@ impl Default for SpreadsheetStyle {
 }
 
 pub struct SpreadsheetApp {
-    pub(crate) sheet: HashMap<u32, Cell>,
-    pub(crate) ranged: HashMap<u32, Vec<(u32, u32)>>,
-    pub(crate) is_range: Vec<bool>,
-    pub(crate) total_rows: usize,
-    pub(crate) total_cols: usize,
-    pub(crate) selected: Option<(usize, usize)>,
-    pub(crate) formula_input: String,
-    pub(crate) editing_cell: bool,
-    pub(crate) style: SpreadsheetStyle,
-    pub(crate) status_message: String,
-    pub(crate) start_row: usize,
-    pub(crate) start_col: usize,
-    pub(crate) scroll_to_cell: String,
-    pub(crate) should_reset_scroll: bool,
-    pub(crate) focus_on: usize,
+    pub(crate) sheet:                 HashMap<u32, Cell>  ,
+    pub(crate) ranged:                HashMap<u32, Vec<(u32,u32)>> ,
+    pub(crate) is_range:              Vec<bool>,
+    pub(crate) total_rows:            usize,
+    pub(crate) total_cols:            usize,
+    pub(crate) selected:              Option<(usize, usize)>,
+    pub(crate) formula_input:         String,
+    pub(crate) editing_cell:          bool,
+    pub(crate) style:                 SpreadsheetStyle,
+    pub(crate) status_message:        String,
+    pub(crate) start_row:             usize,
+    pub(crate) start_col:             usize,
+    pub(crate) scroll_to_cell:        String,
+    pub(crate) should_reset_scroll:   bool,
+    pub(crate) focus_on:              usize,
     pub(crate) request_formula_focus: bool,
-    pub(crate) clipboard: Option<Cell>,
-    pub(crate) clipboard_formula: String,
-    pub(crate) undo_stack: Vec<UndoAction>,
-    pub(crate) redo_stack: Vec<UndoAction>,
-    pub(crate) max_undo_levels: usize,
-    pub(crate) show_save_dialog: bool,
-    pub(crate) save_filename: String,
-    pub(crate) range_start: Option<(usize, usize)>,
-    pub(crate) range_end: Option<(usize, usize)>,
-    pub(crate) is_selecting_range: bool,
+    pub(crate) clipboard:             Option<Cell>,
+    pub(crate) clipboard_formula:     String,
+    pub(crate) undo_stack:            Vec<UndoAction>,
+    pub(crate) redo_stack:            Vec<UndoAction>,
+    pub(crate) max_undo_levels:       usize,
+    pub(crate) show_save_dialog:      bool,
+    pub(crate) save_filename:         String,
+    pub(crate) range_start:           Option<(usize, usize)>,
+    pub(crate) range_end:             Option<(usize, usize)>,
+    pub(crate) is_selecting_range:    bool,
 }
 
 impl SpreadsheetApp {
-    pub fn new(total_rows: usize, total_cols: usize, start_row: usize, start_col: usize) -> Self {
-        let total_cells = total_rows * total_cols;
+    pub fn new(
+        rows: usize,
+        cols: usize,
+        start_row: usize,
+        start_col: usize,
+    ) -> Self {
+        let sheet:  HashMap<u32, Cell>             = HashMap::with_capacity(1024);
+        let ranged: HashMap<u32, Vec<(u32,u32)>>   = HashMap::with_capacity(512);
+        let is_range: Vec<bool>                    = vec![false; rows * cols];
+        let total_rows=rows;
+        let total_cols=cols;
         Self {
-            sheet: HashMap::new(),
-            ranged: HashMap::new(),
-            is_range: vec![false; total_cells],
-            total_rows,
-            total_cols,
-            selected: None,
+            sheet,ranged,is_range,total_rows,total_cols,
+            selected: Some((0, 0)),
             formula_input: String::new(),
             editing_cell: false,
             style: SpreadsheetStyle::default(),
             status_message: String::new(),
-            start_row,
-            start_col,
+            start_row,start_col,
             scroll_to_cell: String::new(),
             should_reset_scroll: false,
             focus_on: 0,
@@ -116,7 +116,7 @@ impl SpreadsheetApp {
             clipboard_formula: String::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            max_undo_levels: 10,
+            max_undo_levels: 100,
             show_save_dialog: false,
             save_filename: String::new(),
             range_start: None,
@@ -130,13 +130,4 @@ pub struct UndoAction {
     pub position:    (usize, usize), // (row, col)
     pub old_cell:    Cell,
     pub old_formula: String,
-}
-impl Default for Cell {
-    fn default() -> Self {
-        Cell {
-            value: Valtype::Int(0),
-            data: CellData::Empty,
-            dependents: HashSet::new(),
-        }
-    }
 }

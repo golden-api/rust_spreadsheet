@@ -13,7 +13,7 @@ use crate::{
     gui::utils_gui::{
         col_label,
         parse_cell_name,
-    },Cell,CellData,HashSet,
+    },
     utils::to_indices,
 };
 
@@ -658,6 +658,81 @@ impl SpreadsheetApp {
         }
     }
 
+    // Render a single cell
+    fn render_cell(
+        &mut self,
+        ui: &mut egui::Ui,
+        row: usize,
+        col: usize,
+        rect: egui::Rect,
+    ) -> Option<(usize, usize)> {
+        let is_selected = self.selected == Some((row, col));
+        let is_in_range = self.is_in_selected_range(row, col);
+        let mut new_selection = None;
+        if is_selected && self.editing_cell {
+            self.render_editable_cell(ui, rect);
+        } else {
+            let key = (row * self.total_cols + col) as u32;
+            let text = if let Some(cell) = self.sheet.get(&key) {
+                match &cell.value {
+                    Valtype::Int(n) => n.to_string(),
+                    Valtype::Str(s) => s.as_str().to_string(),
+                }
+            } else {
+                // If cell doesn't exist in the HashMap, return an empty string
+                "0".to_string()
+            };
+
+            // REPLACE THIS BLOCK with the new background color logic
+            let bg_color = if is_selected {
+                self.style.selected_cell_bg
+            } else if is_in_range {
+                self.style.range_selection_bg
+            } else if let Some(get_bg) = &self.style.get_cell_bg {
+                // Use matrix rain effect when available
+                get_bg(row, col)
+            } else if row % 2 == 0 {
+                self.style.cell_bg_even
+            } else {
+                self.style.cell_bg_odd
+            };
+
+            let text_color = if is_selected {
+                self.style.selected_cell_text
+            } else if is_in_range {
+                self.style.range_selection_text
+            } else {
+                self.style.cell_text
+            };
+
+            ui.put(rect, egui::Button::new(egui::RichText::new(text).size(self.style.font_size).color(text_color)).fill(bg_color).stroke(self.style.grid_line));
+            let response = ui.interact(rect, ui.make_persistent_id((row, col)), egui::Sense::click_and_drag());
+
+            if response.clicked() {
+                new_selection = Some((row, col));
+                self.range_start = Some((row, col));
+                self.range_end = None;
+
+                if self.selected == Some((row, col)) {
+                    self.editing_cell = true;
+                }
+            }
+            if response.dragged() && self.range_start.is_some() {
+                self.range_end = Some((row, col));
+                self.is_selecting_range = true;
+                new_selection = None;
+                ui.ctx().request_repaint();
+            }
+            if response.drag_stopped() {
+                self.is_selecting_range = false;
+                // Selection is complete - update status
+                if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
+                    self.status_message = format!("Selected range {}{}:{}{}", col_label(start.1), start.0 + 1, col_label(end.1), end.0 + 1);
+                }
+            }
+        }
+        new_selection
+    }
     // Helper method to check if a cell is within the selected range
     fn is_in_selected_range(
         &self,
@@ -691,105 +766,21 @@ impl SpreadsheetApp {
         });
     }
 
-    fn render_cell(
+    // Render the main spreadsheet grid
+    fn render_spreadsheet_grid(
         &mut self,
         ui: &mut egui::Ui,
-        row: usize,
-        col: usize,
-        rect: egui::Rect,
     ) -> Option<(usize, usize)> {
-        let is_selected = self.selected == Some((row, col));
-        let is_in_range = self.is_in_selected_range(row, col);
-        let mut new_selection = None;
-        if is_selected && self.editing_cell {
-            self.render_editable_cell(ui, rect);
-        } else {
-            let index = (row as u32) * (self.total_cols as u32) + (col as u32);
-            let cell = self.sheet.get(&index).cloned().unwrap_or_else(|| Cell {
-                value: Valtype::Int(0),
-                data: CellData::Empty,
-                dependents: HashSet::new(),
-            });
-            let text = match &cell.value {
-                Valtype::Int(n) => n.to_string(),
-                Valtype::Str(s) => s.as_str().to_string(),
-            };
-            let bg_color = if is_selected {
-                self.style.selected_cell_bg
-            } else if is_in_range {
-                self.style.range_selection_bg
-            } else if let Some(get_bg) = &self.style.get_cell_bg {
-                get_bg(row, col)
-            } else if row % 2 == 0 {
-                self.style.cell_bg_even
-            } else {
-                self.style.cell_bg_odd
-            };
-            let text_color = if is_selected {
-                self.style.selected_cell_text
-            } else if is_in_range {
-                self.style.range_selection_text
-            } else {
-                self.style.cell_text
-            };
-            ui.put(
-                rect,
-                egui::Button::new(
-                    egui::RichText::new(text)
-                        .size(self.style.font_size)
-                        .color(text_color),
-                )
-                .fill(bg_color)
-                .stroke(self.style.grid_line),
-            );
-            let response = ui.interact(
-                rect,
-                ui.make_persistent_id((row, col)),
-                egui::Sense::click_and_drag(),
-            );
-            if response.clicked() {
-                new_selection = Some((row, col));
-                self.range_start = Some((row, col));
-                self.range_end = None;
-                if self.selected == Some((row, col)) {
-                    self.editing_cell = true;
-                }
-            }
-            if response.dragged() && self.range_start.is_some() {
-                self.range_end = Some((row, col));
-                self.is_selecting_range = true;
-                ui.ctx().request_repaint();
-            }
-            if response.drag_stopped() {
-                self.is_selecting_range = false;
-                if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
-                    self.status_message = format!(
-                        "Selected range {}{}:{}{}",
-                        col_label(start.1),
-                        start.0 + 1,
-                        col_label(end.1),
-                        end.0 + 1
-                    );
-                }
-            }
-        }
-        new_selection
-    }
-    
-    fn render_spreadsheet_grid(&mut self, ui: &mut egui::Ui) -> Option<(usize, usize)> {
         let mut new_selection = None;
         let cell_size = self.style.cell_size;
         let row_label_width = 30.0;
         let header_height = cell_size.y;
-        let total_cols = self.total_cols.min(self.start_col + 200);
-        let total_rows = self.total_rows.min(self.start_row + 100);
+        let total_cols = self.total_cols.min(self.start_col + 300);
+        let total_rows = self.total_rows.min(self.start_row + 500);
         let virtual_width = row_label_width + (total_cols - self.start_col) as f32 * cell_size.x;
         let virtual_height = header_height + (total_rows - self.start_row) as f32 * cell_size.y;
         let virtual_size = egui::vec2(virtual_width, virtual_height);
-        let mut scroll_area = egui::ScrollArea::both()
-            .id_salt((self.start_row, self.start_col))
-            .drag_to_scroll(true)
-            .auto_shrink([false, false]);
+        let mut scroll_area = egui::ScrollArea::both().id_salt((self.start_row, self.start_col)).drag_to_scroll(true).auto_shrink([false, false]);
         if self.should_reset_scroll {
             scroll_area = scroll_area.scroll_offset(egui::Vec2::ZERO);
         }
@@ -799,11 +790,7 @@ impl SpreadsheetApp {
             scroll_offset = ui.clip_rect().min - virtual_rect.min;
             let render_start_col = self.start_col + (scroll_offset.x / cell_size.x).floor() as usize;
             let render_start_row = self.start_row + (scroll_offset.y / cell_size.y).floor() as usize;
-            let visible_cols =
-                (((ui.available_rect_before_wrap().size().x - row_label_width) / cell_size.x).ceil()
-                    as usize)
-                    .max(1)
-                    + 1;
+            let visible_cols = (((ui.available_rect_before_wrap().size().x - row_label_width) / cell_size.x).ceil() as usize).max(1) + 1;
             let visible_rows = total_rows.min(33);
             for i in render_start_row..(render_start_row + visible_rows).min(total_rows) {
                 for j in render_start_col..(render_start_col + visible_cols).min(total_cols) {
@@ -816,52 +803,36 @@ impl SpreadsheetApp {
                 }
             }
         });
-        let painter = ui
-            .ctx()
-            .layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("pinned_headers")));
+        let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("pinned_headers")));
         let base_x = ui.min_rect().min.x;
         let base_y = ui.min_rect().min.y;
+        // --- Column Headers (pinned vertically, scrolled horizontally) ---
         for col_idx in self.start_col..total_cols {
             let header_x = base_x - scroll_offset.x + (col_idx - self.start_col) as f32 * cell_size.x + row_label_width;
-            let header_rect = egui::Rect::from_min_size(
-                egui::pos2(header_x.max(base_x), base_y),
-                egui::vec2(cell_size.x, header_height),
-            );
+            let header_rect = egui::Rect::from_min_size(egui::pos2(header_x.max(base_x), base_y), egui::vec2(cell_size.x, header_height));
             painter.rect_filled(header_rect, 0.0, self.style.header_bg);
-            painter.text(
-                header_rect.center(),
-                egui::Align2::CENTER_CENTER,
-                col_label(col_idx),
-                egui::FontId::monospace(self.style.font_size),
-                self.style.header_text,
-            );
-            painter.rect_stroke(header_rect, 0.0, self.style.grid_line, egui::epaint::StrokeKind::Middle);
+            painter.text(header_rect.center(), egui::Align2::CENTER_CENTER, col_label(col_idx), egui::FontId::monospace(self.style.font_size), self.style.header_text);
+            use egui::epaint::StrokeKind;
+            painter.rect_stroke(header_rect, 0.0, self.style.grid_line, StrokeKind::Middle);
         }
+        // --- Row Labels (pinned horizontally, scrolled vertically) ---
         for row_idx in self.start_row..total_rows {
             let header_y = base_y - scroll_offset.y + (row_idx - self.start_row) as f32 * cell_size.y + header_height;
-            let row_rect = egui::Rect::from_min_size(
-                egui::pos2(base_x, header_y.max(base_y)),
-                egui::vec2(row_label_width, cell_size.y),
-            );
+            let row_rect = egui::Rect::from_min_size(egui::pos2(base_x, header_y.max(base_y)), egui::vec2(row_label_width, cell_size.y));
             painter.rect_filled(row_rect, 0.0, self.style.header_bg);
-            painter.text(
-                row_rect.center(),
-                egui::Align2::CENTER_CENTER,
-                (row_idx + 1).to_string(),
-                egui::FontId::monospace(self.style.font_size),
-                self.style.header_text,
-            );
-            painter.rect_stroke(row_rect, 0.0, self.style.grid_line, egui::epaint::StrokeKind::Inside);
+            painter.text(row_rect.center(), egui::Align2::CENTER_CENTER, (row_idx + 1).to_string(), egui::FontId::monospace(self.style.font_size), self.style.header_text);
+            use egui::epaint::StrokeKind;
+            painter.rect_stroke(row_rect, 0.0, self.style.grid_line, StrokeKind::Inside);
         }
-        let corner_rect = egui::Rect::from_min_size(
-            egui::pos2(base_x, base_y),
-            egui::vec2(row_label_width, header_height),
-        );
+        // --- Corner Cell (optional) ---
+        let corner_rect = egui::Rect::from_min_size(egui::pos2(base_x, base_y), egui::vec2(row_label_width, header_height));
+        use egui::epaint::StrokeKind;
         painter.rect_filled(corner_rect, 0.0, self.style.header_bg);
-        painter.rect_stroke(corner_rect, 0.0, self.style.grid_line, egui::epaint::StrokeKind::Outside);
+        painter.rect_stroke(corner_rect, 0.0, self.style.grid_line, StrokeKind::Outside);
         self.should_reset_scroll = false;
         new_selection
     }
+
     // Display information about the selected cell
     fn render_selected_cell_info(
         &self,
