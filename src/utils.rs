@@ -1,6 +1,6 @@
 use std::{collections::HashMap, f64, thread::sleep, time::Duration};
 
-use crate::{Cell, Valtype, STATUS_CODE};
+use crate::{Cell, STATUS_CODE, Valtype};
 
 pub static mut EVAL_ERROR: bool = false;
 

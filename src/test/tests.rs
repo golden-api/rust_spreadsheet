@@ -7,14 +7,14 @@ use std::time::Instant;
 use crate::parser::{detect_formula, eval, update_and_recalc};
 use crate::scrolling::{a, d, s, scroll_to, w};
 use crate::utils::{
+    EVAL_ERROR,
     compute,
     // compute_range,
     to_indices,
-    EVAL_ERROR,
 };
 use crate::{
-    interactive_mode, parse_dimensions, print_sheet, prompt, Cell, CellData, CellName, Valtype,
-    STATUS, STATUS_CODE,
+    Cell, CellData, CellName, STATUS, STATUS_CODE, Valtype, interactive_mode, parse_dimensions,
+    print_sheet, prompt,
 };
 fn make_sheet(cap: usize) -> HashMap<u32, Cell> {
     HashMap::with_capacity(cap)

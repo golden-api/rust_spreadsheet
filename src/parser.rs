@@ -2,7 +2,7 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::utils::*;
-use crate::{Cell, CellData, CellName, Valtype, STATUS_CODE};
+use crate::{Cell, CellData, CellName, STATUS_CODE, Valtype};
 
 pub fn detect_formula(block: &mut Cell, form: &str) {
     let form = form.trim();

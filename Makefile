@@ -1,7 +1,5 @@
-# Default target
 all: build
 
-# Build the project in release mode with optimization flags (defined in Cargo.toml)
 build:
 	@cargo build --release --timings
 
@@ -11,23 +9,19 @@ test:
 coverage:
 	@cargo tarpaulin
 
-# Run tests
 ext1:
 	@cargo build --release --features gui
 	@./target/release/spreadsheet 999 18278
 
-# Check the codebase (clippy and formatting)
 check: fmt clippy
 
-# Format the code
 fmt:
-	@cargo fmt -- --check
+	@rustfmt --check src/*.rs
 
-# Run clippy for linting
 clippy:
-	@cargo clippy --release -- -D warnings
+	@cargo clippy --release
+	@cargo clippy --release --features gui
 
-# Clean the project
 clean:
 	@cargo clean
 

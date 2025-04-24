@@ -1,4 +1,4 @@
-use crate::{utils::to_indices, STATUS_CODE};
+use crate::{STATUS_CODE, utils::to_indices};
 
 pub fn w(start_row: &mut usize) {
     if *start_row >= 10 {
