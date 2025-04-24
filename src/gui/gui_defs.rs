@@ -73,8 +73,8 @@ impl Default for SpreadsheetStyle {
             frequency: 0.2,
             matrix_raindrops: Vec::new(),
             get_cell_bg: None,
-            range_selection_bg: Color32::from_rgb(100, 100, 160), // Lighter blue
-            range_selection_text: Color32::WHITE,
+            range_selection_bg: Color32::from_rgb(80, 160, 160), // Lighter blue
+            range_selection_text: Color32::from_rgb(230, 230, 230),
         }
     }
 }

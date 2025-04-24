@@ -125,6 +125,35 @@ impl SpreadsheetApp {
                 dependents: HashSet::new(),
             });
             let mut new_cell = old_cell.clone();
+
+            // Check if the formula is a range function with empty parentheses
+            let trimmed_input = self.formula_input.trim().to_uppercase();
+            const RANGE_FUNCTIONS: [&str; 5] = ["MAX", "MIN", "AVG", "STDEV","SUM"];
+            if RANGE_FUNCTIONS.iter().any(|&func| trimmed_input == format!("{}()", func)) {
+                if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
+                    // Calculate the range string using min and max to handle any selection order
+                    let min_row = start.0.min(end.0);
+                    let max_row = start.0.max(end.0);
+                    let min_col = start.1.min(end.1);
+                    let max_col = start.1.max(end.1);
+                    let range_str = format!(
+                        "{}{}:{}{}",
+                        col_label(min_col),
+                        min_row + 1,
+                        col_label(max_col),
+                        max_row + 1
+                    );
+                    // Modify the formula to include the range
+                    let func_name = trimmed_input.trim_end_matches("()");
+                    self.formula_input = format!("{}({})", func_name, range_str);
+                } else {
+                    // No range selected, set error message and skip update
+                    self.status_message = "No range selected for function".to_string();
+                    return;
+                }
+            }
+
+            // Parse the formula (modified or original) and update the cell
             parser::detect_formula(&mut new_cell, &self.formula_input);
             self.sheet.insert(idx, new_cell);
             parser::update_and_recalc(
