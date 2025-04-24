@@ -9,7 +9,7 @@ use crate::scrolling::{a, d, s, scroll_to, w};
 use crate::utils::{
     EVAL_ERROR,
     compute,
-    // compute_range,
+    compute_range,
     to_indices,
 };
 use crate::{
@@ -1068,13 +1068,17 @@ fn test_interactive_mode() {
         "disable_output",
         "A1=5",
         "scroll_to B2",
+        "scroll_to 12",
         "A2=A1+3",
         "A1=MAX(B1:Z26)",
         "A1=SLEEP(B1)",
         "A1=A2",
+        "ZZZ999=A1",
         "A2=A1",
         "A1=5",
+        "A1=2=3",
         "enable_output",
+        "j",
         "q",
     ];
 
@@ -1097,4 +1101,95 @@ fn test_interactive_mode() {
 
     // Verify A1 has value 5 (key 0 = row 0, col 0)
     assert_eq!(spreadsheet.get(&0).unwrap().value, Valtype::Int(5));
+}
+
+#[test]
+fn test_compute_range_str_value() {
+    let mut sheet = make_sheet(10);
+    let total_cols = 5;
+
+    // Set A1 (0,0) to a string value ("ERR")
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        0,
+        CellData::Empty,
+        Valtype::Str(CellName::new("ERR").unwrap()),
+    );
+
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+
+    // Compute SUM over A1:A1 (single cell with string)
+    let result = compute_range(&sheet, total_cols, 0, 0, 0, 0, 4); // SUM
+    assert_eq!(result, 0); // Should skip string value
+    assert!(unsafe { EVAL_ERROR }); // Should set EVAL_ERROR
+    assert_eq!(unsafe { STATUS_CODE }, 0);
+}
+#[test]
+fn test_compute_range_invalid_choice() {
+    let sheet = make_sheet(10);
+    let total_cols = 5;
+
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+
+    // Compute with invalid choice (e.g., 0)
+    let result = compute_range(&sheet, total_cols, 0, 1, 0, 1, 0);
+    assert_eq!(result, 0); // Should return 0 for invalid choice
+    assert_eq!(unsafe { STATUS_CODE }, 2); // Should set STATUS_CODE
+    assert!(!unsafe { EVAL_ERROR });
+}
+#[test]
+fn test_compute_range_stdev_full() {
+    let mut sheet = make_sheet(10);
+    let total_cols = 5;
+
+    // Set A1=1, A2=3, B1=5, B2=7 (values for STDEV)
+    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(1)); // A1
+    set_cell(&mut sheet, total_cols, 1, 0, CellData::Const, Valtype::Int(3)); // A2
+    set_cell(&mut sheet, total_cols, 0, 1, CellData::Const, Valtype::Int(5)); // B1
+    set_cell(&mut sheet, total_cols, 1, 1, CellData::Const, Valtype::Int(7)); // B2
+
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+
+    // Compute STDEV over A1:B2
+    let result = compute_range(&sheet, total_cols, 0, 1, 0, 1, 5); // STDEV
+    // Expected: Values [1, 3, 5, 7], mean = 4, variance = ((1-4)^2 + (3-4)^2 + (5-4)^2 + (7-4)^2)/4 = (9+1+1+9)/4 = 5, sqrt(5) ≈ 2.236, round to 2
+    assert_eq!(result, 2);
+    assert_eq!(unsafe { STATUS_CODE }, 0);
+    assert!(!unsafe { EVAL_ERROR });
+}
+#[test]
+fn test_compute_range_min() {
+    let mut sheet = make_sheet(10);
+    let total_cols = 5;
+
+    // Set A1=10, A2=5, B1=8
+    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(10)); // A1
+    set_cell(&mut sheet, total_cols, 1, 0, CellData::Const, Valtype::Int(5));  // A2
+    set_cell(&mut sheet, total_cols, 0, 1, CellData::Const, Valtype::Int(8));  // B1
+
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
+
+    // Compute MIN over A1:B2
+    let result = compute_range(&sheet, total_cols, 0, 1, 0, 1, 2); // MIN
+    assert_eq!(result, 0); // Minimum of [10, 5, 8, 0] is 5
+    assert_eq!(unsafe { STATUS_CODE }, 0);
+    assert!(!unsafe { EVAL_ERROR });
+    let result = compute_range(&sheet, total_cols, 0, 1, 0, 1, 3); // AVG
+    assert_eq!(result, 5); // Minimum of [10, 5, 8, 0] is 5
+    assert_eq!(unsafe { STATUS_CODE }, 0);
+    assert!(!unsafe { EVAL_ERROR });
 }
