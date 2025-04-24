@@ -31,4 +31,4 @@ clippy:
 clean:
 	@cargo clean
 
-.PHONY: all build run test check fmt clippy clean help
+.PHONY: all build test coverage ext1 check fmt clippy clean
