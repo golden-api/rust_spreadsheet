@@ -240,6 +240,7 @@ fn interactive_mode(
         return true;
     
 }
+#[cfg(not(feature = "gui"))]
 fn prompt(
     elapsed: f64,
     status: &str,

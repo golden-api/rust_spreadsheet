@@ -204,7 +204,7 @@ impl SpreadsheetApp {
     pub fn goto_cell(&mut self, cell_ref: &str) {
         let result = parse_cell_name(cell_ref);
         match result {
-            Ok((row, col)) => {
+            Some((row, col)) => {
                 if row >= self.total_rows || col >= self.total_cols {
                     self.status_message = "Cell reference out of bounds".to_string();
                     return;
@@ -216,7 +216,7 @@ impl SpreadsheetApp {
                 self.formula_input = self.get_cell_formula(row, col);
                 self.status_message = format!("Moved to cell {}{}", col_label(col), row + 1);
             }
-            Err(_) => {
+            None => {
                 self.status_message = "Invalid cell reference".to_string();
             }
         }

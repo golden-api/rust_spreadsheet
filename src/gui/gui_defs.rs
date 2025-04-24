@@ -131,3 +131,12 @@ pub struct UndoAction {
     pub old_cell:    Cell,
     pub old_formula: String,
 }
+impl Default for Cell {
+    fn default() -> Self {
+        Cell {
+            value: Valtype::Int(0),
+            data: CellData::Empty,
+            dependents: HashSet::new(),
+        }
+    }
+}
