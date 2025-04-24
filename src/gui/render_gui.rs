@@ -1,10 +1,10 @@
 use egui::{Color32, Stroke};
 
 use crate::{
-    Valtype,
     gui::gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
     gui::utils_gui::{col_label, parse_cell_name},
     utils::to_indices,
+    Valtype,
 };
 
 impl SpreadsheetApp {
@@ -380,8 +380,8 @@ impl SpreadsheetApp {
 
             // Define the Matrix green color (fluorescent digital green)
             let matrix_green = Color32::from_rgb(0, 255, 0); // Bright #00FF00 green
-            // let matrix_dark_green = Color32::from_rgb(43, 77, 62);  // Darker shade
-            // #2B4D3E
+                                                             // let matrix_dark_green = Color32::from_rgb(43, 77, 62);  // Darker shade
+                                                             // #2B4D3E
             let black = Color32::from_rgb(0, 0, 0); // Pure black
             let white = Color32::from_rgb(255, 255, 255); // Pure white
 
@@ -417,8 +417,8 @@ impl SpreadsheetApp {
 
             // Define the Matrix green color (fluorescent digital green)
             let matrix_green = Color32::from_rgb(0, 255, 0); // Bright #00FF00 green
-            // let matrix_dark_green = Color32::from_rgb(43, 77, 62);  // Darker shade
-            // #2B4D3E
+                                                             // let matrix_dark_green = Color32::from_rgb(43, 77, 62);  // Darker shade
+                                                             // #2B4D3E
             let black = Color32::from_rgb(0, 0, 0); // Pure black
             let white = Color32::from_rgb(255, 255, 255); // Pure white
 
@@ -745,13 +745,11 @@ impl SpreadsheetApp {
             )
             .clicked();
 
-        if enter_pressed || save_clicked {
-            if !self.save_filename.is_empty() {
-                let filename = self.save_filename.clone();
-                self.export_to_csv(&filename);
-                self.show_save_dialog = false;
-                self.focus_on = 0;
-            }
+        if (enter_pressed || save_clicked) && !self.save_filename.is_empty() {
+            let filename = self.save_filename.clone();
+            self.export_to_csv(&filename);
+            self.show_save_dialog = false;
+            self.focus_on = 0;
         }
 
         // Handle Cancel button and Escape key
