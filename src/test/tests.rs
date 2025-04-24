@@ -1193,3 +1193,132 @@ fn test_compute_range_min() {
     assert_eq!(unsafe { STATUS_CODE }, 0);
     assert!(!unsafe { EVAL_ERROR });
 }
+
+#[test]
+fn test_interactive_mode_parser_coverage() {
+    // Initialize data structures
+    let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
+    let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(32);
+    let mut is_range: Vec<bool> = vec![false; 10000];
+    let (mut start_row, mut start_col) = (0, 0);
+    let mut enable_output = true;
+    let (total_rows, total_cols) = (100, 100);
+
+    // Commands to cover uncovered lines
+    let commands = vec![
+        "A1=5*2",           // CONSTANT_CONSTANT with * (lines 163, 165)
+        "A2=10-A1",        // CONSTANT_REFERENCE with - (lines 181, 183)
+        "A8=A1/B10",       // RoR with out-of-bounds (lines 422–424)
+        "A9=AVG(A1:A2)",   // Range with AVG (lines 370–373, 375, 377, 385)
+        "A10=SLEEP(B10)",  // SleepR with invalid ref (lines 409–412)
+        "B1=10",           // Set B1 for dependencies
+        "B2=B1+A1",        // RoR for dependency (lines 628–631)
+        "B3=5+B1",         // CoR for dependency (lines 603–607, 612)
+        "B4=A1+5",         // RoC for dependency (lines 621–624)
+        "B5=SLEEP(A1)",    // SleepR for dependency (lines 635–636, 639)
+        "B6=SUM(A1:B2)",   // Range for dependency (lines 560–566)
+        "disable_output",  // Suppress output
+        "q",               // Quit
+    ];
+
+    // Process commands
+    let start_time = Instant::now();
+    print_sheet(
+        &spreadsheet,
+        &(start_row, start_col),
+        &(total_rows, total_cols),
+    );
+    prompt(
+        start_time.elapsed().as_secs_f64(),
+        STATUS[unsafe { STATUS_CODE }],
+    );
+
+    let mut i = 0;
+    loop {
+        if !interactive_mode(
+            &mut spreadsheet,
+            &mut ranged,
+            &mut is_range,
+            commands[i].to_string(),
+            (total_rows, total_cols),
+            &mut enable_output,
+            &mut (&mut start_row, &mut start_col),
+        ) {
+            break;
+        }
+        i += 1;
+    }
+
+    // Verify results
+    assert_eq!(spreadsheet.get(&0).unwrap().value, Valtype::Int(10)); // A1 = 5*2
+    assert_eq!(spreadsheet.get(&1).unwrap().value, Valtype::Int(10));  // A2 = 10-A1
+}
+#[test]
+fn test_interactive_mode_full_coverage() {
+    // Initialize data structures
+    let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
+    let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(32);
+    let mut is_range: Vec<bool> = vec![false; 10000];
+    let (mut start_row, mut start_col) = (0, 0);
+    let mut enable_output = true;
+    let (total_rows, total_cols) = (100, 100);
+
+    // Commands to cover all remaining lines
+    let commands = vec![
+        "A1=3+4",           // CONSTANT_CONSTANT with + (lines 163, 165)
+        "A2=7*B1",         // CONSTANT_REFERENCE with * (lines 181, 183)
+        "A3=MAX(A1:A2)",   // RANGE_FUNCTION with MAX (lines 203, 205)
+        "A4=+",            // Invalid formula syntax (lines 218, 220, 225)
+        "A5=A1+ERR",       // Invalid reference (lines 237, 239, 244 for CoC error)
+        "A6=5-C10",        // CoR with out-of-bounds (lines 280, 282, 290)
+        "A7=B1*2",         // RoC with invalid ref (lines 346, 348)
+        "A8=SUM(A1:A2)",   // Range evaluation (lines 375, 377, 385)
+        "A9=SLEEP(A10)",   // SleepR with invalid ref (lines 409–412)
+        "B1=A1",           // Ref for dependency validation (lines 422–424)
+        "B2=SUM(A1:B1)",   // Range dependency (lines 560–566)
+        "B3=A1+1",         // CoR dependency (lines 603–607, 612)
+        "B4=2*A1",         // RoC dependency (lines 621–624)
+        "B5=A1+B1",        // RoR dependency (lines 628–631)
+        "B6=SLEEP(A1)",    // SleepR dependency (lines 635–636, 639)
+        "C1=B1",           // Ref dependency (line 587)
+        "C2=C1+2",         // Dependency chain for BFS (lines 644–647, 651)
+        "C3=C2+3",         // Topological sort (lines 689, 691–692)
+        "A1=10",           // Update A1 to trigger dependency removal (lines 482–484, 495–497)
+        "disable_output",  // Suppress output
+        "q",               // Quit
+    ];
+
+    // Process commands
+    let start_time = Instant::now();
+    print_sheet(
+        &spreadsheet,
+        &(start_row, start_col),
+        &(total_rows, total_cols),
+    );
+    prompt(
+        start_time.elapsed().as_secs_f64(),
+        STATUS[unsafe { STATUS_CODE }],
+    );
+
+    let mut i = 0;
+    loop {
+        if !interactive_mode(
+            &mut spreadsheet,
+            &mut ranged,
+            &mut is_range,
+            commands[i].to_string(),
+            (total_rows, total_cols),
+            &mut enable_output,
+            &mut (&mut start_row, &mut start_col),
+        ) {
+            break;
+        }
+        i += 1;
+    }
+
+    // Verify key results
+    assert_eq!(spreadsheet.get(&0).unwrap().value, Valtype::Int(10));  // A1 = 10
+    assert_eq!(spreadsheet.get(&100).unwrap().value, Valtype::Int(70)); // A2 = 70 (updated)
+    assert_eq!(spreadsheet.get(&2).unwrap().value, Valtype::Int(10));  // A3 = MAX(A1:A2)
+    assert_eq!(spreadsheet.get(&202).unwrap().value, Valtype::Int(15)); // C3 = C2+3
+}
