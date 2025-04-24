@@ -10,7 +10,14 @@ use crate::{
 };
 
 impl SpreadsheetApp {
-    // Helper: Extract formula from cell
+/// Extracts the formula or value representation of a cell at the given position.
+    ///
+    /// # Arguments
+    /// * `row` - The row index of the cell.
+    /// * `col` - The column index of the cell.
+    ///
+    /// # Returns
+    /// A `String` representing the cell's formula or value.
     pub fn get_cell_formula(&self, row: usize, col: usize) -> String {
         let key = (row * self.total_cols + col) as u32;
         if let Some(cell) = self.sheet.get(&key) {
@@ -102,7 +109,9 @@ impl SpreadsheetApp {
         }
     }
 
-    // Update the value of the currently selected cell
+    /// Updates the value of the currently selected cell with the formula input.
+    ///
+    /// This method saves the previous state for undo and recalculates dependencies.
     pub fn update_selected_cell(&mut self) {
         let total_rows = self.total_rows;
         let total_cols = self.total_cols;
@@ -137,6 +146,10 @@ impl SpreadsheetApp {
         }
     }
 
+    /// Exports the spreadsheet data to a CSV file.
+    ///
+    /// # Arguments
+    /// * `filename` - The name of the file to export to (appends ".csv" if not present).
     pub fn export_to_csv(&mut self, filename: &str) {
         let filename = if filename.ends_with(".csv") {
             filename.to_string()
@@ -179,6 +192,10 @@ impl SpreadsheetApp {
         }
     }
 
+    /// Exports the spreadsheet formulas to a CSV file.
+    ///
+    /// # Arguments
+    /// * `filename` - The name of the file to export to (appends ".csv" if not present).
     pub fn export_formulas_to_csv(&mut self, filename: &str) {
         let filename = if filename.ends_with(".csv") {
             filename.to_string()
@@ -219,7 +236,10 @@ impl SpreadsheetApp {
         }
     }
 
-    // Handle cell selection changes
+    /// Handles changes to the selected cell, updating the formula input and status.
+    ///
+    /// # Arguments
+    /// * `new_selection` - An optional tuple of (row, col) for the new selection.
     pub fn handle_selection_change(&mut self, new_selection: Option<(usize, usize)>) {
         if let Some((i, j)) = new_selection {
             self.selected = Some((i, j));
@@ -228,6 +248,10 @@ impl SpreadsheetApp {
         }
     }
 
+    /// Moves the selection to a specified cell reference.
+    ///
+    /// # Arguments
+    /// * `cell_ref` - The cell reference (e.g., "A1") to move to.
     pub fn goto_cell(&mut self, cell_ref: &str) {
         if let Some(pos) = cell_ref.chars().position(|c| c.is_ascii_digit()) {
             let col_str = &cell_ref[..pos];
@@ -254,6 +278,7 @@ impl SpreadsheetApp {
 }
 
 impl SpreadsheetApp {
+    /// Copies the currently selected cell to the clipboard.
     pub fn copy_selected_cell(&mut self) {
         if let Some((row, col)) = self.selected {
             let key = (row * self.total_cols + col) as u32;
@@ -276,7 +301,7 @@ impl SpreadsheetApp {
             self.status_message = "No cell selected for copy".to_string();
         }
     }
-
+    /// Cuts the currently selected cell, copying it to the clipboard and clearing it.
     pub fn cut_selected_cell(&mut self) {
         self.copy_selected_cell();
         if let Some((row, col)) = self.selected {
@@ -297,7 +322,11 @@ impl SpreadsheetApp {
         }
     }
 
-    // Push an action to the undo stack
+    /// Pushes the current cell state to the undo stack.
+    ///
+    /// # Arguments
+    /// * `row` - The row index of the cell.
+    /// * `col` - The column index of the cell.
     fn push_undo_action(&mut self, row: usize, col: usize) {
         let key = (row * self.total_cols + col) as u32;
 
@@ -323,7 +352,7 @@ impl SpreadsheetApp {
         }
     }
 
-    // Undo the last action for the undo function
+    /// Undoes the last action, restoring the previous cell state.
     pub fn undo(&mut self) {
         if let Some(action) = self.undo_stack.pop() {
             let (row, col) = action.position;
@@ -367,7 +396,7 @@ impl SpreadsheetApp {
             self.status_message = "Nothing to undo".to_string();
         }
     }
-
+    /// Pastes the clipboard content to the selected cell.
     pub fn paste_to_selected_cell(&mut self) {
         if let Some((row, col)) = self.selected {
             // Create local copies of any data needed from immutable borrows
@@ -413,7 +442,7 @@ impl SpreadsheetApp {
         }
     }
 
-    // Redo the last undone action
+    /// Redoes the last undone action, restoring the next cell state.
     pub fn redo(&mut self) {
         if let Some(action) = self.redo_stack.pop() {
             let (row, col) = action.position;

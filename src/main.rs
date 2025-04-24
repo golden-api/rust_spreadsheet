@@ -1,3 +1,8 @@
+/// # Rust Spreadsheet
+/// This is the main entry point for the Rust Spreadsheet application.
+/// It supports both interactive command-line mode (default) and GUI mode (when the "gui" feature is enabled).
+/// The application processes command-line arguments to set up the spreadsheet dimensions and delegates to
+/// either `interactive_mode` or a GUI interface based on configuration.
 use std::{
     collections::{HashMap, HashSet},
     env, process,
@@ -13,7 +18,7 @@ use eframe::egui;
 #[cfg(feature = "gui")]
 use gui::gui_defs::SpreadsheetApp;
 
-// Maximum length 7 bytes (e.g. "ZZZ999" is 6 characters; extra room for safety)
+/// A compact representation of a cell reference (e.g., "A1") with a maximum length of 7 bytes.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CellName {
     len: u8,
@@ -21,6 +26,16 @@ pub struct CellName {
 }
 
 impl CellName {
+    /// Creates a new `CellName` from a string.
+    ///
+    /// # Arguments
+    /// * `s` - The string representation of the cell (e.g., "A1").
+    ///
+    /// # Returns
+    /// * `Result<Self, &'static str>` - Success with a `CellName` or an error message if the input is invalid.
+    ///
+    /// # Errors
+    /// * Returns `Err` if the string is longer than 7 characters or contains non-ASCII characters.
     pub fn new(s: &str) -> Result<Self, &'static str> {
         if s.len() > 7 {
             return Err("CellName too long");
@@ -35,7 +50,10 @@ impl CellName {
             data,
         })
     }
-
+    /// Returns the string representation of the `CellName`.
+    ///
+    /// # Returns
+    /// * `&str` - The string representation of the cell reference.
     pub fn as_str(&self) -> &str {
         std::str::from_utf8(&self.data[..self.len as usize]).unwrap()
     }
@@ -49,6 +67,13 @@ impl std::fmt::Display for CellName {
 
 impl std::str::FromStr for CellName {
     type Err = &'static str;
+    /// Parses a string into a `CellName`.
+    ///
+    /// # Arguments
+    /// * `s` - The string to parse.
+    ///
+    /// # Returns
+    /// * `Result<Self, Self::Err>` - Success with a `CellName` or an error if parsing fails.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         CellName::new(s)
     }
@@ -63,10 +88,12 @@ mod scrolling;
 mod gui;
 mod test;
 mod utils;
-
+/// Array of status messages used to indicate the outcome of operations.
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
+/// A global variable to store the current status code (0-3).
+/// Use with `unsafe` due to its mutable global nature.
 pub static mut STATUS_CODE: usize = 0;
-
+/// Represents the type of formula a cell can contain.
 pub enum FormulaType {
     SleepC,
     SleepR,
@@ -79,13 +106,13 @@ pub enum FormulaType {
     Range,
     Invalid,
 }
-
+/// Represents the value of a cell, which can be either an integer or a string (for errors).
 #[derive(Clone, PartialEq, Debug)]
 pub enum Valtype {
     Int(i32),
     Str(CellName),
 }
-
+/// Represents the type of data stored in a cell, including constants, references, and operations.
 #[derive(Clone, Debug, PartialEq)]
 pub enum CellData {
     Empty,
@@ -123,7 +150,7 @@ pub enum CellData {
     },
     Invalid,
 }
-
+/// Represents a cell in the spreadsheet, containing its value, data type, and dependents.
 #[derive(Clone)]
 pub struct Cell {
     pub value: Valtype,
@@ -132,6 +159,7 @@ pub struct Cell {
 }
 
 impl Cell {
+    /// Resets the cell to its default state, preserving its dependents.
     pub fn reset(&mut self) {
         let current_dependents = std::mem::take(&mut self.dependents);
         *self = Self {
@@ -141,7 +169,10 @@ impl Cell {
         };
     }
 
-    /// Clones a cell for backup without dependents.
+    /// Clones a cell for backup without copying its dependents.
+    ///
+    /// # Returns
+    /// * `Self` - A new `Cell` with the same value and data, but an empty set of dependents.
     pub fn my_clone(&self) -> Self {
         Self {
             value: self.value.clone(),
@@ -152,6 +183,12 @@ impl Cell {
 }
 
 #[cfg(not(feature = "gui"))]
+/// Prints the spreadsheet grid starting from the given position.
+///
+/// # Arguments
+/// * `spreadsheet` - A hash map containing cell data, indexed by a unique `u32` key.
+/// * `pointer` - A tuple `(row, col)` indicating the starting position to display.
+/// * `dimension` - A tuple `(total_rows, total_cols)` defining the spreadsheet dimensions.
 fn print_sheet(
     spreadsheet: &HashMap<u32, Cell>,
     pointer: &(usize, usize),
@@ -193,7 +230,13 @@ fn print_sheet(
         println!();
     }
 }
-
+/// Parses command-line arguments to determine spreadsheet dimensions.
+///
+/// # Arguments
+/// * `args` - A vector of command-line arguments.
+///
+/// # Returns
+/// * `Result<(usize, usize), &'static str>` - A tuple `(rows, cols)` on success, or an error message on failure.
 fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     if args.len() == 3 {
         let total_rows = args[1].parse::<usize>().map_err(|_| "Invalid rows")?;
@@ -208,6 +251,19 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 }
 
 #[cfg(not(feature = "gui"))]
+/// Processes a single input command in interactive mode, updating the spreadsheet state.
+///
+/// # Arguments
+/// * `spreadsheet` - A hash map containing cell data, indexed by a unique `u32` key.
+/// * `ranged` - A hash map tracking ranges for dependency management.
+/// * `is_range` - A boolean array indicating whether each cell is part of a range.
+/// * `input` - The user input command to process.
+/// * `total_dims` - A tuple `(total_rows, total_cols)` defining the spreadsheet dimensions.
+/// * `enable_output` - A mutable boolean controlling whether to print the spreadsheet after each command.
+/// * `start_dims` - A mutable tuple `(&mut start_row, &mut start_col)` defining the current view position.
+///
+/// # Returns
+/// * `bool` - `true` to continue the interactive loop, `false` to exit.
 fn interactive_mode(
     spreadsheet: &mut HashMap<u32, Cell>,
     ranged: &mut HashMap<u32, Vec<(u32, u32)>>,
@@ -300,6 +356,11 @@ fn interactive_mode(
     true
 }
 #[cfg(not(feature = "gui"))]
+/// Prints the command prompt with elapsed time and status.
+///
+/// # Arguments
+/// * `elapsed` - The elapsed time in seconds since the last command.
+/// * `status` - The current status message.
 fn prompt(elapsed: f64, status: &str) {
     print!("[{:.1}] ({}) > ", elapsed, status);
     io::stdout().flush().unwrap();

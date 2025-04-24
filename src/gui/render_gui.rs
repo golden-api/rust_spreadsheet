@@ -8,7 +8,10 @@ use crate::{
 };
 
 impl SpreadsheetApp {
-    // Render the formula input bar
+    /// Renders the formula input bar at the top of the UI.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
     fn render_formula_bar(&mut self, ui: &mut egui::Ui) {
         egui::Frame::NONE
             .fill(self.style.header_bg)
@@ -68,6 +71,10 @@ impl SpreadsheetApp {
             });
     }
 
+    /// Processes commands entered in the formula bar.
+    ///
+    /// # Arguments
+    /// * `cmd` - The command string to process.
     fn process_command(&mut self, cmd: &str) {
         let mut flag = true;
         match cmd {
@@ -195,16 +202,21 @@ impl SpreadsheetApp {
         }
     }
 
+    /// Resets the theme to its default settings.
     fn reset_theme(&mut self) {
         self.style = SpreadsheetStyle::default();
         self.status_message = "Theme reset to default".to_string();
     }
 
+    /// Displays a help message with available commands.
     fn show_command_help(&mut self) {
         self.status_message = "Available commands: w,a,s,d Option<Amount> (navigation), q (quit), tr (theme_reset), help, goto [cell], scroll_to [cell], undo, redo, copy [cell], cut[cell], paste [cell], csv <filename>, fcsv <filename>, cell=formula,themes..".to_string();
     }
 
-    // Render the scroll-to-cell feature
+    /// Renders the "Scroll to" input field and button.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
     fn render_scroll_to_cell(&mut self, ui: &mut egui::Ui) {
         ui.label(
             egui::RichText::new("Scroll to:")
@@ -238,7 +250,10 @@ impl SpreadsheetApp {
         }
     }
 
-    // Render the colour picker feature
+    /// Renders the color picker and theme settings UI.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
     fn render_colour(&mut self, ui: &mut egui::Ui) {
         ui.label(
             egui::RichText::new("Theme:")
@@ -691,6 +706,7 @@ impl SpreadsheetApp {
         }
     }
 
+    /// Processes the "scroll to" action, updating the view to the specified cell.
     fn process_scroll_to_cell(&mut self) {
         if let Some((target_row, target_col)) = parse_cell_name(&self.scroll_to_cell) {
             self.start_row = target_row;
@@ -707,6 +723,10 @@ impl SpreadsheetApp {
         self.scroll_to_cell = String::new();
     }
 
+    /// Renders the save dialog for exporting the spreadsheet to CSV.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
     fn render_save(&mut self, ui: &mut egui::Ui) {
         ui.label(
             egui::RichText::new("Save as:")
@@ -770,7 +790,16 @@ impl SpreadsheetApp {
         }
     }
 
-    // Render a single cell
+    /// Renders a single cell in the spreadsheet grid.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
+    /// * `row` - The row index of the cell.
+    /// * `col` - The column index of the cell.
+    /// * `rect` - The rectangular area to render the cell in.
+    ///
+    /// # Returns
+    /// An optional tuple `(usize, usize)` representing the new selection if the cell was clicked.
     fn render_cell(
         &mut self,
         ui: &mut egui::Ui,
@@ -864,7 +893,14 @@ impl SpreadsheetApp {
         }
         new_selection
     }
-    // Helper method to check if a cell is within the selected range
+    /// Checks if a cell is within the currently selected range.
+    ///
+    /// # Arguments
+    /// * `row` - The row index of the cell.
+    /// * `col` - The column index of the cell.
+    ///
+    /// # Returns
+    /// A boolean indicating whether the cell is within the selected range.
     fn is_in_selected_range(&self, row: usize, col: usize) -> bool {
         if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
             let min_row = start.0.min(end.0);
@@ -877,7 +913,11 @@ impl SpreadsheetApp {
         false
     }
 
-    // Render an editable cell (when editing)
+    /// Renders an editable cell when editing is active.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
+    /// * `rect` - The rectangular area to render the editable cell in.
     fn render_editable_cell(&mut self, ui: &mut egui::Ui, rect: egui::Rect) {
         let rect =
             egui::Rect::from_min_size(rect.min, egui::Vec2::new(rect.width(), rect.height()));
@@ -897,7 +937,13 @@ impl SpreadsheetApp {
         });
     }
 
-    // Render the main spreadsheet grid
+    /// Renders the main spreadsheet grid with cells, headers, and row labels.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
+    ///
+    /// # Returns
+    /// An optional tuple `(usize, usize)` representing the new selection if a cell was clicked.
     fn render_spreadsheet_grid(&mut self, ui: &mut egui::Ui) -> Option<(usize, usize)> {
         let mut new_selection = None;
         let cell_size = self.style.cell_size;
@@ -1002,7 +1048,10 @@ impl SpreadsheetApp {
         new_selection
     }
 
-    // Display information about the selected cell
+    /// Displays information about the currently selected cell.
+    ///
+    /// # Arguments
+    /// * `ui` - The mutable reference to the egui UI context.
     fn render_selected_cell_info(&self, ui: &mut egui::Ui) {
         ui.add_space(5.0);
         if let Some((row, col)) = self.selected {
@@ -1014,9 +1063,12 @@ impl SpreadsheetApp {
         }
     }
 
-    // Handle keyboard events with dynamic viewport sizes.
-    // The dynamic visible rows and columns are computed in update() and passed
-    // here.
+    /// Handles keyboard events for navigation and other actions.
+    ///
+    /// # Arguments
+    /// * `ctx` - The egui context for input handling.
+    /// * `visible_rows` - The number of visible rows in the viewport.
+    /// * `visible_cols` - The number of visible columns in the viewport.
     fn handle_keyboard_events(
         &mut self,
         ctx: &egui::Context,
@@ -1110,6 +1162,11 @@ impl SpreadsheetApp {
 }
 
 impl eframe::App for SpreadsheetApp {
+    /// Updates the application state and renders the UI for each frame.
+    ///
+    /// # Arguments
+    /// * `ctx` - The egui context for rendering and input handling.
+    /// * `_frame` - A mutable reference to the eframe frame (unused).
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
         let mut new_selection = None;

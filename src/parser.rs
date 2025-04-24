@@ -3,7 +3,27 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::utils::*;
 use crate::{Cell, CellData, CellName, STATUS_CODE, Valtype};
+/// # Parser Module
+/// This module handles the parsing and evaluation of spreadsheet formulas,
+/// managing cell dependencies and performing calculations.
+/// It supports various formula types including constants, references, operations,
+/// ranges, and sleep functions, with cycle detection for dependency graphs.
 
+/// Detects the type of formula and updates the cell's data and value accordingly.
+///
+/// # Arguments
+/// * `block` - The mutable cell to update with the parsed formula.
+/// * `form` - The formula string to parse (e.g., "=A1+5").
+///
+/// # Examples
+/// ```
+/// let mut cell = Cell {
+///     value: Valtype::Int(0),
+///     data: CellData::Empty,
+///     dependents: HashSet::new(),
+/// };
+/// detect_formula(&mut cell, "=A1+5");
+/// ```
 pub fn detect_formula(block: &mut Cell, form: &str) {
     let form = form.trim();
 
@@ -126,6 +146,23 @@ pub fn detect_formula(block: &mut Cell, form: &str) {
     block.data = CellData::Invalid;
 }
 
+/// Evaluates the value of a cell based on its data type and dependencies.
+///
+/// # Arguments
+/// * `sheet` - A hash map containing cell data, indexed by a unique `u32` key.
+/// * `total_rows` - The total number of rows in the spreadsheet.
+/// * `total_cols` - The total number of columns in the spreadsheet.
+/// * `r` - The row index of the cell to evaluate.
+/// * `c` - The column index of the cell to evaluate.
+///
+/// # Returns
+/// The computed value of the cell as a `Valtype`.
+///
+/// # Examples
+/// ```
+/// let mut sheet: HashMap<u32, Cell> = HashMap::new();
+/// let result = eval(&sheet, 10, 10, 0, 0);
+/// ```
 pub fn eval(
     sheet: &HashMap<u32, Cell>,
     total_rows: usize,
@@ -314,6 +351,16 @@ pub fn eval(
     }
 }
 
+/// Updates a cell's formula and recalculates dependent cells, handling cycle detection.
+///
+/// # Arguments
+/// * `sheet` - A mutable hash map containing cell data, indexed by a unique `u32` key.
+/// * `ranged` - A hash map tracking ranges for dependency management.
+/// * `is_r` - A boolean array indicating whether each cell is part of a range.
+/// * `total_dims` - A tuple `(total_rows, total_cols)` defining the spreadsheet dimensions.
+/// * `r` - The row index of the cell to update.
+/// * `c` - The column index of the cell to update.
+/// * `backup` - A backup of the cell’s previous state for rollback if needed.
 pub fn update_and_recalc(
     sheet: &mut HashMap<u32, Cell>,
     ranged: &mut HashMap<u32, Vec<(u32, u32)>>,

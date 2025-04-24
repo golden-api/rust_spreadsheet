@@ -22,6 +22,9 @@ clippy:
 	@cargo clippy --release
 	@cargo clippy --release --features gui
 
+docs:
+	@cargo doc --open
+
 clean:
 	@cargo clean
 

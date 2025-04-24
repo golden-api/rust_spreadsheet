@@ -1,6 +1,8 @@
 use eframe::egui::{Color32, Stroke, Vec2};
 
 use crate::{Cell, HashMap};
+
+/// Represents the direction of movement or scrolling in the spreadsheet interface.
 pub enum Direction {
     Up,
     Down,
@@ -8,7 +10,26 @@ pub enum Direction {
     Right,
 }
 
-// Define your styling configuration.
+/// Defines the styling configuration for the spreadsheet GUI.
+///
+/// # Fields
+/// * `header_bg` - Background color for header cells.
+/// * `header_text` - Text color for header cells.
+/// * `cell_bg_even` - Background color for even-numbered cells.
+/// * `cell_bg_odd` - Background color for odd-numbered cells.
+/// * `cell_text` - Text color for regular cells.
+/// * `selected_cell_bg` - Background color for the selected cell.
+/// * `selected_cell_text` - Text color for the selected cell.
+/// * `grid_line` - Stroke style for grid lines.
+/// * `cell_size` - Size of each cell as a 2D vector.
+/// * `font_size` - Font size for text in cells.
+/// * `prev_base_color` - Previous base color for animations or transitions.
+/// * `rainbow` - Counter for rainbow animation effect.
+/// * `frequency` - Frequency of the rainbow animation effect.
+/// * `matrix_raindrops` - Vector of raindrop effects for matrix-style visuals.
+/// * `get_cell_bg` - Optional function to dynamically determine cell background color.
+/// * `range_selection_bg` - Background color for range selection.
+/// * `range_selection_text` - Text color for range selection.
 pub struct SpreadsheetStyle {
     pub(crate) header_bg: Color32,
     pub(crate) header_text: Color32,
@@ -30,6 +51,10 @@ pub struct SpreadsheetStyle {
 }
 
 impl Default for SpreadsheetStyle {
+    /// Creates a default `SpreadsheetStyle` with predefined colors and settings.
+    ///
+    /// # Returns
+    /// A `SpreadsheetStyle` instance with default values.
     fn default() -> Self {
         Self {
             header_bg: Color32::from_rgb(60, 63, 100),
@@ -53,6 +78,35 @@ impl Default for SpreadsheetStyle {
     }
 }
 
+/// Represents the state and configuration of the spreadsheet application in GUI mode.
+///
+/// # Fields
+/// * `sheet` - Hash map storing cell data.
+/// * `ranged` - Hash map tracking range dependencies.
+/// * `is_range` - Boolean vector indicating range membership.
+/// * `total_rows` - Total number of rows.
+/// * `total_cols` - Total number of columns.
+/// * `selected` - Optional tuple of the currently selected cell (row, col).
+/// * `formula_input` - String for the current formula input.
+/// * `editing_cell` - Boolean indicating if a cell is being edited.
+/// * `style` - Styling configuration for the GUI.
+/// * `status_message` - Current status message to display.
+/// * `start_row` - Starting row index for the visible area.
+/// * `start_col` - Starting column index for the visible area.
+/// * `scroll_to_cell` - String for the cell to scroll to.
+/// * `should_reset_scroll` - Boolean to trigger scroll reset.
+/// * `focus_on` - Index for focusing on a specific element.
+/// * `request_formula_focus` - Boolean to request focus on formula input.
+/// * `clipboard` - Optional cell data for clipboard.
+/// * `clipboard_formula` - Formula string in the clipboard.
+/// * `undo_stack` - Stack of undo actions.
+/// * `redo_stack` - Stack of redo actions.
+/// * `max_undo_levels` - Maximum number of undo levels.
+/// * `show_save_dialog` - Boolean to show the save dialog.
+/// * `save_filename` - Filename for saving the spreadsheet.
+/// * `range_start` - Optional starting point of a range selection.
+/// * `range_end` - Optional ending point of a range selection.
+/// * `is_selecting_range` - Boolean indicating range selection mode.
 pub struct SpreadsheetApp {
     pub(crate) sheet: HashMap<u32, Cell>,
     pub(crate) ranged: HashMap<u32, Vec<(u32, u32)>>,
@@ -83,6 +137,16 @@ pub struct SpreadsheetApp {
 }
 
 impl SpreadsheetApp {
+    /// Creates a new `SpreadsheetApp` instance with the specified dimensions.
+    ///
+    /// # Arguments
+    /// * `rows` - The total number of rows.
+    /// * `cols` - The total number of columns.
+    /// * `start_row` - The initial starting row index.
+    /// * `start_col` - The initial starting column index.
+    ///
+    /// # Returns
+    /// A `SpreadsheetApp` instance initialized with default values.
     pub fn new(rows: usize, cols: usize, start_row: usize, start_col: usize) -> Self {
         let sheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
         let ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(512);
@@ -120,6 +184,12 @@ impl SpreadsheetApp {
     }
 }
 
+/// Represents an action to undo or redo in the spreadsheet.
+///
+/// # Fields
+/// * `position` - Tuple of (row, col) indicating the cell position.
+/// * `old_cell` - The previous state of the cell.
+/// * `old_formula` - The previous formula associated with the cell.
 pub struct UndoAction {
     pub position: (usize, usize), // (row, col)
     pub old_cell: Cell,

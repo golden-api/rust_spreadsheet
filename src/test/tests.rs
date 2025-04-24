@@ -1064,7 +1064,7 @@ fn test_interactive_mode() {
     );
 
     // Series of commands to test
-    let commands = vec![
+    let commands = [
         "disable_output",
         "A1=5",
         "scroll_to B2",
