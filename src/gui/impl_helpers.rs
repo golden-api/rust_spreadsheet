@@ -282,7 +282,6 @@ impl SpreadsheetApp {
     pub fn copy_selected_cell(&mut self) {
         if let Some((row, col)) = self.selected {
             let key = (row * self.total_cols + col) as u32;
-
             if let Some(cell) = self.sheet.get(&key) {
                 self.clipboard = Some(cell.clone());
                 self.clipboard_formula = self.get_cell_formula(row, col);
