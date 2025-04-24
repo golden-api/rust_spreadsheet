@@ -348,8 +348,7 @@ fn test_update_and_recalc_complex_cycle() {
         &mut sheet,
         &mut ranged,
         &mut is_range,
-        total_cols,
-        5,
+        (total_cols, 5),
         0,
         0,
         backup,
@@ -622,7 +621,7 @@ fn test_update_and_recalc_chains() {
     sheet.get_mut(&a1).unwrap().data = CellData::Const;
     sheet.get_mut(&a1).unwrap().value = Valtype::Int(10);
 
-    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, 5, 5, 0, 0, backup);
+    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, (5, 5), 0, 0, backup);
 
     assert_eq!(sheet.get(&a1).unwrap().value, Valtype::Int(10));
     assert_eq!(sheet.get(&b1).unwrap().value, Valtype::Int(11));
@@ -970,7 +969,7 @@ fn test_update_and_recalc_roc_addition_out_of_bounds() {
         dependents: HashSet::new(),
     };
     set_cell(&mut sheet, 2, 0, 0, cell_data, Valtype::Int(0));
-    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, 2, 2, 0, 0, backup);
+    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, (2, 2), 0, 0, backup);
     assert_eq!(unsafe { STATUS_CODE }, 1);
 }
 #[test]
@@ -990,7 +989,7 @@ fn test_update_and_recalc_cor_addition_invalid() {
         dependents: HashSet::new(),
     };
     set_cell(&mut sheet, 2, 0, 0, cell_data, Valtype::Int(0));
-    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, 2, 2, 0, 0, backup);
+    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, (2, 2), 0, 0, backup);
     assert_eq!(unsafe { STATUS_CODE }, 1);
 }
 #[test]
@@ -1087,11 +1086,9 @@ fn test_interactive_mode() {
             &mut ranged,
             &mut is_range,
             commands[i].to_string(),
-            total_rows,
-            total_cols,
+            (total_rows, total_cols),
             &mut enable_output,
-            &mut start_row,
-            &mut start_col,
+            &mut (&mut start_row, &mut start_col),
         ) {
             break;
         }

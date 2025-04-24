@@ -318,8 +318,7 @@ pub fn update_and_recalc(
     sheet: &mut HashMap<u32, Cell>,
     ranged: &mut HashMap<u32, Vec<(u32, u32)>>,
     is_r: &mut [bool],
-    total_rows: usize,
-    total_cols: usize,
+    total_dims: (usize, usize),
     r: usize,
     c: usize,
     backup: Cell,
@@ -329,7 +328,7 @@ pub fn update_and_recalc(
     // 1) VALIDATION (unchanged)
     {
         let data = &sheet
-            .get(&((r * total_cols + c) as u32))
+            .get(&((r * total_dims.1 + c) as u32))
             .map(|cell| &cell.data)
             .unwrap_or(&CellData::Empty);
         match data {
@@ -342,7 +341,7 @@ pub fn update_and_recalc(
             CellData::Range { cell1, cell2, .. } => {
                 for name in &[cell1, cell2] {
                     let (ri, ci) = to_indices(name.as_str());
-                    if ri >= total_rows || ci >= total_cols {
+                    if ri >= total_dims.0 || ci >= total_dims.1 {
                         unsafe {
                             STATUS_CODE = 1;
                         }
@@ -352,7 +351,7 @@ pub fn update_and_recalc(
             }
             CellData::Ref { cell1 } | CellData::SleepR { cell1 } | CellData::RoC { cell1, .. } => {
                 let (ri, ci) = to_indices(cell1.as_str());
-                if ri >= total_rows || ci >= total_cols {
+                if ri >= total_dims.0 || ci >= total_dims.1 {
                     unsafe {
                         STATUS_CODE = 1;
                     }
@@ -361,7 +360,7 @@ pub fn update_and_recalc(
             }
             CellData::CoR { cell2, .. } => {
                 let (ri, ci) = to_indices(cell2.as_str());
-                if ri >= total_rows || ci >= total_cols {
+                if ri >= total_dims.0 || ci >= total_dims.1 {
                     unsafe {
                         STATUS_CODE = 1;
                     }
@@ -371,7 +370,7 @@ pub fn update_and_recalc(
             CellData::RoR { cell1, cell2, .. } => {
                 for name in &[cell1, cell2] {
                     let (ri, ci) = to_indices(name.as_str());
-                    if ri >= total_rows || ci >= total_cols {
+                    if ri >= total_dims.0 || ci >= total_dims.1 {
                         unsafe {
                             STATUS_CODE = 1;
                         }
@@ -386,12 +385,12 @@ pub fn update_and_recalc(
         return;
     }
 
-    let cell_key = (r * total_cols + c) as u32;
+    let cell_key = (r * total_dims.1 + c) as u32;
 
     // 2) REMOVE old dependency edges
     macro_rules! remove_dep {
         ($ri:expr, $ci:expr) => {{
-            let idx = ($ri * total_cols + $ci) as u32;
+            let idx = ($ri * total_dims.1 + $ci) as u32;
             if let Some(dep) = sheet.get_mut(&idx) {
                 dep.dependents.remove(&cell_key);
             }
@@ -406,9 +405,11 @@ pub fn update_and_recalc(
             // clear each child’s ranged flag only if not in any other range
             for rr in sr..=er {
                 for cc in sc..=ec {
-                    let idx = (rr * total_cols + cc) as u32;
+                    let idx = (rr * total_dims.1 + cc) as u32;
                     let still_covered = ranged.iter().any(|(_, ranges)| {
-                        ranges.iter().any(|&(s, e)| in_range(idx, s, e, total_cols))
+                        ranges
+                            .iter()
+                            .any(|&(s, e)| in_range(idx, s, e, total_dims.1))
                     });
                     is_r[idx as usize] = still_covered;
                 }
@@ -448,20 +449,20 @@ pub fn update_and_recalc(
         CellData::Range { cell1, cell2, .. } => {
             let (sr, sc) = to_indices(cell1.as_str());
             let (er, ec) = to_indices(cell2.as_str());
-            ranged
-                .entry(cell_key)
-                .or_insert_with(Vec::new)
-                .push(((sr * total_cols + sc) as u32, (er * total_cols + ec) as u32));
+            ranged.entry(cell_key).or_default().push((
+                (sr * total_dims.1 + sc) as u32,
+                (er * total_dims.1 + ec) as u32,
+            ));
             for rr in sr..=er {
                 for cc in sc..=ec {
-                    let idx = (rr * total_cols + cc) as u32;
+                    let idx = (rr * total_dims.1 + cc) as u32;
                     is_r[idx as usize] = true;
                 }
             }
         }
         CellData::Ref { cell1 } => {
             let (ri, ci) = to_indices(cell1.as_str());
-            let idx = (ri * total_cols + ci) as u32;
+            let idx = (ri * total_dims.1 + ci) as u32;
             sheet
                 .entry(idx)
                 .or_insert_with(|| Cell {
@@ -474,7 +475,7 @@ pub fn update_and_recalc(
         }
         CellData::CoR { cell2, .. } => {
             let (ri, ci) = to_indices(cell2.as_str());
-            let idx = (ri * total_cols + ci) as u32;
+            let idx = (ri * total_dims.1 + ci) as u32;
             sheet
                 .entry(idx)
                 .or_insert_with(|| Cell {
@@ -487,7 +488,7 @@ pub fn update_and_recalc(
         }
         CellData::RoC { cell1, .. } => {
             let (ri, ci) = to_indices(cell1.as_str());
-            let idx = (ri * total_cols + ci) as u32;
+            let idx = (ri * total_dims.1 + ci) as u32;
             sheet
                 .entry(idx)
                 .or_insert_with(|| Cell {
@@ -501,7 +502,7 @@ pub fn update_and_recalc(
         CellData::RoR { cell1, cell2, .. } => {
             for name in &[cell1, cell2] {
                 let (ri, ci) = to_indices(name.as_str());
-                let idx = (ri * total_cols + ci) as u32;
+                let idx = (ri * total_dims.1 + ci) as u32;
                 sheet
                     .entry(idx)
                     .or_insert_with(|| Cell {
@@ -515,7 +516,7 @@ pub fn update_and_recalc(
         }
         CellData::SleepR { cell1 } => {
             let (ri, ci) = to_indices(cell1.as_str());
-            let idx = (ri * total_cols + ci) as u32;
+            let idx = (ri * total_dims.1 + ci) as u32;
             sheet
                 .entry(idx)
                 .or_insert_with(|| Cell {
@@ -539,13 +540,13 @@ pub fn update_and_recalc(
     queue.push_back((r, c));
 
     while let Some((rr, cc)) = queue.pop_front() {
-        let idx = (rr * total_cols + cc) as u32;
+        let idx = (rr * total_dims.1 + cc) as u32;
         // direct dependents
         if let Some(cell) = sheet.get(&idx) {
             for &dep_key in &cell.dependents {
                 if let std::collections::hash_map::Entry::Vacant(e) = index_map.entry(dep_key) {
-                    let dr = (dep_key as usize) / total_cols;
-                    let dc = (dep_key as usize) % total_cols;
+                    let dr = (dep_key as usize) / total_dims.1;
+                    let dc = (dep_key as usize) % total_dims.1;
                     let ni = affected.len();
                     e.insert(ni);
                     affected.push((dr, dc));
@@ -556,9 +557,9 @@ pub fn update_and_recalc(
         // range-based dependents without is_r check
         for (&parent, ranges) in ranged.iter() {
             for &(start, end) in ranges.iter() {
-                if in_range(idx, start, end, total_cols) && !index_map.contains_key(&parent) {
-                    let pr = (parent as usize) / total_cols;
-                    let pc = (parent as usize) % total_cols;
+                if in_range(idx, start, end, total_dims.1) && !index_map.contains_key(&parent) {
+                    let pr = (parent as usize) / total_dims.1;
+                    let pc = (parent as usize) % total_dims.1;
                     let ni = affected.len();
                     index_map.insert(parent, ni);
                     affected.push((pr, pc));
@@ -572,7 +573,7 @@ pub fn update_and_recalc(
     let n = affected.len();
     let mut in_degree = vec![0; n];
     for &(rr, cc) in &affected {
-        let idx = (rr * total_cols + cc) as u32;
+        let idx = (rr * total_dims.1 + cc) as u32;
         if let Some(cell) = sheet.get(&idx) {
             for &dep_key in &cell.dependents {
                 if let Some(&j) = index_map.get(&dep_key) {
@@ -582,7 +583,7 @@ pub fn update_and_recalc(
         }
         for (&parent, ranges) in ranged.iter() {
             for &(start, end) in ranges.iter() {
-                if in_range(idx, start, end, total_cols) {
+                if in_range(idx, start, end, total_dims.1) {
                     if let Some(&j) = index_map.get(&parent) {
                         in_degree[j] += 1;
                     }
@@ -604,7 +605,7 @@ pub fn update_and_recalc(
                 let (er, ec) = to_indices(cell2.as_str());
                 for rr in sr..=er {
                     for cc in sc..=ec {
-                        let idx = (rr * total_cols + cc) as u32;
+                        let idx = (rr * total_dims.1 + cc) as u32;
                         is_r[idx as usize] = false;
                     }
                 }
@@ -612,21 +613,21 @@ pub fn update_and_recalc(
             }
             CellData::Ref { cell1 } => {
                 let (ri, ci) = to_indices(cell1.as_str());
-                let idx = (ri * total_cols + ci) as u32;
+                let idx = (ri * total_dims.1 + ci) as u32;
                 if let Some(dep) = sheet.get_mut(&idx) {
                     dep.dependents.remove(&cell_key);
                 }
             }
             CellData::CoR { cell2, .. } => {
                 let (ri, ci) = to_indices(cell2.as_str());
-                let idx = (ri * total_cols + ci) as u32;
+                let idx = (ri * total_dims.1 + ci) as u32;
                 if let Some(dep) = sheet.get_mut(&idx) {
                     dep.dependents.remove(&cell_key);
                 }
             }
             CellData::RoC { cell1, .. } => {
                 let (ri, ci) = to_indices(cell1.as_str());
-                let idx = (ri * total_cols + ci) as u32;
+                let idx = (ri * total_dims.1 + ci) as u32;
                 if let Some(dep) = sheet.get_mut(&idx) {
                     dep.dependents.remove(&cell_key);
                 }
@@ -634,7 +635,7 @@ pub fn update_and_recalc(
             CellData::RoR { cell1, cell2, .. } => {
                 for name in &[cell1, cell2] {
                     let (ri, ci) = to_indices(name.as_str());
-                    let idx = (ri * total_cols + ci) as u32;
+                    let idx = (ri * total_dims.1 + ci) as u32;
                     if let Some(dep) = sheet.get_mut(&idx) {
                         dep.dependents.remove(&cell_key);
                     }
@@ -642,7 +643,7 @@ pub fn update_and_recalc(
             }
             CellData::SleepR { cell1 } => {
                 let (ri, ci) = to_indices(cell1.as_str());
-                let idx = (ri * total_cols + ci) as u32;
+                let idx = (ri * total_dims.1 + ci) as u32;
                 if let Some(dep) = sheet.get_mut(&idx) {
                     dep.dependents.remove(&cell_key);
                 }
@@ -666,10 +667,10 @@ pub fn update_and_recalc(
         .collect();
     while let Some(idx0) = zero_q.pop() {
         let (rr, cc) = affected[idx0];
-        let key = (rr * total_cols + cc) as u32;
+        let key = (rr * total_dims.1 + cc) as u32;
         if let Some(cell) = sheet.get(&key) {
             if cell.data != CellData::Empty {
-                let val = eval(sheet, total_rows, total_cols, rr, cc);
+                let val = eval(sheet, total_dims.0, total_dims.1, rr, cc);
                 sheet.get_mut(&key).unwrap().value = val;
             }
             for &dep_key in &sheet.get(&key).unwrap().dependents {
@@ -684,7 +685,7 @@ pub fn update_and_recalc(
         // ranged parents
         for (&parent, ranges) in ranged.iter() {
             for &(start, end) in ranges.iter() {
-                if in_range(key, start, end, total_cols) {
+                if in_range(key, start, end, total_dims.1) {
                     if let Some(&j) = index_map.get(&parent) {
                         in_degree[j] -= 1;
                         if in_degree[j] == 0 {

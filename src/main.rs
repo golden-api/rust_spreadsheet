@@ -213,11 +213,9 @@ fn interactive_mode(
     ranged: &mut HashMap<u32, Vec<(u32, u32)>>,
     is_range: &mut [bool],
     input: String,
-    total_rows: usize,
-    total_cols: usize,
+    total_dims: (usize, usize),
     enable_output: &mut bool,
-    start_row: &mut usize,
-    start_col: &mut usize,
+    start_dims: &mut (&mut usize, &mut usize),
 ) -> bool {
     println!();
     let start_time = Instant::now();
@@ -225,11 +223,13 @@ fn interactive_mode(
     unsafe {
         STATUS_CODE = 0;
     }
+    let (total_rows, total_cols) = total_dims;
+    //let (start_row, start_col) = start_dims;
     match input {
-        "w" => scrolling::w(start_row),
-        "s" => scrolling::s(start_row, total_rows),
-        "a" => scrolling::a(start_col),
-        "d" => scrolling::d(start_col, total_cols),
+        "w" => scrolling::w(start_dims.0),
+        "s" => scrolling::s(start_dims.0, total_rows),
+        "a" => scrolling::a(start_dims.1),
+        "d" => scrolling::d(start_dims.1, total_cols),
         "q" => return false,
         _ if input.contains('=') => {
             let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
@@ -250,8 +250,7 @@ fn interactive_mode(
                         spreadsheet,
                         ranged,
                         is_range,
-                        total_rows,
-                        total_cols,
+                        (total_rows, total_cols),
                         row,
                         col,
                         old_cell,
@@ -267,8 +266,14 @@ fn interactive_mode(
             let cell_ref = input.trim_start_matches("scroll_to ").trim();
             if cell_ref.is_empty()
                 || !cell_ref.chars().next().unwrap().is_alphabetic()
-                || scrolling::scroll_to(start_row, start_col, total_rows, total_cols, cell_ref)
-                    .is_err()
+                || scrolling::scroll_to(
+                    start_dims.0,
+                    start_dims.1,
+                    total_rows,
+                    total_cols,
+                    cell_ref,
+                )
+                .is_err()
             {
                 unsafe {
                     STATUS_CODE = 1;
@@ -284,7 +289,7 @@ fn interactive_mode(
     if *enable_output {
         print_sheet(
             spreadsheet,
-            &(*start_row, *start_col),
+            &(*start_dims.0, *start_dims.1),
             &(total_rows, total_cols),
         );
     }
@@ -330,7 +335,8 @@ fn main() {
         let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
         let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(512);
         let mut is_range: Vec<bool> = vec![false; total_rows * total_cols];
-        let (mut start_row, mut start_col) = (0, 0);
+        let mut start_row = 0;
+        let mut start_col = 0;
         let mut enable_output = true;
         let start_time = Instant::now();
         print_sheet(
@@ -353,11 +359,9 @@ fn main() {
                 &mut ranged,
                 &mut is_range,
                 input,
-                total_rows,
-                total_cols,
+                (total_rows, total_cols),
                 &mut enable_output,
-                &mut start_row,
-                &mut start_col,
+                &mut (&mut start_row, &mut start_col),
             ) {
                 break;
             }

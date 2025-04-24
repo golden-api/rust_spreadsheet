@@ -5,9 +5,16 @@ all: build
 build:
 	@cargo build --release --timings
 
-# Run tests
 test:
-	@cargo test --release
+	@cargo test -- --test-threads 1
+
+coverage:
+	@cargo tarpaulin
+
+# Run tests
+ext1:
+	@cargo build --release --features gui
+	@./target/release/spreadsheet 999 18278
 
 # Check the codebase (clippy and formatting)
 check: fmt clippy
