@@ -120,17 +120,17 @@ impl SpreadsheetApp {
                         self.goto_cell(cell_ref);
                         flag = false;
                     }
-                } else if cmd.starts_with("frequency ") {
-                    let arg = cmd["frequency ".len()..].trim(); // Ooh yes, gently remove that prefix
+                } else if let Some(stripper) = cmd.strip_prefix("frequency ") {
+                    let arg = stripper.trim(); // Ooh yes, gently remove that prefix
                     if arg.is_empty() {
-                        self.status_message = format!("Please enter frequency");
+                        self.status_message = "Please enter frequency".to_string();
                     } else if let Ok(count) = arg.parse::<f32>() {
                         self.style.frequency = count * 0.2 / 10.0;
                     } else {
                         self.status_message = format!("Unknown command: {}", cmd);
                     }
-                } else if cmd.starts_with("w") {
-                    let arg = &cmd[1..].trim();
+                } else if let Some(stripper) = cmd.strip_prefix("w") {
+                    let arg = &stripper.trim();
                     if arg.is_empty() {
                         self.move_selection_n(Direction::Up, 1);
                     } else if let Ok(count) = arg.parse::<usize>() {
@@ -144,8 +144,8 @@ impl SpreadsheetApp {
                 } else if cmd.starts_with("fcsv ") {
                     let filename = cmd.strip_prefix("fcsv ").unwrap().trim();
                     self.export_formulas_to_csv(filename);
-                } else if cmd.starts_with("s") {
-                    let arg = &cmd[1..].trim();
+                } else if let Some(stripper) = cmd.strip_prefix("s") {
+                    let arg = &stripper.trim();
                     if arg.is_empty() {
                         self.move_selection_n(Direction::Down, 1);
                     } else if let Ok(count) = arg.parse::<usize>() {
@@ -153,8 +153,8 @@ impl SpreadsheetApp {
                     } else {
                         self.status_message = format!("Unknown command: {}", cmd);
                     }
-                } else if cmd.starts_with("a") {
-                    let arg = &cmd[1..].trim();
+                } else if let Some(stripper) = cmd.strip_prefix("a") {
+                    let arg = &stripper.trim();
                     if arg.is_empty() {
                         self.move_selection_n(Direction::Left, 1);
                     } else if let Ok(count) = arg.parse::<usize>() {
@@ -162,8 +162,8 @@ impl SpreadsheetApp {
                     } else {
                         self.status_message = format!("Unknown command: {}", cmd);
                     }
-                } else if cmd.starts_with("d") {
-                    let arg = &cmd[1..].trim();
+                }  else if let Some(stripper) = cmd.strip_prefix("d") {
+                    let arg = &stripper.trim();
                     if arg.is_empty() {
                         self.move_selection_n(Direction::Right, 1);
                     } else if let Ok(count) = arg.parse::<usize>() {
@@ -247,14 +247,14 @@ impl SpreadsheetApp {
         );
 
         // Original color picking logic when no rainbow mode is active
-        let mut base_color = self.style.prev_base_color.clone();
+        let mut base_color = self.style.prev_base_color;
         if ui.color_edit_button_srgba(&mut base_color).changed() {
             self.style.get_cell_bg = None;
             self.style.rainbow = 0;
             fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
-                let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
-                let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
-                let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
+                let r = (color.r() as f32 * factor).clamp(0.0, 255.0) as u8;
+                let g = (color.g() as f32 * factor).clamp(0.0, 255.0) as u8;
+                let b = (color.b() as f32 * factor).clamp(0.0, 255.0) as u8;
                 Color32::from_rgb(r, g, b)
             }
             fn contrast_color(bg: Color32) -> Color32 {
@@ -560,9 +560,9 @@ impl SpreadsheetApp {
 
             // Helper function for brightness adjustment - same as original
             fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
-                let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
-                let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
-                let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
+                let r = (color.r() as f32 * factor).clamp(0.0, 255.0) as u8;
+                let g = (color.g() as f32 * factor).clamp(0.0, 255.0) as u8;
+                let b = (color.b() as f32 * factor).clamp(0.0, 255.0) as u8;
                 Color32::from_rgb(r, g, b)
             }
 
@@ -597,8 +597,6 @@ impl SpreadsheetApp {
 
             // Request repaint for animation
             ui.ctx().request_repaint();
-
-            return;
         }
         // Check if rainbow mode is active
         else if self.style.rainbow == 1 {

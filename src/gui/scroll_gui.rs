@@ -52,7 +52,7 @@ impl SpreadsheetApp {
         self.status_message = format!(
             "Moved to cell {}{}",
             col_label(self.start_col),
-            (self.start_row + 1).to_string()
+            (self.start_row + 1)
         );
     }
 }

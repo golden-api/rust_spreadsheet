@@ -281,13 +281,13 @@ impl SpreadsheetApp {
         self.copy_selected_cell();
         if let Some((row, col)) = self.selected {
             let key = (row * self.total_cols + col) as u32;
-            if self.sheet.contains_key(&key) {
+            if let std::collections::hash_map::Entry::Occupied(mut e) = self.sheet.entry(key) {
                 let empty_cell = Cell {
                     value: Valtype::Int(0),
                     data: CellData::Empty,
                     dependents: HashSet::new(),
                 };
-                self.sheet.insert(key, empty_cell);
+                e.insert(empty_cell);
                 self.status_message = format!("Moved cell {}{}", col_label(col), row + 1);
             } else {
                 self.status_message = format!("No data to cut at {}{}", col_label(col), row + 1);
@@ -371,7 +371,7 @@ impl SpreadsheetApp {
     pub fn paste_to_selected_cell(&mut self) {
         if let Some((row, col)) = self.selected {
             // Create local copies of any data needed from immutable borrows
-            let clipboard_data = self.clipboard.as_ref().map(|cell| cell.clone());
+            let clipboard_data = self.clipboard.clone();
             let clipboard_formula_copy = self.clipboard_formula.clone();
 
             // Now proceed with mutable operations
