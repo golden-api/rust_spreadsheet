@@ -1,14 +1,15 @@
+//! # Utils Module
+//! This module provides utility functions for the spreadsheet application,
+//! including cell reference conversion, arithmetic operations, range computations,
+//! and helper functions for dependency management.
 use std::{collections::HashMap, f64, thread::sleep, time::Duration};
 
-use crate::{Cell, STATUS_CODE, Valtype};
+use crate::{Cell, Valtype, STATUS_CODE};
 
 /// A global flag indicating if an evaluation error occurred.
 pub static mut EVAL_ERROR: bool = false;
 
-/// # Utils Module
-/// This module provides utility functions for the spreadsheet application,
-/// including cell reference conversion, arithmetic operations, range computations,
-/// and helper functions for dependency management.
+
 
 /// Converts a cell reference (e.g., "A1") to row and column indices (0-based).
 ///

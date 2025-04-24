@@ -1,13 +1,13 @@
 all: build
 
 build:
-	@cargo build --release --timings
+	@cargo build --release --features autograder --timings
 
 test:
-	@cargo test -- --test-threads 1
+	@cargo test --features autograder -- --test-threads 1
 
 coverage:
-	@cargo tarpaulin
+	@cargo tarpaulin --features autograder -- --test-threads 1
 
 ext1:
 	@cargo build --release --features gui
@@ -19,11 +19,10 @@ fmt:
 	@rustfmt --check src/*.rs
 
 clippy:
-	@cargo clippy --release
-	@cargo clippy --release --features gui
+	@cargo clippy --release --all-features
 
 docs:
-	@cargo doc --open
+	@cargo doc --open --all-features
 
 clean:
 	@cargo clean

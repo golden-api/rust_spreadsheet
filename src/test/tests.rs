@@ -6,15 +6,10 @@ use std::time::Instant;
 
 use crate::parser::{detect_formula, eval, update_and_recalc};
 use crate::scrolling::{a, d, s, scroll_to, w};
-use crate::utils::{
-    EVAL_ERROR,
-    compute,
-    compute_range,
-    to_indices,
-};
+use crate::utils::{compute, compute_range, to_indices, EVAL_ERROR};
 use crate::{
-    Cell, CellData, CellName, STATUS, STATUS_CODE, Valtype, interactive_mode, parse_dimensions,
-    print_sheet, prompt,
+    interactive_mode, parse_dimensions, print_sheet, prompt, Cell, CellData, CellName, Valtype,
+    STATUS, STATUS_CODE,
 };
 fn make_sheet(cap: usize) -> HashMap<u32, Cell> {
     HashMap::with_capacity(cap)
@@ -1151,10 +1146,38 @@ fn test_compute_range_stdev_full() {
     let total_cols = 5;
 
     // Set A1=1, A2=3, B1=5, B2=7 (values for STDEV)
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(1)); // A1
-    set_cell(&mut sheet, total_cols, 1, 0, CellData::Const, Valtype::Int(3)); // A2
-    set_cell(&mut sheet, total_cols, 0, 1, CellData::Const, Valtype::Int(5)); // B1
-    set_cell(&mut sheet, total_cols, 1, 1, CellData::Const, Valtype::Int(7)); // B2
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        0,
+        CellData::Const,
+        Valtype::Int(1),
+    ); // A1
+    set_cell(
+        &mut sheet,
+        total_cols,
+        1,
+        0,
+        CellData::Const,
+        Valtype::Int(3),
+    ); // A2
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        1,
+        CellData::Const,
+        Valtype::Int(5),
+    ); // B1
+    set_cell(
+        &mut sheet,
+        total_cols,
+        1,
+        1,
+        CellData::Const,
+        Valtype::Int(7),
+    ); // B2
 
     unsafe {
         STATUS_CODE = 0;
@@ -1163,7 +1186,7 @@ fn test_compute_range_stdev_full() {
 
     // Compute STDEV over A1:B2
     let result = compute_range(&sheet, total_cols, 0, 1, 0, 1, 5); // STDEV
-    // Expected: Values [1, 3, 5, 7], mean = 4, variance = ((1-4)^2 + (3-4)^2 + (5-4)^2 + (7-4)^2)/4 = (9+1+1+9)/4 = 5, sqrt(5) ≈ 2.236, round to 2
+                                                                   // Expected: Values [1, 3, 5, 7], mean = 4, variance = ((1-4)^2 + (3-4)^2 + (5-4)^2 + (7-4)^2)/4 = (9+1+1+9)/4 = 5, sqrt(5) ≈ 2.236, round to 2
     assert_eq!(result, 2);
     assert_eq!(unsafe { STATUS_CODE }, 0);
     assert!(!unsafe { EVAL_ERROR });
@@ -1174,9 +1197,30 @@ fn test_compute_range_min() {
     let total_cols = 5;
 
     // Set A1=10, A2=5, B1=8
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(10)); // A1
-    set_cell(&mut sheet, total_cols, 1, 0, CellData::Const, Valtype::Int(5));  // A2
-    set_cell(&mut sheet, total_cols, 0, 1, CellData::Const, Valtype::Int(8));  // B1
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        0,
+        CellData::Const,
+        Valtype::Int(10),
+    ); // A1
+    set_cell(
+        &mut sheet,
+        total_cols,
+        1,
+        0,
+        CellData::Const,
+        Valtype::Int(5),
+    ); // A2
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        1,
+        CellData::Const,
+        Valtype::Int(8),
+    ); // B1
 
     unsafe {
         STATUS_CODE = 0;
@@ -1206,19 +1250,19 @@ fn test_interactive_mode_parser_coverage() {
 
     // Commands to cover uncovered lines
     let commands = vec![
-        "A1=5*2",           // CONSTANT_CONSTANT with * (lines 163, 165)
-        "A2=10-A1",        // CONSTANT_REFERENCE with - (lines 181, 183)
-        "A8=A1/B10",       // RoR with out-of-bounds (lines 422–424)
-        "A9=AVG(A1:A2)",   // Range with AVG (lines 370–373, 375, 377, 385)
-        "A10=SLEEP(B10)",  // SleepR with invalid ref (lines 409–412)
-        "B1=10",           // Set B1 for dependencies
-        "B2=B1+A1",        // RoR for dependency (lines 628–631)
-        "B3=5+B1",         // CoR for dependency (lines 603–607, 612)
-        "B4=A1+5",         // RoC for dependency (lines 621–624)
-        "B5=SLEEP(A1)",    // SleepR for dependency (lines 635–636, 639)
-        "B6=SUM(A1:B2)",   // Range for dependency (lines 560–566)
-        "disable_output",  // Suppress output
-        "q",               // Quit
+        "A1=5*2",         // CONSTANT_CONSTANT with * (lines 163, 165)
+        "A2=10-A1",       // CONSTANT_REFERENCE with - (lines 181, 183)
+        "A8=A1/B10",      // RoR with out-of-bounds (lines 422–424)
+        "A9=AVG(A1:A2)",  // Range with AVG (lines 370–373, 375, 377, 385)
+        "A10=SLEEP(B10)", // SleepR with invalid ref (lines 409–412)
+        "B1=10",          // Set B1 for dependencies
+        "B2=B1+A1",       // RoR for dependency (lines 628–631)
+        "B3=5+B1",        // CoR for dependency (lines 603–607, 612)
+        "B4=A1+5",        // RoC for dependency (lines 621–624)
+        "B5=SLEEP(A1)",   // SleepR for dependency (lines 635–636, 639)
+        "B6=SUM(A1:B2)",  // Range for dependency (lines 560–566)
+        "disable_output", // Suppress output
+        "q",              // Quit
     ];
 
     // Process commands
@@ -1251,7 +1295,7 @@ fn test_interactive_mode_parser_coverage() {
 
     // Verify results
     assert_eq!(spreadsheet.get(&0).unwrap().value, Valtype::Int(10)); // A1 = 5*2
-    assert_eq!(spreadsheet.get(&1).unwrap().value, Valtype::Int(10));  // A2 = 10-A1
+    assert_eq!(spreadsheet.get(&1).unwrap().value, Valtype::Int(10)); // A2 = 10-A1
 }
 #[test]
 fn test_interactive_mode_full_coverage() {
@@ -1265,27 +1309,27 @@ fn test_interactive_mode_full_coverage() {
 
     // Commands to cover all remaining lines
     let commands = vec![
-        "A1=3+4",           // CONSTANT_CONSTANT with + (lines 163, 165)
-        "A2=7*B1",         // CONSTANT_REFERENCE with * (lines 181, 183)
-        "A3=MAX(A1:A2)",   // RANGE_FUNCTION with MAX (lines 203, 205)
-        "A4=+",            // Invalid formula syntax (lines 218, 220, 225)
-        "A5=A1+ERR",       // Invalid reference (lines 237, 239, 244 for CoC error)
-        "A6=5-C10",        // CoR with out-of-bounds (lines 280, 282, 290)
-        "A7=B1*2",         // RoC with invalid ref (lines 346, 348)
-        "A8=SUM(A1:A2)",   // Range evaluation (lines 375, 377, 385)
-        "A9=SLEEP(A10)",   // SleepR with invalid ref (lines 409–412)
-        "B1=A1",           // Ref for dependency validation (lines 422–424)
-        "B2=SUM(A1:B1)",   // Range dependency (lines 560–566)
-        "B3=A1+1",         // CoR dependency (lines 603–607, 612)
-        "B4=2*A1",         // RoC dependency (lines 621–624)
-        "B5=A1+B1",        // RoR dependency (lines 628–631)
-        "B6=SLEEP(A1)",    // SleepR dependency (lines 635–636, 639)
-        "C1=B1",           // Ref dependency (line 587)
-        "C2=C1+2",         // Dependency chain for BFS (lines 644–647, 651)
-        "C3=C2+3",         // Topological sort (lines 689, 691–692)
-        "A1=10",           // Update A1 to trigger dependency removal (lines 482–484, 495–497)
-        "disable_output",  // Suppress output
-        "q",               // Quit
+        "A1=3+4",         // CONSTANT_CONSTANT with + (lines 163, 165)
+        "A2=7*B1",        // CONSTANT_REFERENCE with * (lines 181, 183)
+        "A3=MAX(A1:A2)",  // RANGE_FUNCTION with MAX (lines 203, 205)
+        "A4=+",           // Invalid formula syntax (lines 218, 220, 225)
+        "A5=A1+ERR",      // Invalid reference (lines 237, 239, 244 for CoC error)
+        "A6=5-C10",       // CoR with out-of-bounds (lines 280, 282, 290)
+        "A7=B1*2",        // RoC with invalid ref (lines 346, 348)
+        "A8=SUM(A1:A2)",  // Range evaluation (lines 375, 377, 385)
+        "A9=SLEEP(A10)",  // SleepR with invalid ref (lines 409–412)
+        "B1=A1",          // Ref for dependency validation (lines 422–424)
+        "B2=SUM(A1:B1)",  // Range dependency (lines 560–566)
+        "B3=A1+1",        // CoR dependency (lines 603–607, 612)
+        "B4=2*A1",        // RoC dependency (lines 621–624)
+        "B5=A1+B1",       // RoR dependency (lines 628–631)
+        "B6=SLEEP(A1)",   // SleepR dependency (lines 635–636, 639)
+        "C1=B1",          // Ref dependency (line 587)
+        "C2=C1+2",        // Dependency chain for BFS (lines 644–647, 651)
+        "C3=C2+3",        // Topological sort (lines 689, 691–692)
+        "A1=10",          // Update A1 to trigger dependency removal (lines 482–484, 495–497)
+        "disable_output", // Suppress output
+        "q",              // Quit
     ];
 
     // Process commands
@@ -1317,8 +1361,8 @@ fn test_interactive_mode_full_coverage() {
     }
 
     // Verify key results
-    assert_eq!(spreadsheet.get(&0).unwrap().value, Valtype::Int(10));  // A1 = 10
+    assert_eq!(spreadsheet.get(&0).unwrap().value, Valtype::Int(10)); // A1 = 10
     assert_eq!(spreadsheet.get(&100).unwrap().value, Valtype::Int(70)); // A2 = 70 (updated)
-    assert_eq!(spreadsheet.get(&2).unwrap().value, Valtype::Int(10));  // A3 = MAX(A1:A2)
+    assert_eq!(spreadsheet.get(&2).unwrap().value, Valtype::Int(10)); // A3 = MAX(A1:A2)
     assert_eq!(spreadsheet.get(&202).unwrap().value, Valtype::Int(15)); // C3 = C2+3
 }

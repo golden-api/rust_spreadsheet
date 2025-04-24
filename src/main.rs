@@ -1,13 +1,12 @@
-/// # Rust Spreadsheet
-/// This is the main entry point for the Rust Spreadsheet application.
-/// It supports both interactive command-line mode (default) and GUI mode (when the "gui" feature is enabled).
-/// The application processes command-line arguments to set up the spreadsheet dimensions and delegates to
-/// either `interactive_mode` or a GUI interface based on configuration.
-use std::{
-    collections::{HashMap, HashSet},
-    env, process,
-};
-#[cfg(not(feature = "gui"))]
+//! # Rust Spreadsheet
+//! This is the main entry point for the Rust Spreadsheet application.
+//! It supports both interactive command-line mode (default) and GUI mode (when the "gui" feature is enabled).
+//! The application processes command-line arguments to set up the spreadsheet dimensions and delegates to
+//! either `interactive_mode` or a GUI interface based on configuration.
+#[cfg(any(feature = "autograder", feature = "gui"))]
+use std::{collections::{HashMap,HashSet}, env, process};
+
+#[cfg(feature = "autograder")]
 use std::{
     io::{self, Write},
     time::Instant,
@@ -79,16 +78,19 @@ impl std::str::FromStr for CellName {
     }
 }
 ////////////////////////////////////////////////////////////////////////////////
-
+#[cfg(any(feature = "autograder", feature = "gui"))]
 mod parser;
-#[cfg(not(feature = "gui"))]
+#[cfg(feature = "autograder")]
 mod scrolling;
 
 #[cfg(feature = "gui")]
 mod gui;
+#[cfg(feature = "autograder")]
 mod test;
+#[cfg(any(feature = "autograder", feature = "gui"))]
 mod utils;
 /// Array of status messages used to indicate the outcome of operations.
+#[cfg(any(feature = "autograder", feature = "gui"))]
 const STATUS: [&str; 4] = ["ok", "Invalid range", "unrecognized cmd", "cycle detected"];
 /// A global variable to store the current status code (0-3).
 /// Use with `unsafe` due to its mutable global nature.
@@ -151,13 +153,14 @@ pub enum CellData {
     Invalid,
 }
 /// Represents a cell in the spreadsheet, containing its value, data type, and dependents.
+#[cfg(any(feature = "autograder", feature = "gui"))]
 #[derive(Clone)]
 pub struct Cell {
     pub value: Valtype,
     pub data: CellData,
     pub dependents: HashSet<u32>,
 }
-
+#[cfg(any(feature = "autograder", feature = "gui"))]
 impl Cell {
     /// Resets the cell to its default state, preserving its dependents.
     pub fn reset(&mut self) {
@@ -182,7 +185,7 @@ impl Cell {
     }
 }
 
-#[cfg(not(feature = "gui"))]
+#[cfg(feature = "autograder")]
 /// Prints the spreadsheet grid starting from the given position.
 ///
 /// # Arguments
@@ -237,6 +240,7 @@ fn print_sheet(
 ///
 /// # Returns
 /// * `Result<(usize, usize), &'static str>` - A tuple `(rows, cols)` on success, or an error message on failure.
+#[cfg(any(feature = "autograder", feature = "gui"))]
 fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     if args.len() == 3 {
         let total_rows = args[1].parse::<usize>().map_err(|_| "Invalid rows")?;
@@ -250,7 +254,7 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     }
 }
 
-#[cfg(not(feature = "gui"))]
+#[cfg(feature = "autograder")]
 /// Processes a single input command in interactive mode, updating the spreadsheet state.
 ///
 /// # Arguments
@@ -355,7 +359,7 @@ fn interactive_mode(
     );
     true
 }
-#[cfg(not(feature = "gui"))]
+#[cfg(feature = "autograder")]
 /// Prints the command prompt with elapsed time and status.
 ///
 /// # Arguments
@@ -367,64 +371,69 @@ fn prompt(elapsed: f64, status: &str) {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let (total_rows, total_cols) = match parse_dimensions(args.clone()) {
-        Ok(dim) => dim,
-        Err(e) => {
-            eprintln!("{}", e);
-            process::exit(1);
-        }
-    };
-
-    #[cfg(feature = "gui")]
+    #[cfg(any(feature = "autograder", feature = "gui"))]
     {
-        let options = eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default()
-                .with_inner_size([1024.0, 768.0])
-                .with_resizable(true),
-            ..Default::default()
-        };
-        eframe::run_native(
-            "Rust Spreadsheet",
-            options,
-            Box::new(move |_cc| Ok(Box::new(SpreadsheetApp::new(total_rows, total_cols, 0, 0)))),
-        )
-        .unwrap();
-    }
-    #[cfg(not(feature = "gui"))]
-    {
-        let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
-        let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(512);
-        let mut is_range: Vec<bool> = vec![false; total_rows * total_cols];
-        let mut start_row = 0;
-        let mut start_col = 0;
-        let mut enable_output = true;
-        let start_time = Instant::now();
-        print_sheet(
-            &spreadsheet,
-            &(start_row, start_col),
-            &(total_rows, total_cols),
-        );
-        prompt(
-            start_time.elapsed().as_secs_f64(),
-            STATUS[unsafe { STATUS_CODE }],
-        );
-        loop {
-            let mut input = String::new();
-            let bytes_read = io::stdin().read_line(&mut input).unwrap();
-            if bytes_read == 0 {
-                break;
+        let args: Vec<String> = env::args().collect();
+        let (total_rows, total_cols) = match parse_dimensions(args.clone()) {
+            Ok(dim) => dim,
+            Err(e) => {
+                eprintln!("{}", e);
+                process::exit(1);
             }
-            if !interactive_mode(
-                &mut spreadsheet,
-                &mut ranged,
-                &mut is_range,
-                input,
-                (total_rows, total_cols),
-                &mut enable_output,
-                &mut (&mut start_row, &mut start_col),
-            ) {
-                break;
+        };
+
+        #[cfg(feature = "gui")]
+        {
+            let options = eframe::NativeOptions {
+                viewport: egui::ViewportBuilder::default()
+                    .with_inner_size([1024.0, 768.0])
+                    .with_resizable(true),
+                ..Default::default()
+            };
+            eframe::run_native(
+                "Rust Spreadsheet",
+                options,
+                Box::new(move |_cc| {
+                    Ok(Box::new(SpreadsheetApp::new(total_rows, total_cols, 0, 0)))
+                }),
+            )
+            .unwrap();
+        }
+        #[cfg(feature = "autograder")]
+        {
+            let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
+            let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(512);
+            let mut is_range: Vec<bool> = vec![false; total_rows * total_cols];
+            let mut start_row = 0;
+            let mut start_col = 0;
+            let mut enable_output = true;
+            let start_time = Instant::now();
+            print_sheet(
+                &spreadsheet,
+                &(start_row, start_col),
+                &(total_rows, total_cols),
+            );
+            prompt(
+                start_time.elapsed().as_secs_f64(),
+                STATUS[unsafe { STATUS_CODE }],
+            );
+            loop {
+                let mut input = String::new();
+                let bytes_read = io::stdin().read_line(&mut input).unwrap();
+                if bytes_read == 0 {
+                    break;
+                }
+                if !interactive_mode(
+                    &mut spreadsheet,
+                    &mut ranged,
+                    &mut is_range,
+                    input,
+                    (total_rows, total_cols),
+                    &mut enable_output,
+                    &mut (&mut start_row, &mut start_col),
+                ) {
+                    break;
+                }
             }
         }
     }

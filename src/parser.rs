@@ -1,13 +1,14 @@
+//! # Parser Module
+//! This module handles the parsing and evaluation of spreadsheet formulas,
+//! managing cell dependencies and performing calculations.
+//! It supports various formula types including constants, references, operations,
+//! ranges, and sleep functions, with cycle detection for dependency graphs.
 use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::utils::*;
-use crate::{Cell, CellData, CellName, STATUS_CODE, Valtype};
-/// # Parser Module
-/// This module handles the parsing and evaluation of spreadsheet formulas,
-/// managing cell dependencies and performing calculations.
-/// It supports various formula types including constants, references, operations,
-/// ranges, and sleep functions, with cycle detection for dependency graphs.
+use crate::{Cell, CellData, CellName, Valtype, STATUS_CODE};
+
 
 /// Detects the type of formula and updates the cell's data and value accordingly.
 ///

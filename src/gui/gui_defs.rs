@@ -1,6 +1,7 @@
 use eframe::egui::{Color32, Stroke, Vec2};
 
-use crate::{Cell, HashMap};
+use crate::Cell;
+use crate::HashMap;
 
 /// Represents the direction of movement or scrolling in the spreadsheet interface.
 pub enum Direction {
