@@ -1,62 +1,74 @@
-use egui::{
-    Color32,
-    Stroke,
-};
+use egui::{Color32, Stroke};
 
 use crate::{
     Valtype,
-    gui::gui_defs::{
-        Direction,
-        SpreadsheetApp,
-        SpreadsheetStyle,
-    },
-    gui::utils_gui::{
-        col_label,
-        parse_cell_name,
-    },
+    gui::gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
+    gui::utils_gui::{col_label, parse_cell_name},
     utils::to_indices,
 };
 
 impl SpreadsheetApp {
     // Render the formula input bar
-    fn render_formula_bar(
-        &mut self,
-        ui: &mut egui::Ui,
-    ) {
-        egui::Frame::NONE.fill(self.style.header_bg).inner_margin(egui::Vec2::new(8.0, 8.0)).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                let hint = if self.selected.is_some() { "Enter formula or value..." } else { "Enter command..." };
-                let response = ui.add(egui::TextEdit::singleline(&mut self.formula_input).id_salt("command bar").hint_text(hint).desired_width(ui.available_width() - 120.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
-                if self.request_formula_focus {
-                    response.request_focus();
-                    self.request_formula_focus = false;
-                }
-                if response.gained_focus() {
-                    self.focus_on = 2;
-                }
-                let process_formula = ui.add(egui::Button::new(egui::RichText::new("Update Cell").size(self.style.font_size).color(self.style.selected_cell_text)).fill(self.style.selected_cell_bg).min_size(egui::Vec2::new(100.0, 25.0))).clicked()
-                    || ((self.focus_on == 2) && ui.input(|i| i.key_pressed(egui::Key::Enter)));
-                if process_formula {
-                    if self.selected.is_some() {
-                        self.update_selected_cell();
-                        self.editing_cell = false;
+    fn render_formula_bar(&mut self, ui: &mut egui::Ui) {
+        egui::Frame::NONE
+            .fill(self.style.header_bg)
+            .inner_margin(egui::Vec2::new(8.0, 8.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let hint = if self.selected.is_some() {
+                        "Enter formula or value..."
                     } else {
-                        let cmd = self.formula_input.clone();
-                        self.process_command(&cmd);
-                        self.formula_input.clear();
+                        "Enter command..."
+                    };
+                    let response = ui.add(
+                        egui::TextEdit::singleline(&mut self.formula_input)
+                            .id_salt("command bar")
+                            .hint_text(hint)
+                            .desired_width(ui.available_width() - 120.0)
+                            .font(egui::TextStyle::Monospace)
+                            .text_color(self.style.header_text),
+                    );
+                    if self.request_formula_focus {
+                        response.request_focus();
+                        self.request_formula_focus = false;
                     }
+                    if response.gained_focus() {
+                        self.focus_on = 2;
+                    }
+                    let process_formula = ui
+                        .add(
+                            egui::Button::new(
+                                egui::RichText::new("Update Cell")
+                                    .size(self.style.font_size)
+                                    .color(self.style.selected_cell_text),
+                            )
+                            .fill(self.style.selected_cell_bg)
+                            .min_size(egui::Vec2::new(100.0, 25.0)),
+                        )
+                        .clicked()
+                        || ((self.focus_on == 2) && ui.input(|i| i.key_pressed(egui::Key::Enter)));
+                    if process_formula {
+                        if self.selected.is_some() {
+                            self.update_selected_cell();
+                            self.editing_cell = false;
+                        } else {
+                            let cmd = self.formula_input.clone();
+                            self.process_command(&cmd);
+                            self.formula_input.clear();
+                        }
+                    }
+                });
+                if !self.status_message.is_empty() {
+                    ui.label(
+                        egui::RichText::new(&self.status_message)
+                            .size(self.style.font_size - 2.0)
+                            .color(self.style.header_text),
+                    );
                 }
             });
-            if !self.status_message.is_empty() {
-                ui.label(egui::RichText::new(&self.status_message).size(self.style.font_size - 2.0).color(self.style.header_text));
-            }
-        });
     }
 
-    fn process_command(
-        &mut self,
-        cmd: &str,
-    ) {
+    fn process_command(&mut self, cmd: &str) {
         let mut flag = true;
         match cmd {
             "q" => std::process::exit(0),
@@ -82,7 +94,7 @@ impl SpreadsheetApp {
             "love" => {
                 self.style.rainbow = 4;
             }
-            _ =>
+            _ => {
                 if cmd.starts_with("copy ") {
                     if let Some(cell_ref) = cmd.strip_prefix("copy ") {
                         self.goto_cell(cell_ref);
@@ -175,7 +187,8 @@ impl SpreadsheetApp {
                     }
                 } else {
                     self.status_message = format!("Unknown command: {}", cmd);
-                },
+                }
+            }
         }
         if flag {
             self.request_formula_focus = true;
@@ -192,38 +205,53 @@ impl SpreadsheetApp {
     }
 
     // Render the scroll-to-cell feature
-    fn render_scroll_to_cell(
-        &mut self,
-        ui: &mut egui::Ui,
-    ) {
-        ui.label(egui::RichText::new("Scroll to:").size(self.style.font_size).color(self.style.header_text));
-        let text_response = ui.add(egui::TextEdit::singleline(&mut self.scroll_to_cell).hint_text("e.g. AB78").desired_width(80.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
+    fn render_scroll_to_cell(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            egui::RichText::new("Scroll to:")
+                .size(self.style.font_size)
+                .color(self.style.header_text),
+        );
+        let text_response = ui.add(
+            egui::TextEdit::singleline(&mut self.scroll_to_cell)
+                .hint_text("e.g. AB78")
+                .desired_width(80.0)
+                .font(egui::TextStyle::Monospace)
+                .text_color(self.style.header_text),
+        );
         if text_response.gained_focus() {
             self.focus_on = 1;
         }
         let enter_pressed = (self.focus_on == 1) && ui.input(|i| i.key_pressed(egui::Key::Enter));
-        let button_clicked = ui.add(egui::Button::new(egui::RichText::new("Go").size(self.style.font_size).color(self.style.selected_cell_text)).fill(self.style.selected_cell_bg).min_size(egui::Vec2::new(60.0, 25.0))).clicked();
+        let button_clicked = ui
+            .add(
+                egui::Button::new(
+                    egui::RichText::new("Go")
+                        .size(self.style.font_size)
+                        .color(self.style.selected_cell_text),
+                )
+                .fill(self.style.selected_cell_bg)
+                .min_size(egui::Vec2::new(60.0, 25.0)),
+            )
+            .clicked();
         if enter_pressed || button_clicked {
             self.process_scroll_to_cell();
         }
     }
 
     // Render the colour picker feature
-    fn render_colour(
-        &mut self,
-        ui: &mut egui::Ui,
-    ) {
-        ui.label(egui::RichText::new("Theme:").size(self.style.font_size).color(self.style.header_text));
+    fn render_colour(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            egui::RichText::new("Theme:")
+                .size(self.style.font_size)
+                .color(self.style.header_text),
+        );
 
         // Original color picking logic when no rainbow mode is active
         let mut base_color = self.style.prev_base_color.clone();
         if ui.color_edit_button_srgba(&mut base_color).changed() {
             self.style.get_cell_bg = None;
             self.style.rainbow = 0;
-            fn adjust_brightness(
-                color: Color32,
-                factor: f32,
-            ) -> Color32 {
+            fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
                 let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
                 let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
                 let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
@@ -234,7 +262,11 @@ impl SpreadsheetApp {
                 let g = bg.g() as f32;
                 let b = bg.b() as f32;
                 let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                if luminance < 128.0 { Color32::WHITE } else { Color32::from_rgb(0, 0, 0) }
+                if luminance < 128.0 {
+                    Color32::WHITE
+                } else {
+                    Color32::from_rgb(0, 0, 0)
+                }
             }
             fn invert(bg: Color32) -> Color32 {
                 let r = (255.0 - (bg.r() as f32)) as u8;
@@ -285,7 +317,9 @@ impl SpreadsheetApp {
                     let speed = rng.gen_range(3.0..8.0); // Random speed between 3 and 8
                     let length = rng.gen_range(5..15); // Random trail length between 5 and 15
 
-                    self.style.matrix_raindrops.push((column, row, speed, length));
+                    self.style
+                        .matrix_raindrops
+                        .push((column, row, speed, length));
                 }
             }
 
@@ -368,7 +402,8 @@ impl SpreadsheetApp {
             let time_f32 = time as f32;
 
             // Pulse the brightness of the text slightly for that digital effect
-            let pulse = ((time_f32 * 1.55 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
+            let pulse =
+                ((time_f32 * 1.55 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
 
             self.style.cell_text = Color32::from_rgb(0, (255.0 * pulse) as u8, 0);
 
@@ -404,7 +439,8 @@ impl SpreadsheetApp {
             let time_f32 = time as f32;
 
             // Pulse the brightness of the text slightly for that digital effect
-            let pulse = ((time_f32 * 1.5 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
+            let pulse =
+                ((time_f32 * 1.5 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
 
             self.style.cell_text = Color32::from_rgb(0, (255.0 * pulse) as u8, 0);
 
@@ -436,7 +472,15 @@ impl SpreadsheetApp {
             self.style.cell_text = burgundy;
 
             // Grid lines in a subtle golden hue for a romantic accent
-            self.style.grid_line = Stroke::new(1.0, Color32::from_rgba_unmultiplied(light_gold.r(), light_gold.g(), light_gold.b(), 180));
+            self.style.grid_line = Stroke::new(
+                1.0,
+                Color32::from_rgba_unmultiplied(
+                    light_gold.r(),
+                    light_gold.g(),
+                    light_gold.b(),
+                    180,
+                ),
+            );
 
             // Add a subtle pulsing animation to the selected cell
             let time = ui.ctx().input(|i| i.time);
@@ -454,7 +498,11 @@ impl SpreadsheetApp {
             };
 
             // Make the selected cell subtly pulse in intensity
-            self.style.selected_cell_bg = Color32::from_rgb((deep_pink.r() as f32 * pulse) as u8, (deep_pink.g() as f32 * pulse) as u8, (deep_pink.b() as f32 * pulse) as u8);
+            self.style.selected_cell_bg = Color32::from_rgb(
+                (deep_pink.r() as f32 * pulse) as u8,
+                (deep_pink.g() as f32 * pulse) as u8,
+                (deep_pink.b() as f32 * pulse) as u8,
+            );
 
             // Request repaint for animation
             ui.ctx().request_repaint();
@@ -472,11 +520,7 @@ impl SpreadsheetApp {
             let frequency: f32 = self.style.frequency;
 
             // HSV to RGB conversion for smooth color cycling through spectrum
-            fn hsv_to_rgb(
-                h: f32,
-                s: f32,
-                v: f32,
-            ) -> (u8, u8, u8) {
+            fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
                 let h = h % 360.0;
                 let c = v * s;
                 let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
@@ -515,10 +559,7 @@ impl SpreadsheetApp {
             let base_color = Color32::from_rgb(r, g, b);
 
             // Helper function for brightness adjustment - same as original
-            fn adjust_brightness(
-                color: Color32,
-                factor: f32,
-            ) -> Color32 {
+            fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
                 let r = (color.r() as f32 * factor).min(255.0).max(0.0) as u8;
                 let g = (color.g() as f32 * factor).min(255.0).max(0.0) as u8;
                 let b = (color.b() as f32 * factor).min(255.0).max(0.0) as u8;
@@ -531,7 +572,11 @@ impl SpreadsheetApp {
                 let g = bg.g() as f32;
                 let b = bg.b() as f32;
                 let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                if luminance < 128.0 { Color32::WHITE } else { Color32::from_rgb(0, 0, 0) }
+                if luminance < 128.0 {
+                    Color32::WHITE
+                } else {
+                    Color32::from_rgb(0, 0, 0)
+                }
             }
 
             // Create inverted color for selection
@@ -570,16 +615,40 @@ impl SpreadsheetApp {
             // Calculate RGB values cycling smoothly over time using sine waves
             // Using all f32 values to avoid type mismatches
             let red = ((std::f32::consts::PI * frequency * time_f32).sin() * 0.5 + 0.5) * 255.0;
-            let green = ((std::f32::consts::PI * frequency * time_f32 + 2.0 * std::f32::consts::PI / 3.0).sin() * 0.5 + 0.5) * 255.0;
-            let blue = ((std::f32::consts::PI * frequency * time_f32 + 4.0 * std::f32::consts::PI / 3.0).sin() * 0.5 + 0.5) * 255.0;
+            let green = ((std::f32::consts::PI * frequency * time_f32
+                + 2.0 * std::f32::consts::PI / 3.0)
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
+            let blue = ((std::f32::consts::PI * frequency * time_f32
+                + 4.0 * std::f32::consts::PI / 3.0)
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
 
             let primary_color = Color32::from_rgb(red as u8, green as u8, blue as u8);
 
             // Secondary color with phase shift for contrast
             let phase_shift: f32 = std::f32::consts::PI / 2.0;
-            let red2 = ((std::f32::consts::PI * frequency * time_f32 + phase_shift).sin() * 0.5 + 0.5) * 255.0;
-            let green2 = ((std::f32::consts::PI * frequency * time_f32 + 2.0 * std::f32::consts::PI / 3.0 + phase_shift).sin() * 0.5 + 0.5) * 255.0;
-            let blue2 = ((std::f32::consts::PI * frequency * time_f32 + 4.0 * std::f32::consts::PI / 3.0 + phase_shift).sin() * 0.5 + 0.5) * 255.0;
+            let red2 = ((std::f32::consts::PI * frequency * time_f32 + phase_shift).sin() * 0.5
+                + 0.5)
+                * 255.0;
+            let green2 = ((std::f32::consts::PI * frequency * time_f32
+                + 2.0 * std::f32::consts::PI / 3.0
+                + phase_shift)
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
+            let blue2 = ((std::f32::consts::PI * frequency * time_f32
+                + 4.0 * std::f32::consts::PI / 3.0
+                + phase_shift)
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
             let secondary_color = Color32::from_rgb(red2 as u8, green2 as u8, blue2 as u8);
 
             // Helper function for calculating contrasting text color
@@ -588,18 +657,34 @@ impl SpreadsheetApp {
                 let g = bg.g() as f32;
                 let b = bg.b() as f32;
                 let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                if luminance < 128.0 { Color32::WHITE } else { Color32::from_rgb(0, 0, 0) }
+                if luminance < 128.0 {
+                    Color32::WHITE
+                } else {
+                    Color32::from_rgb(0, 0, 0)
+                }
             }
 
             // Apply colors to UI elements
             self.style.cell_bg_even = primary_color;
             self.style.cell_bg_odd = secondary_color;
-            self.style.selected_cell_bg = Color32::from_rgb((255.0 - red) as u8, (255.0 - green) as u8, (255.0 - blue) as u8);
+            self.style.selected_cell_bg = Color32::from_rgb(
+                (255.0 - red) as u8,
+                (255.0 - green) as u8,
+                (255.0 - blue) as u8,
+            );
             self.style.cell_text = contrast_color(primary_color);
             self.style.selected_cell_text = contrast_color(self.style.selected_cell_bg);
 
             // Grid line color
-            self.style.grid_line = Stroke::new(1.0, Color32::from_rgba_unmultiplied((blue * 0.7) as u8, (red * 0.7) as u8, (green * 0.7) as u8, 200));
+            self.style.grid_line = Stroke::new(
+                1.0,
+                Color32::from_rgba_unmultiplied(
+                    (blue * 0.7) as u8,
+                    (red * 0.7) as u8,
+                    (green * 0.7) as u8,
+                    200,
+                ),
+            );
 
             // Request repaint for animation
             ui.ctx().request_repaint();
@@ -613,21 +698,32 @@ impl SpreadsheetApp {
             self.start_row = target_row;
             self.start_col = target_col;
             self.should_reset_scroll = true;
-            self.status_message = format!("Scrolled to cell {}{}", col_label(target_col), target_row + 1);
+            self.status_message = format!(
+                "Scrolled to cell {}{}",
+                col_label(target_col),
+                target_row + 1
+            );
         } else {
             self.status_message = "Invalid cell name".to_string();
         }
         self.scroll_to_cell = String::new();
     }
 
-    fn render_save(
-        &mut self,
-        ui: &mut egui::Ui,
-    ) {
-        ui.label(egui::RichText::new("Save as:").size(self.style.font_size).color(self.style.header_text));
+    fn render_save(&mut self, ui: &mut egui::Ui) {
+        ui.label(
+            egui::RichText::new("Save as:")
+                .size(self.style.font_size)
+                .color(self.style.header_text),
+        );
 
         // Add the filename input field
-        let response = ui.add(egui::TextEdit::singleline(&mut self.save_filename).hint_text("filename").desired_width(200.0).font(egui::TextStyle::Monospace).text_color(self.style.header_text));
+        let response = ui.add(
+            egui::TextEdit::singleline(&mut self.save_filename)
+                .hint_text("filename")
+                .desired_width(200.0)
+                .font(egui::TextStyle::Monospace)
+                .text_color(self.style.header_text),
+        );
 
         // Auto-focus the input field when dialog opens
         if self.show_save_dialog && self.focus_on == 0 {
@@ -637,7 +733,17 @@ impl SpreadsheetApp {
 
         // Handle Enter key and Save button
         let enter_pressed = (self.focus_on == 3) && ui.input(|i| i.key_pressed(egui::Key::Enter));
-        let save_clicked = ui.add(egui::Button::new(egui::RichText::new("Save").size(self.style.font_size).color(self.style.selected_cell_text)).fill(self.style.selected_cell_bg).min_size(egui::Vec2::new(60.0, 25.0))).clicked();
+        let save_clicked = ui
+            .add(
+                egui::Button::new(
+                    egui::RichText::new("Save")
+                        .size(self.style.font_size)
+                        .color(self.style.selected_cell_text),
+                )
+                .fill(self.style.selected_cell_bg)
+                .min_size(egui::Vec2::new(60.0, 25.0)),
+            )
+            .clicked();
 
         if enter_pressed || save_clicked {
             if !self.save_filename.is_empty() {
@@ -649,9 +755,19 @@ impl SpreadsheetApp {
         }
 
         // Handle Cancel button and Escape key
-        let cancel_clicked = ui.add(egui::Button::new(egui::RichText::new("Cancel").size(self.style.font_size).color(self.style.header_text)).min_size(egui::Vec2::new(60.0, 25.0))).clicked();
+        let cancel_clicked = ui
+            .add(
+                egui::Button::new(
+                    egui::RichText::new("Cancel")
+                        .size(self.style.font_size)
+                        .color(self.style.header_text),
+                )
+                .min_size(egui::Vec2::new(60.0, 25.0)),
+            )
+            .clicked();
 
-        if cancel_clicked || (self.focus_on == 3 && ui.input(|i| i.key_pressed(egui::Key::Escape))) {
+        if cancel_clicked || (self.focus_on == 3 && ui.input(|i| i.key_pressed(egui::Key::Escape)))
+        {
             self.show_save_dialog = false;
             self.focus_on = 0;
             self.save_filename.clear();
@@ -705,8 +821,21 @@ impl SpreadsheetApp {
                 self.style.cell_text
             };
 
-            ui.put(rect, egui::Button::new(egui::RichText::new(text).size(self.style.font_size).color(text_color)).fill(bg_color).stroke(self.style.grid_line));
-            let response = ui.interact(rect, ui.make_persistent_id((row, col)), egui::Sense::click_and_drag());
+            ui.put(
+                rect,
+                egui::Button::new(
+                    egui::RichText::new(text)
+                        .size(self.style.font_size)
+                        .color(text_color),
+                )
+                .fill(bg_color)
+                .stroke(self.style.grid_line),
+            );
+            let response = ui.interact(
+                rect,
+                ui.make_persistent_id((row, col)),
+                egui::Sense::click_and_drag(),
+            );
 
             if response.clicked() {
                 new_selection = Some((row, col));
@@ -727,18 +856,20 @@ impl SpreadsheetApp {
                 self.is_selecting_range = false;
                 // Selection is complete - update status
                 if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
-                    self.status_message = format!("Selected range {}{}:{}{}", col_label(start.1), start.0 + 1, col_label(end.1), end.0 + 1);
+                    self.status_message = format!(
+                        "Selected range {}{}:{}{}",
+                        col_label(start.1),
+                        start.0 + 1,
+                        col_label(end.1),
+                        end.0 + 1
+                    );
                 }
             }
         }
         new_selection
     }
     // Helper method to check if a cell is within the selected range
-    fn is_in_selected_range(
-        &self,
-        row: usize,
-        col: usize,
-    ) -> bool {
+    fn is_in_selected_range(&self, row: usize, col: usize) -> bool {
         if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
             let min_row = start.0.min(end.0);
             let max_row = start.0.max(end.0);
@@ -751,14 +882,18 @@ impl SpreadsheetApp {
     }
 
     // Render an editable cell (when editing)
-    fn render_editable_cell(
-        &mut self,
-        ui: &mut egui::Ui,
-        rect: egui::Rect,
-    ) {
-        let rect = egui::Rect::from_min_size(rect.min, egui::Vec2::new(rect.width(), rect.height()));
+    fn render_editable_cell(&mut self, ui: &mut egui::Ui, rect: egui::Rect) {
+        let rect =
+            egui::Rect::from_min_size(rect.min, egui::Vec2::new(rect.width(), rect.height()));
         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(rect), |ui| {
-            let response = ui.add(egui::TextEdit::singleline(&mut self.formula_input).hint_text("Edit...").text_color(self.style.selected_cell_text).background_color(self.style.selected_cell_bg).vertical_align(egui::Align::Center).margin(egui::Vec2::new(3.0, 5.0)));
+            let response = ui.add(
+                egui::TextEdit::singleline(&mut self.formula_input)
+                    .hint_text("Edit...")
+                    .text_color(self.style.selected_cell_text)
+                    .background_color(self.style.selected_cell_bg)
+                    .vertical_align(egui::Align::Center)
+                    .margin(egui::Vec2::new(3.0, 5.0)),
+            );
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 self.update_selected_cell();
                 self.editing_cell = false;
@@ -767,10 +902,7 @@ impl SpreadsheetApp {
     }
 
     // Render the main spreadsheet grid
-    fn render_spreadsheet_grid(
-        &mut self,
-        ui: &mut egui::Ui,
-    ) -> Option<(usize, usize)> {
+    fn render_spreadsheet_grid(&mut self, ui: &mut egui::Ui) -> Option<(usize, usize)> {
         let mut new_selection = None;
         let cell_size = self.style.cell_size;
         let row_label_width = 30.0;
@@ -780,7 +912,10 @@ impl SpreadsheetApp {
         let virtual_width = row_label_width + (total_cols - self.start_col) as f32 * cell_size.x;
         let virtual_height = header_height + (total_rows - self.start_row) as f32 * cell_size.y;
         let virtual_size = egui::vec2(virtual_width, virtual_height);
-        let mut scroll_area = egui::ScrollArea::both().id_salt((self.start_row, self.start_col)).drag_to_scroll(true).auto_shrink([false, false]);
+        let mut scroll_area = egui::ScrollArea::both()
+            .id_salt((self.start_row, self.start_col))
+            .drag_to_scroll(true)
+            .auto_shrink([false, false]);
         if self.should_reset_scroll {
             scroll_area = scroll_area.scroll_offset(egui::Vec2::ZERO);
         }
@@ -788,14 +923,24 @@ impl SpreadsheetApp {
         scroll_area.show(ui, |ui| {
             let (virtual_rect, _) = ui.allocate_exact_size(virtual_size, egui::Sense::hover());
             scroll_offset = ui.clip_rect().min - virtual_rect.min;
-            let render_start_col = self.start_col + (scroll_offset.x / cell_size.x).floor() as usize;
-            let render_start_row = self.start_row + (scroll_offset.y / cell_size.y).floor() as usize;
-            let visible_cols = (((ui.available_rect_before_wrap().size().x - row_label_width) / cell_size.x).ceil() as usize).max(1) + 1;
+            let render_start_col =
+                self.start_col + (scroll_offset.x / cell_size.x).floor() as usize;
+            let render_start_row =
+                self.start_row + (scroll_offset.y / cell_size.y).floor() as usize;
+            let visible_cols = (((ui.available_rect_before_wrap().size().x - row_label_width)
+                / cell_size.x)
+                .ceil() as usize)
+                .max(1)
+                + 1;
             let visible_rows = total_rows.min(33);
             for i in render_start_row..(render_start_row + visible_rows).min(total_rows) {
                 for j in render_start_col..(render_start_col + visible_cols).min(total_cols) {
-                    let x = virtual_rect.min.x + row_label_width + (j - self.start_col) as f32 * cell_size.x;
-                    let y = virtual_rect.min.y + header_height + (i - self.start_row) as f32 * cell_size.y;
+                    let x = virtual_rect.min.x
+                        + row_label_width
+                        + (j - self.start_col) as f32 * cell_size.x;
+                    let y = virtual_rect.min.y
+                        + header_height
+                        + (i - self.start_row) as f32 * cell_size.y;
                     let cell_rect = egui::Rect::from_min_size(egui::pos2(x, y), cell_size);
                     if let Some(selection) = self.render_cell(ui, i, j, cell_rect) {
                         new_selection = Some(selection);
@@ -803,29 +948,57 @@ impl SpreadsheetApp {
                 }
             }
         });
-        let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Background, egui::Id::new("pinned_headers")));
+        let painter = ui.ctx().layer_painter(egui::LayerId::new(
+            egui::Order::Background,
+            egui::Id::new("pinned_headers"),
+        ));
         let base_x = ui.min_rect().min.x;
         let base_y = ui.min_rect().min.y;
         // --- Column Headers (pinned vertically, scrolled horizontally) ---
         for col_idx in self.start_col..total_cols {
-            let header_x = base_x - scroll_offset.x + (col_idx - self.start_col) as f32 * cell_size.x + row_label_width;
-            let header_rect = egui::Rect::from_min_size(egui::pos2(header_x.max(base_x), base_y), egui::vec2(cell_size.x, header_height));
+            let header_x = base_x - scroll_offset.x
+                + (col_idx - self.start_col) as f32 * cell_size.x
+                + row_label_width;
+            let header_rect = egui::Rect::from_min_size(
+                egui::pos2(header_x.max(base_x), base_y),
+                egui::vec2(cell_size.x, header_height),
+            );
             painter.rect_filled(header_rect, 0.0, self.style.header_bg);
-            painter.text(header_rect.center(), egui::Align2::CENTER_CENTER, col_label(col_idx), egui::FontId::monospace(self.style.font_size), self.style.header_text);
+            painter.text(
+                header_rect.center(),
+                egui::Align2::CENTER_CENTER,
+                col_label(col_idx),
+                egui::FontId::monospace(self.style.font_size),
+                self.style.header_text,
+            );
             use egui::epaint::StrokeKind;
             painter.rect_stroke(header_rect, 0.0, self.style.grid_line, StrokeKind::Middle);
         }
         // --- Row Labels (pinned horizontally, scrolled vertically) ---
         for row_idx in self.start_row..total_rows {
-            let header_y = base_y - scroll_offset.y + (row_idx - self.start_row) as f32 * cell_size.y + header_height;
-            let row_rect = egui::Rect::from_min_size(egui::pos2(base_x, header_y.max(base_y)), egui::vec2(row_label_width, cell_size.y));
+            let header_y = base_y - scroll_offset.y
+                + (row_idx - self.start_row) as f32 * cell_size.y
+                + header_height;
+            let row_rect = egui::Rect::from_min_size(
+                egui::pos2(base_x, header_y.max(base_y)),
+                egui::vec2(row_label_width, cell_size.y),
+            );
             painter.rect_filled(row_rect, 0.0, self.style.header_bg);
-            painter.text(row_rect.center(), egui::Align2::CENTER_CENTER, (row_idx + 1).to_string(), egui::FontId::monospace(self.style.font_size), self.style.header_text);
+            painter.text(
+                row_rect.center(),
+                egui::Align2::CENTER_CENTER,
+                (row_idx + 1).to_string(),
+                egui::FontId::monospace(self.style.font_size),
+                self.style.header_text,
+            );
             use egui::epaint::StrokeKind;
             painter.rect_stroke(row_rect, 0.0, self.style.grid_line, StrokeKind::Inside);
         }
         // --- Corner Cell (optional) ---
-        let corner_rect = egui::Rect::from_min_size(egui::pos2(base_x, base_y), egui::vec2(row_label_width, header_height));
+        let corner_rect = egui::Rect::from_min_size(
+            egui::pos2(base_x, base_y),
+            egui::vec2(row_label_width, header_height),
+        );
         use egui::epaint::StrokeKind;
         painter.rect_filled(corner_rect, 0.0, self.style.header_bg);
         painter.rect_stroke(corner_rect, 0.0, self.style.grid_line, StrokeKind::Outside);
@@ -834,13 +1007,14 @@ impl SpreadsheetApp {
     }
 
     // Display information about the selected cell
-    fn render_selected_cell_info(
-        &self,
-        ui: &mut egui::Ui,
-    ) {
+    fn render_selected_cell_info(&self, ui: &mut egui::Ui) {
         ui.add_space(5.0);
         if let Some((row, col)) = self.selected {
-            ui.label(egui::RichText::new(format!("Selected Cell: {}{}", col_label(col), row + 1)).size(self.style.font_size).color(self.style.header_text));
+            ui.label(
+                egui::RichText::new(format!("Selected Cell: {}{}", col_label(col), row + 1))
+                    .size(self.style.font_size)
+                    .color(self.style.header_text),
+            );
         }
     }
 
@@ -929,7 +1103,9 @@ impl SpreadsheetApp {
                     self.cut_selected_cell();
                 } else if input.key_pressed(egui::Key::Z) {
                     self.undo();
-                } else if input.key_pressed(egui::Key::Y) || (input.modifiers.shift && input.key_pressed(egui::Key::Z)) {
+                } else if input.key_pressed(egui::Key::Y)
+                    || (input.modifiers.shift && input.key_pressed(egui::Key::Z))
+                {
                     self.redo();
                 }
             }
@@ -938,11 +1114,7 @@ impl SpreadsheetApp {
 }
 
 impl eframe::App for SpreadsheetApp {
-    fn update(
-        &mut self,
-        ctx: &egui::Context,
-        _frame: &mut eframe::Frame,
-    ) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.set_visuals(egui::Visuals::dark());
         let mut new_selection = None;
 
@@ -978,7 +1150,8 @@ impl eframe::App for SpreadsheetApp {
         let avail_size = avail_rect.size();
         let row_label_width = 30.0;
         let visible_rows = 31;
-        let visible_cols = (((avail_size.x - row_label_width) / self.style.cell_size.x).ceil() as usize).max(1);
+        let visible_cols =
+            (((avail_size.x - row_label_width) / self.style.cell_size.x).ceil() as usize).max(1);
 
         self.handle_keyboard_events(ctx, visible_rows, visible_cols - 1);
     }

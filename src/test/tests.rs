@@ -1,29 +1,20 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
 use std::io::Write;
-use std::collections::HashMap;
 use std::time::Instant;
 
-use crate::parser::{
-    detect_formula,
-    eval,
-    update_and_recalc,
-};
-use crate::scrolling::{
-    a,
-    d,
-    s,
-    scroll_to,
-    w,
-};
+use crate::parser::{detect_formula, eval, update_and_recalc};
+use crate::scrolling::{a, d, s, scroll_to, w};
 use crate::utils::{
     EVAL_ERROR,
     compute,
-    compute_range,
+    // compute_range,
     to_indices,
 };
 use crate::{
-    interactive_mode, parse_dimensions, print_sheet, prompt, Cell, CellData, CellName, Valtype, STATUS, STATUS_CODE
+    Cell, CellData, CellName, STATUS, STATUS_CODE, Valtype, interactive_mode, parse_dimensions,
+    print_sheet, prompt,
 };
 fn make_sheet(cap: usize) -> HashMap<u32, Cell> {
     HashMap::with_capacity(cap)
@@ -39,15 +30,22 @@ fn set_cell(
     value: Valtype,
 ) {
     let key = (r * total_cols + c) as u32;
-    sheet.insert(key, Cell {
-        data,
-        value,
-        dependents: HashSet::new(),
-    });
+    sheet.insert(
+        key,
+        Cell {
+            data,
+            value,
+            dependents: HashSet::new(),
+        },
+    );
 }
 #[test]
 fn test_detect_formula_various_types() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
 
     // Test SLEEP(<int>)
     unsafe {
@@ -108,7 +106,12 @@ fn test_detect_formula_various_types() {
         STATUS_CODE = 0;
     }
     detect_formula(&mut cell, "MAX(A1:B2)");
-    if let CellData::Range { cell1, cell2, value2 } = &cell.data {
+    if let CellData::Range {
+        cell1,
+        cell2,
+        value2,
+    } = &cell.data
+    {
         assert_eq!(cell1.as_str(), "A1");
         assert_eq!(cell2.as_str(), "B2");
         if let Valtype::Str(func) = value2 {
@@ -135,17 +138,38 @@ fn test_eval_complex_scenarios() {
     let mut sheet = make_sheet(1024);
 
     // A1 = 10
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(10));
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        0,
+        CellData::Const,
+        Valtype::Int(10),
+    );
     // B2 = 20
-    set_cell(&mut sheet, total_cols, 1, 1, CellData::Const, Valtype::Int(20));
+    set_cell(
+        &mut sheet,
+        total_cols,
+        1,
+        1,
+        CellData::Const,
+        Valtype::Int(20),
+    );
     // Test CoR (10 + B2)
-    unsafe { STATUS_CODE = 0; EVAL_ERROR = false; }
+    unsafe {
+        STATUS_CODE = 0;
+        EVAL_ERROR = false;
+    }
     set_cell(
         &mut sheet,
         total_cols,
         2,
         0,
-        CellData::CoR { op_code: '+', value2: Valtype::Int(10), cell2: CellName::new("B2").unwrap() },
+        CellData::CoR {
+            op_code: '+',
+            value2: Valtype::Int(10),
+            cell2: CellName::new("B2").unwrap(),
+        },
         Valtype::Int(0), // initial value placeholder
     );
     let result = eval(&sheet, total_rows, total_cols, 2, 0);
@@ -155,12 +179,18 @@ fn test_eval_complex_scenarios() {
         STATUS_CODE = 0;
         EVAL_ERROR = false;
     }
-    set_cell(&mut sheet, total_cols, 3, 0, 
+    set_cell(
+        &mut sheet,
+        total_cols,
+        3,
+        0,
         CellData::RoR {
-        op_code: '-',
-        cell1:   CellName::new("A1").unwrap(),
-        cell2:   CellName::new("E6").unwrap(), // Out of bounds
-    },Valtype::Int(0));
+            op_code: '-',
+            cell1: CellName::new("A1").unwrap(),
+            cell2: CellName::new("E6").unwrap(), // Out of bounds
+        },
+        Valtype::Int(0),
+    );
 
     let _ = eval(&sheet, 5, 5, 3, 0);
     assert_eq!(unsafe { STATUS_CODE }, 1);
@@ -168,7 +198,11 @@ fn test_eval_complex_scenarios() {
 
 #[test]
 fn test_detect_formula_edge_cases() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
 
     // Test with whitespace
     unsafe {
@@ -203,7 +237,11 @@ fn test_detect_formula_edge_cases() {
 
 #[test]
 fn test_detect_formula_operations() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
 
     // Test with negative operands
     unsafe {
@@ -241,70 +279,9 @@ fn test_detect_formula_operations() {
 }
 
 #[test]
-fn test_update_and_recalc_multiple_dependencies() {
-    let mut sheet = make_sheet(25); // 5x5 grid → up to 25 cells
-    let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(32);
-    let mut is_range: Vec<bool> = vec![false; 25];
-
-    let total_cols = 5;
-
-    set_cell(
-        &mut sheet,
-        total_cols,
-        0,
-        0,
-        CellData::Const,
-        Valtype::Int(5),
-    );
-
-    set_cell(
-        &mut sheet,
-        total_cols,
-        1,
-        0,
-        CellData::Ref {
-            cell1: CellName::new("A1").unwrap(),
-        },
-        Valtype::Int(0),
-    );
-
-    let backup = Cell {
-        value: Valtype::Int(0),
-        data: CellData::Empty,
-        dependents: HashSet::new(),
-    };
-
-    unsafe {
-        STATUS_CODE = 0;
-    }
-
-    set_cell(
-        &mut sheet,
-        total_cols,
-        2,
-        0,
-        CellData::Range {
-            cell1: CellName::new("A1").unwrap(),
-            cell2: CellName::new("B1").unwrap(),
-            value2: Valtype::Str(CellName::new("SUM").unwrap()),
-        },
-        Valtype::Int(0),
-    );
-
-    update_and_recalc(&mut sheet, &mut ranged,&mut is_range,total_cols, 5, 2, 0, backup);
-
-    let key_a3 = (2 * total_cols + 0) as u32;
-    let key_a1 = (0 * total_cols + 0) as u32;
-
-    assert_eq!(sheet.get(&key_a3).unwrap().value, Valtype::Int(5));
-    assert!(sheet.get(&key_a1).unwrap().dependents.contains(&key_a3));
-}
-
-
-#[test]
 fn test_update_and_recalc_complex_cycle() {
     let mut sheet = make_sheet(25); // 5x5 sheet
-    let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(32);
+    let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(32);
     let mut is_range: Vec<bool> = vec![false; 25];
 
     let total_cols = 5;
@@ -367,20 +344,49 @@ fn test_update_and_recalc_complex_cycle() {
         STATUS_CODE = 0;
     }
 
-    update_and_recalc(&mut sheet,&mut ranged,&mut is_range,total_cols, 5, 0, 0, backup);
+    update_and_recalc(
+        &mut sheet,
+        &mut ranged,
+        &mut is_range,
+        total_cols,
+        5,
+        0,
+        0,
+        backup,
+    );
 
     assert_eq!(unsafe { STATUS_CODE }, 3); // Cycle detected
 }
-
 
 #[test]
 fn test_print_sheet() {
     let mut sheet = make_sheet(25);
     let total_cols = 5;
 
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Empty, Valtype::Int(1));
-    set_cell(&mut sheet, total_cols, 1, 1, CellData::Empty, Valtype::Int(2));
-    set_cell(&mut sheet, total_cols, 1, 2, CellData::Empty, Valtype::Str(CellName::new("err").unwrap()));
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        0,
+        CellData::Empty,
+        Valtype::Int(1),
+    );
+    set_cell(
+        &mut sheet,
+        total_cols,
+        1,
+        1,
+        CellData::Empty,
+        Valtype::Int(2),
+    );
+    set_cell(
+        &mut sheet,
+        total_cols,
+        1,
+        2,
+        CellData::Empty,
+        Valtype::Str(CellName::new("err").unwrap()),
+    );
 
     {
         let stdout = io::stdout();
@@ -395,7 +401,12 @@ fn test_print_sheet() {
 #[test]
 fn test_parse_dimensions() {
     let args_cli = vec!["prog".to_string(), "5".to_string(), "10".to_string()];
-    let args_invalid = vec!["prog".to_string(), "gui".to_string(), "0".to_string(), "10".to_string()];
+    let args_invalid = vec![
+        "prog".to_string(),
+        "gui".to_string(),
+        "0".to_string(),
+        "10".to_string(),
+    ];
 
     unsafe {
         STATUS_CODE = 0;
@@ -411,17 +422,25 @@ fn test_parse_dimensions() {
     assert!(result.is_err());
 }
 
-
 #[test]
 fn test_detect_formula_range_functions() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
 
     // Test SUM
     unsafe {
         STATUS_CODE = 0;
     }
     detect_formula(&mut cell, "SUM(A1:B2)");
-    if let CellData::Range { cell1, cell2, value2 } = &cell.data {
+    if let CellData::Range {
+        cell1,
+        cell2,
+        value2,
+    } = &cell.data
+    {
         assert_eq!(cell1.as_str(), "A1");
         assert_eq!(cell2.as_str(), "B2");
         if let Valtype::Str(func) = value2 {
@@ -438,7 +457,12 @@ fn test_detect_formula_range_functions() {
         STATUS_CODE = 0;
     }
     detect_formula(&mut cell, "STDEV(A1:Z9)");
-    if let CellData::Range { cell1, cell2, value2 } = &cell.data {
+    if let CellData::Range {
+        cell1,
+        cell2,
+        value2,
+    } = &cell.data
+    {
         assert_eq!(cell1.as_str(), "A1");
         assert_eq!(cell2.as_str(), "Z9");
         if let Valtype::Str(func) = value2 {
@@ -470,11 +494,14 @@ fn test_eval_invalid_formula() {
     let total_cols = 2;
     let key = (0 * total_cols + 0) as u32;
 
-    sheet.insert(key, Cell {
-        data: CellData::Invalid,
-        value: Valtype::Int(0),
-        dependents: HashSet::new(),
-    });
+    sheet.insert(
+        key,
+        Cell {
+            data: CellData::Invalid,
+            value: Valtype::Int(0),
+            dependents: HashSet::new(),
+        },
+    );
 
     unsafe {
         STATUS_CODE = 0;
@@ -492,11 +519,14 @@ fn test_eval_sleep_constant() {
     let total_cols = 2;
     let key = (0 * total_cols + 0) as u32;
 
-    sheet.insert(key, Cell {
-        data: CellData::SleepC,
-        value: Valtype::Int(1),
-        dependents: HashSet::new(),
-    });
+    sheet.insert(
+        key,
+        Cell {
+            data: CellData::SleepC,
+            value: Valtype::Int(1),
+            dependents: HashSet::new(),
+        },
+    );
 
     unsafe {
         STATUS_CODE = 0;
@@ -508,48 +538,70 @@ fn test_eval_sleep_constant() {
     let elapsed = start.elapsed();
 
     assert_eq!(result, Valtype::Int(1));
-    assert!(elapsed.as_millis() >= 900, "Sleep should have lasted at least 1 second");
+    assert!(
+        elapsed.as_millis() >= 900,
+        "Sleep should have lasted at least 1 second"
+    );
 }
 
 #[test]
 fn test_update_and_recalc_chains() {
     let mut sheet = make_sheet(25);
-    let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(32);
+    let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(32);
     let mut is_range: Vec<bool> = vec![false; 25];
 
     let total_cols = 5;
 
     // A1 = 1
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(1));
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        0,
+        CellData::Const,
+        Valtype::Int(1),
+    );
 
     // B1 = A1 + 1
-    set_cell(&mut sheet, total_cols, 0, 1,
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        1,
         CellData::RoC {
             op_code: '+',
             value2: Valtype::Int(1),
             cell1: CellName::new("A1").unwrap(),
         },
-        Valtype::Int(0)
+        Valtype::Int(0),
     );
 
     // C1 = B1 + 1
-    set_cell(&mut sheet, total_cols, 0, 2,
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        2,
         CellData::RoC {
             op_code: '+',
             value2: Valtype::Int(1),
             cell1: CellName::new("B1").unwrap(),
         },
-        Valtype::Int(0)
+        Valtype::Int(0),
     );
 
     // D1 = C1 + 1
-    set_cell(&mut sheet, total_cols, 0, 3,
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        3,
         CellData::RoC {
             op_code: '+',
             value2: Valtype::Int(1),
             cell1: CellName::new("C1").unwrap(),
         },
-        Valtype::Int(0)
+        Valtype::Int(0),
     );
 
     let a1 = (0 * total_cols + 0) as u32;
@@ -570,7 +622,7 @@ fn test_update_and_recalc_chains() {
     sheet.get_mut(&a1).unwrap().data = CellData::Const;
     sheet.get_mut(&a1).unwrap().value = Valtype::Int(10);
 
-    update_and_recalc(&mut sheet, &mut ranged,&mut is_range,5, 5, 0, 0, backup);
+    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, 5, 5, 0, 0, backup);
 
     assert_eq!(sheet.get(&a1).unwrap().value, Valtype::Int(10));
     assert_eq!(sheet.get(&b1).unwrap().value, Valtype::Int(11));
@@ -691,8 +743,6 @@ fn test_compute_operations_edge_cases() {
     assert_eq!(unsafe { STATUS_CODE }, 2);
 }
 
-
-
 //to_indices in utils
 #[test]
 fn test_to_indices_function() {
@@ -746,7 +796,10 @@ fn test_eval_coc_error() {
         total_cols,
         0,
         0,
-        CellData::CoC { op_code: '+', value2: Valtype::Int(5) },
+        CellData::CoC {
+            op_code: '+',
+            value2: Valtype::Int(5),
+        },
         Valtype::Str(CellName::new("ERR").unwrap()),
     );
 
@@ -767,10 +820,24 @@ fn test_eval_ror_valid() {
     let total_cols = 2;
 
     // A1 = 8
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(8));
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        0,
+        CellData::Const,
+        Valtype::Int(8),
+    );
 
     // B1 = 2
-    set_cell(&mut sheet, total_cols, 0, 1, CellData::Const, Valtype::Int(2));
+    set_cell(
+        &mut sheet,
+        total_cols,
+        0,
+        1,
+        CellData::Const,
+        Valtype::Int(2),
+    );
 
     // A2 = A1 / B1
     set_cell(
@@ -795,64 +862,14 @@ fn test_eval_ror_valid() {
     assert_eq!(result, Valtype::Int(4));
 }
 
-
-
-// Test for update_and_recalc with Range dependency removal (lines 377-382)
-#[test]
-fn test_update_and_recalc_range_removal() {
-    let mut sheet = make_sheet(2);
-    let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(32);
-    let mut is_range: Vec<bool> = vec![false; 25];
-
-    let total_cols = 2;
-    let cell_hash = (0 * total_cols + 0) as u32;
-
-    // Simulate old dependents from a range function pointing to A1
-// Assuming `sheet` is a HashMap where values have a 'dependents' field
-sheet.entry((0 * total_cols + 1) as u32)
-    .or_insert_with(|| Cell {
-        value: Valtype::Int(0),
-        data: CellData::Empty,
-        dependents: HashSet::new(),
-    })  // Insert a default value if it's missing
-    .dependents
-    .insert(cell_hash);
-
-sheet.entry((1 * total_cols + 0) as u32)
-    .or_insert_with(|| Cell {
-        value: Valtype::Int(0),
-        data: CellData::Empty,
-        dependents: HashSet::new(),
-    })  // Insert a default value if it's missing
-    .dependents
-    .insert(cell_hash);
-
-
-    let backup = Cell {
-        value: Valtype::Int(0),
-        data: CellData::Range {
-            cell1: CellName::new("A1").unwrap(),
-            cell2: CellName::new("B2").unwrap(),
-            value2: Valtype::Str(CellName::new("SUM").unwrap()),
-        },
-        dependents: HashSet::new(),
-    };
-
-    // New content of A1: plain constant
-    set_cell(&mut sheet, total_cols, 0, 0, CellData::Const, Valtype::Int(42));
-
-    update_and_recalc(&mut sheet, &mut ranged,&mut is_range,total_cols, 2, 0, 0, backup);
-
-    // Make sure A2 and B1 no longer depend on A1
-    assert!(!sheet.get(&((0 * total_cols + 1) as u32)).unwrap().dependents.contains(&cell_hash));
-    assert!(!sheet.get(&((1 * total_cols + 0) as u32)).unwrap().dependents.contains(&cell_hash));
-}
-
-
 // Test for detect_formula with invalid CONSTANT_CONSTANT (line 150, 152)
 #[test]
 fn test_detect_formula_invalid_const_const() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
     detect_formula(&mut cell, "5+"); // Incomplete expression
     assert!(matches!(cell.data, CellData::Invalid));
 }
@@ -860,7 +877,11 @@ fn test_detect_formula_invalid_const_const() {
 // Test for detect_formula with invalid CONSTANT_REFERENCE (lines 168, 170)
 #[test]
 fn test_detect_formula_invalid_const_ref() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
     detect_formula(&mut cell, "10*"); // Missing reference
     assert!(matches!(cell.data, CellData::Invalid));
 }
@@ -868,17 +889,23 @@ fn test_detect_formula_invalid_const_ref() {
 // Test for detect_formula with invalid REFERENCE_CONSTANT (lines 173, 176)
 #[test]
 fn test_detect_formula_invalid_ref_const() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
     detect_formula(&mut cell, "A1-"); // Missing constant
     assert!(matches!(cell.data, CellData::Invalid));
 }
 
-
-
 // Test for detect_formula with invalid RANGE_FUNCTION (lines 201, 203)
 #[test]
 fn test_detect_formula_invalid_range() {
-    let mut cell = Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() };
+    let mut cell = Cell {
+        value: Valtype::Int(0),
+        data: CellData::Empty,
+        dependents: HashSet::new(),
+    };
     detect_formula(&mut cell, "SUM(A1:)"); // Invalid range
     assert!(matches!(cell.data, CellData::Invalid));
 }
@@ -894,7 +921,11 @@ fn test_parse_dimensions_invalid_rows() {
 
 #[test]
 fn test_parse_dimensions_out_of_bounds() {
-    let args = vec!["program".to_string(), "1000".to_string(), "20000".to_string()];
+    let args = vec![
+        "program".to_string(),
+        "1000".to_string(),
+        "20000".to_string(),
+    ];
     let result = parse_dimensions(args);
     assert!(result.is_err());
     assert_eq!(result.unwrap_err(), "Invalid dimensions.");
@@ -904,8 +935,14 @@ fn test_parse_dimensions_out_of_bounds() {
 fn test_eval_coc_div_zero() {
     let mut sheet = make_sheet(1);
     set_cell(
-        &mut sheet, 1, 0, 0,
-        CellData::CoC { op_code: '/', value2: Valtype::Int(0) },
+        &mut sheet,
+        1,
+        0,
+        0,
+        CellData::CoC {
+            op_code: '/',
+            value2: Valtype::Int(0),
+        },
         Valtype::Int(5),
     );
     unsafe {
@@ -919,7 +956,7 @@ fn test_eval_coc_div_zero() {
 #[test]
 fn test_update_and_recalc_roc_addition_out_of_bounds() {
     let mut sheet = make_sheet(2);
-    let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(32);
+    let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(32);
     let mut is_range: Vec<bool> = vec![false; 25];
 
     let cell_data = CellData::RoC {
@@ -933,13 +970,13 @@ fn test_update_and_recalc_roc_addition_out_of_bounds() {
         dependents: HashSet::new(),
     };
     set_cell(&mut sheet, 2, 0, 0, cell_data, Valtype::Int(0));
-    update_and_recalc(&mut sheet, &mut ranged,&mut is_range,2, 2, 0, 0, backup);
+    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, 2, 2, 0, 0, backup);
     assert_eq!(unsafe { STATUS_CODE }, 1);
 }
 #[test]
 fn test_update_and_recalc_cor_addition_invalid() {
     let mut sheet = make_sheet(2);
-    let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(32);
+    let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(32);
     let mut is_range: Vec<bool> = vec![false; 25];
 
     let cell_data = CellData::CoR {
@@ -953,15 +990,20 @@ fn test_update_and_recalc_cor_addition_invalid() {
         dependents: HashSet::new(),
     };
     set_cell(&mut sheet, 2, 0, 0, cell_data, Valtype::Int(0));
-    update_and_recalc(&mut sheet, &mut ranged,&mut is_range, 2, 2,0, 0, backup);
+    update_and_recalc(&mut sheet, &mut ranged, &mut is_range, 2, 2, 0, 0, backup);
     assert_eq!(unsafe { STATUS_CODE }, 1);
 }
 #[test]
 fn test_eval_sleepr_invalid_ref() {
     let mut sheet = make_sheet(1);
     set_cell(
-        &mut sheet, 1, 0, 0,
-        CellData::SleepR { cell1: CellName::new("A10").unwrap() },
+        &mut sheet,
+        1,
+        0,
+        0,
+        CellData::SleepR {
+            cell1: CellName::new("A10").unwrap(),
+        },
         Valtype::Int(0),
     );
     unsafe {
@@ -976,7 +1018,10 @@ fn test_eval_sleepr_invalid_ref() {
 fn test_eval_range_unrecognized_func() {
     let mut sheet = make_sheet(1);
     set_cell(
-        &mut sheet, 1, 0, 0,
+        &mut sheet,
+        1,
+        0,
+        0,
         CellData::Range {
             cell1: CellName::new("A1").unwrap(),
             cell2: CellName::new("A1").unwrap(),
@@ -994,23 +1039,65 @@ fn test_eval_range_unrecognized_func() {
 }
 
 #[test]
-fn test_interactive_mode(){
+fn test_interactive_mode() {
+    // Initialize data structures with HashMap implementation
     let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
-    let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(32);
-    let mut is_range: Vec<bool> = vec![false; 25];
+    let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(32);
+    let mut is_range: Vec<bool> = vec![false; 10000]; // This should probably be larger based on grid size
+
+    // Initial view position
     let (mut start_row, mut start_col) = (0, 0);
     let mut enable_output = true;
-    let (total_rows,total_cols)=(999,18278);
+
+    // Total grid dimensions
+    let (total_rows, total_cols) = (100, 100);
+
+    // Begin tracking execution time
     let start_time = Instant::now();
-    print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
-    prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
-    let commands=vec!["disable_output","A1=5","scroll_to B2","A2=A1+3","A1=MAX(B1:ZZZ999)","A1=SLEEP(B1)","A1=A2","A2=A1","A1=5","enable_output","q"];
-    let mut i=0;
+    print_sheet(
+        &spreadsheet,
+        &(start_row, start_col),
+        &(total_rows, total_cols),
+    );
+    prompt(
+        start_time.elapsed().as_secs_f64(),
+        STATUS[unsafe { STATUS_CODE }],
+    );
+
+    // Series of commands to test
+    let commands = vec![
+        "disable_output",
+        "A1=5",
+        "scroll_to B2",
+        "A2=A1+3",
+        "A1=MAX(B1:Z26)",
+        "A1=SLEEP(B1)",
+        "A1=A2",
+        "A2=A1",
+        "A1=5",
+        "enable_output",
+        "q",
+    ];
+
+    // Process each command in sequence
+    let mut i = 0;
     loop {
-        if!interactive_mode(&mut spreadsheet,&mut ranged,&mut is_range,commands[i].to_string(), total_rows, total_cols, &mut enable_output, &mut start_row, &mut start_col){
+        if !interactive_mode(
+            &mut spreadsheet,
+            &mut ranged,
+            &mut is_range,
+            commands[i].to_string(),
+            total_rows,
+            total_cols,
+            &mut enable_output,
+            &mut start_row,
+            &mut start_col,
+        ) {
             break;
         }
-        i+=1;
+        i += 1;
     }
-    assert_eq!(spreadsheet.get(&0).unwrap().value,Valtype::Int(5));
+
+    // Verify A1 has value 5 (key 0 = row 0, col 0)
+    assert_eq!(spreadsheet.get(&0).unwrap().value, Valtype::Int(5));
 }

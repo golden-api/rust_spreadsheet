@@ -30,7 +30,10 @@ impl CellName {
         }
         let mut data = [0u8; 7];
         data[..s.len()].copy_from_slice(s.as_bytes());
-        Ok(CellName { len: s.len() as u8, data })
+        Ok(CellName {
+            len: s.len() as u8,
+            data,
+        })
     }
 
     pub fn as_str(&self) -> &str {
@@ -39,10 +42,7 @@ impl CellName {
 }
 
 impl std::fmt::Display for CellName {
-    fn fmt(
-        &self,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
@@ -90,14 +90,37 @@ pub enum Valtype {
 pub enum CellData {
     Empty,
     SleepC,
-    SleepR { cell1: CellName },
+    SleepR {
+        cell1: CellName,
+    },
     Const,
-    Ref { cell1: CellName },
-    CoC { op_code: char, value2: Valtype },
-    CoR { op_code: char, value2: Valtype, cell2: CellName },
-    RoC { op_code: char, value2: Valtype, cell1: CellName },
-    RoR { op_code: char, cell1: CellName, cell2: CellName },
-    Range { cell1: CellName, cell2: CellName, value2: Valtype },
+    Ref {
+        cell1: CellName,
+    },
+    CoC {
+        op_code: char,
+        value2: Valtype,
+    },
+    CoR {
+        op_code: char,
+        value2: Valtype,
+        cell2: CellName,
+    },
+    RoC {
+        op_code: char,
+        value2: Valtype,
+        cell1: CellName,
+    },
+    RoR {
+        op_code: char,
+        cell1: CellName,
+        cell2: CellName,
+    },
+    Range {
+        cell1: CellName,
+        cell2: CellName,
+        value2: Valtype,
+    },
     Invalid,
 }
 
@@ -111,7 +134,11 @@ pub struct Cell {
 impl Cell {
     pub fn reset(&mut self) {
         let current_dependents = std::mem::take(&mut self.dependents);
-        *self = Self { value: Valtype::Int(0), data: CellData::Empty, dependents: current_dependents};
+        *self = Self {
+            value: Valtype::Int(0),
+            data: CellData::Empty,
+            dependents: current_dependents,
+        };
     }
 
     /// Clones a cell for backup without dependents.
@@ -153,7 +180,11 @@ fn print_sheet(
             let row = pointer.0 + i;
             let col = pointer.1 + j;
             let idx = (row as u32) * (dimension.1 as u32) + (col as u32);
-            let cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new()});
+            let cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell {
+                value: Valtype::Int(0),
+                data: CellData::Empty,
+                dependents: HashSet::new(),
+            });
             match &cell.value {
                 Valtype::Int(v) => print!("{:<10}  ", v),
                 Valtype::Str(s) => print!("{:<10}         ", s),
@@ -179,72 +210,92 @@ fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
 #[cfg(not(feature = "gui"))]
 fn interactive_mode(
     spreadsheet: &mut HashMap<u32, Cell>,
-    ranged :&mut HashMap<u32,Vec<(u32,u32)>>,
-    is_range:&mut Vec<bool>,
+    ranged: &mut HashMap<u32, Vec<(u32, u32)>>,
+    is_range: &mut [bool],
     input: String,
     total_rows: usize,
     total_cols: usize,
-    enable_output:&mut bool,
-    start_row:&mut usize,
-    start_col:&mut usize,
-) -> bool{
-        println!();
-        let start_time = Instant::now();
-        let input = input.trim();
-        unsafe {
-            STATUS_CODE = 0;
-        }
-        match input {
-            "w" => scrolling::w(start_row),
-            "s" => scrolling::s(start_row, total_rows),
-            "a" => scrolling::a(start_col),
-            "d" => scrolling::d(start_col, total_cols),
-            "q" => return false,
-            _ if input.contains('=') => {
-                let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
-                if parts.len() == 2 {
-                    let (cell_ref, formula) = (parts[0], parts[1]);
-                    let (row, col) = utils::to_indices(cell_ref);
-                    if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
-                        let idx = (row as u32) * (total_cols as u32) + (col as u32);
-                        let old_cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() });
-                        let mut new_cell = old_cell.clone();
-                        parser::detect_formula(&mut new_cell, formula);
-                        spreadsheet.insert(idx, new_cell);
-                        parser::update_and_recalc(spreadsheet,ranged,is_range, total_rows, total_cols, row, col, old_cell);
-                    } else {
-                        unsafe {
-                            STATUS_CODE = 1;
-                        }
-                    }
-                }
-            }
-            _ if input.starts_with("scroll_to ") => {
-                let cell_ref = input.trim_start_matches("scroll_to ").trim();
-                if cell_ref.is_empty() || !cell_ref.chars().next().unwrap().is_alphabetic() || scrolling::scroll_to(start_row, start_col, total_rows, total_cols, cell_ref).is_err() {
+    enable_output: &mut bool,
+    start_row: &mut usize,
+    start_col: &mut usize,
+) -> bool {
+    println!();
+    let start_time = Instant::now();
+    let input = input.trim();
+    unsafe {
+        STATUS_CODE = 0;
+    }
+    match input {
+        "w" => scrolling::w(start_row),
+        "s" => scrolling::s(start_row, total_rows),
+        "a" => scrolling::a(start_col),
+        "d" => scrolling::d(start_col, total_cols),
+        "q" => return false,
+        _ if input.contains('=') => {
+            let parts: Vec<&str> = input.splitn(2, '=').map(str::trim).collect();
+            if parts.len() == 2 {
+                let (cell_ref, formula) = (parts[0], parts[1]);
+                let (row, col) = utils::to_indices(cell_ref);
+                if row < total_rows && col < total_cols && unsafe { STATUS_CODE } == 0 {
+                    let idx = (row as u32) * (total_cols as u32) + (col as u32);
+                    let old_cell = spreadsheet.get(&idx).cloned().unwrap_or(Cell {
+                        value: Valtype::Int(0),
+                        data: CellData::Empty,
+                        dependents: HashSet::new(),
+                    });
+                    let mut new_cell = old_cell.clone();
+                    parser::detect_formula(&mut new_cell, formula);
+                    spreadsheet.insert(idx, new_cell);
+                    parser::update_and_recalc(
+                        spreadsheet,
+                        ranged,
+                        is_range,
+                        total_rows,
+                        total_cols,
+                        row,
+                        col,
+                        old_cell,
+                    );
+                } else {
                     unsafe {
                         STATUS_CODE = 1;
                     }
                 }
             }
-            "disable_output" => *enable_output = false,
-            "enable_output" => *enable_output = true,
-            _ => unsafe {
-                STATUS_CODE = 2;
-            },
         }
-        if *enable_output {
-            print_sheet(&spreadsheet, &(*start_row, *start_col), &(total_rows, total_cols));
+        _ if input.starts_with("scroll_to ") => {
+            let cell_ref = input.trim_start_matches("scroll_to ").trim();
+            if cell_ref.is_empty()
+                || !cell_ref.chars().next().unwrap().is_alphabetic()
+                || scrolling::scroll_to(start_row, start_col, total_rows, total_cols, cell_ref)
+                    .is_err()
+            {
+                unsafe {
+                    STATUS_CODE = 1;
+                }
+            }
         }
-        prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
-        return true;
-    
+        "disable_output" => *enable_output = false,
+        "enable_output" => *enable_output = true,
+        _ => unsafe {
+            STATUS_CODE = 2;
+        },
+    }
+    if *enable_output {
+        print_sheet(
+            spreadsheet,
+            &(*start_row, *start_col),
+            &(total_rows, total_cols),
+        );
+    }
+    prompt(
+        start_time.elapsed().as_secs_f64(),
+        STATUS[unsafe { STATUS_CODE }],
+    );
+    true
 }
 #[cfg(not(feature = "gui"))]
-fn prompt(
-    elapsed: f64,
-    status: &str,
-) {
+fn prompt(elapsed: f64, status: &str) {
     print!("[{:.1}] ({}) > ", elapsed, status);
     io::stdout().flush().unwrap();
 }
@@ -261,29 +312,55 @@ fn main() {
 
     #[cfg(feature = "gui")]
     {
-        let options = eframe::NativeOptions { viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]).with_resizable(true), ..Default::default() };
-        eframe::run_native("Rust Spreadsheet", options, Box::new(move |_cc| Ok(Box::new(SpreadsheetApp::new(total_rows, total_cols, 0, 0))))).unwrap();
+        let options = eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default()
+                .with_inner_size([1024.0, 768.0])
+                .with_resizable(true),
+            ..Default::default()
+        };
+        eframe::run_native(
+            "Rust Spreadsheet",
+            options,
+            Box::new(move |_cc| Ok(Box::new(SpreadsheetApp::new(total_rows, total_cols, 0, 0)))),
+        )
+        .unwrap();
     }
     #[cfg(not(feature = "gui"))]
     {
         let mut spreadsheet: HashMap<u32, Cell> = HashMap::with_capacity(1024);
-        let mut ranged: HashMap<u32, Vec<(u32,u32)>> = HashMap::with_capacity(512);
+        let mut ranged: HashMap<u32, Vec<(u32, u32)>> = HashMap::with_capacity(512);
         let mut is_range: Vec<bool> = vec![false; total_rows * total_cols];
         let (mut start_row, mut start_col) = (0, 0);
         let mut enable_output = true;
         let start_time = Instant::now();
-        print_sheet(&spreadsheet, &(start_row, start_col), &(total_rows, total_cols));
-        prompt(start_time.elapsed().as_secs_f64(), STATUS[unsafe { STATUS_CODE }]);
+        print_sheet(
+            &spreadsheet,
+            &(start_row, start_col),
+            &(total_rows, total_cols),
+        );
+        prompt(
+            start_time.elapsed().as_secs_f64(),
+            STATUS[unsafe { STATUS_CODE }],
+        );
         loop {
             let mut input = String::new();
             let bytes_read = io::stdin().read_line(&mut input).unwrap();
             if bytes_read == 0 {
                 break;
             }
-            if!interactive_mode(&mut spreadsheet,&mut ranged,&mut is_range,input,total_rows, total_cols, &mut enable_output, &mut start_row, &mut start_col){
+            if !interactive_mode(
+                &mut spreadsheet,
+                &mut ranged,
+                &mut is_range,
+                input,
+                total_rows,
+                total_cols,
+                &mut enable_output,
+                &mut start_row,
+                &mut start_col,
+            ) {
                 break;
             }
-            
         }
     }
 }

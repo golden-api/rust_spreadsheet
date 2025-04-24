@@ -1,21 +1,14 @@
-use std::{
-    collections::HashMap,
-    f64,
-    thread::sleep,
-    time::Duration,
-};
+use std::{collections::HashMap, f64, thread::sleep, time::Duration};
 
-use crate::{
-    Cell,
-    STATUS_CODE,
-    Valtype,
-};
+use crate::{Cell, STATUS_CODE, Valtype};
 
 pub static mut EVAL_ERROR: bool = false;
 
 pub fn to_indices(s: &str) -> (usize, usize) {
     let split_pos = s.find(|c: char| c.is_ascii_digit()).unwrap_or(s.len());
-    let col = s[..split_pos].bytes().fold(0, |acc, b| acc * 26 + (b - b'A' + 1) as usize);
+    let col = s[..split_pos]
+        .bytes()
+        .fold(0, |acc, b| acc * 26 + (b - b'A' + 1) as usize);
     let row = s[split_pos..].parse::<usize>().unwrap_or(0);
     if row == 0 || col == 0 {
         unsafe {
@@ -26,16 +19,12 @@ pub fn to_indices(s: &str) -> (usize, usize) {
     (row - 1, col - 1)
 }
 
-pub fn compute(
-    a: i32,
-    op: Option<char>,
-    b: i32,
-) -> i32 {
+pub fn compute(a: i32, op: Option<char>, b: i32) -> i32 {
     match op {
         Some('+') => a + b,
         Some('-') => a - b,
         Some('*') => a * b,
-        Some('/') =>
+        Some('/') => {
             if b == 0 {
                 unsafe {
                     EVAL_ERROR = true;
@@ -43,7 +32,8 @@ pub fn compute(
                 0
             } else {
                 a / b
-            },
+            }
+        }
         _ => {
             unsafe {
                 STATUS_CODE = 2;
@@ -67,42 +57,52 @@ pub fn compute_range(
     c_max: usize,
     choice: i32,
 ) -> i32 {
-    let width  = (c_max - c_min + 1) as i32;
+    let width = (c_max - c_min + 1) as i32;
     let height = (r_max - r_min + 1) as i32;
-    let area   = width * height;
+    let area = width * height;
 
     // initial accumulator
     let mut res: i32 = match choice {
-        1 => i32::MIN,  // MAX
-        2 => i32::MAX,  // MIN
-        _ => 0,         // SUM/AVG/STDEV
+        1 => i32::MIN, // MAX
+        2 => i32::MAX, // MIN
+        _ => 0,        // SUM/AVG/STDEV
     };
     let mut variance: f64 = 0.0;
     // iterate every cell in the rectangle
     for rr in r_min..=r_max {
         for cc in c_min..=c_max {
             let key = (rr * total_cols + cc) as u32;
-            let val = match sheet.get(&key).map(|c| &c.value).unwrap_or(&Valtype::Int(0)) {
+            let val = match sheet
+                .get(&key)
+                .map(|c| &c.value)
+                .unwrap_or(&Valtype::Int(0))
+            {
                 Valtype::Int(v) => *v,
                 Valtype::Str(_) => {
-                    unsafe { EVAL_ERROR = true; }
+                    unsafe {
+                        EVAL_ERROR = true;
+                    }
                     continue;
                 }
             };
             match choice {
                 1 => res = res.max(val),
                 2 => res = res.min(val),
-                3 | 4 | 5 => res += val,
-                _ => unsafe { STATUS_CODE = 2; }, 
+                3..=5 => res += val,
+                _ => unsafe {
+                    STATUS_CODE = 2;
+                },
             }
         }
     }
 
     match choice {
-        3 => { // AVG
+        3 => {
+            // AVG
             res / area
         }
-        5 => { // STDEV
+        5 => {
+            // STDEV
             let mean = res as f64 / area as f64;
             // second pass for variance
             for rr in r_min..=r_max {
@@ -113,7 +113,7 @@ pub fn compute_range(
                     }
                 }
             }
-            variance = variance / area as f64;
+            variance /= area as f64;
             variance.sqrt().round() as i32
         }
         _ => res, // SUM (4) or if choice was 1/2

@@ -1,15 +1,9 @@
 use crate::{
-    gui::gui_defs::{
-        Direction,
-        SpreadsheetApp,
-    },
+    gui::gui_defs::{Direction, SpreadsheetApp},
     gui::utils_gui::col_label,
 };
 
-pub fn w(
-    start_row: &mut usize,
-    amount: usize,
-) {
+pub fn w(start_row: &mut usize, amount: usize) {
     if *start_row >= amount {
         *start_row -= amount;
     } else {
@@ -17,11 +11,7 @@ pub fn w(
     }
 }
 
-pub fn s(
-    start_row: &mut usize,
-    total_rows: usize,
-    amount: usize,
-) {
+pub fn s(start_row: &mut usize, total_rows: usize, amount: usize) {
     if *start_row + amount <= total_rows - amount {
         *start_row += amount;
     } else if *start_row >= total_rows - amount {
@@ -31,10 +21,7 @@ pub fn s(
     }
 }
 
-pub fn a(
-    start_col: &mut usize,
-    amount: usize,
-) {
+pub fn a(start_col: &mut usize, amount: usize) {
     if *start_col >= amount {
         *start_col -= amount;
     } else {
@@ -42,11 +29,7 @@ pub fn a(
     }
 }
 
-pub fn d(
-    start_col: &mut usize,
-    total_cols: usize,
-    amount: usize,
-) {
+pub fn d(start_col: &mut usize, total_cols: usize, amount: usize) {
     if *start_col + amount <= total_cols - amount {
         *start_col += amount;
     } else if *start_col >= total_cols - amount {
@@ -57,11 +40,7 @@ pub fn d(
 }
 
 impl SpreadsheetApp {
-    pub fn move_selection_n(
-        &mut self,
-        direction: Direction,
-        amount: usize,
-    ) {
+    pub fn move_selection_n(&mut self, direction: Direction, amount: usize) {
         let total_rows = self.total_rows;
         let total_cols = self.total_cols;
         match direction {
@@ -70,6 +49,10 @@ impl SpreadsheetApp {
             Direction::Right => d(&mut self.start_col, total_cols, amount),
             Direction::Left => a(&mut self.start_col, amount),
         };
-        self.status_message = format!("Moved to cell {}{}", col_label(self.start_col), (self.start_row + 1).to_string());
+        self.status_message = format!(
+            "Moved to cell {}{}",
+            col_label(self.start_col),
+            (self.start_row + 1).to_string()
+        );
     }
 }
