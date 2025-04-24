@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet,HashMap};
 
 use eframe::egui::{
     Color32,
@@ -33,7 +33,6 @@ pub struct SpreadsheetStyle {
     pub(crate) prev_base_color:      Color32,
     pub(crate) rainbow:              u32,
     pub(crate) frequency:            f32,
-    // pub(crate) frequency1:          f32,
     pub(crate) matrix_raindrops:     Vec<(usize, usize, f32, usize)>,              // (column, row, speed, length)
     pub(crate) get_cell_bg:          Option<Box<dyn Fn(usize, usize) -> Color32>>, // Function to get cell background
     pub(crate) range_selection_bg:   Color32,
@@ -56,7 +55,6 @@ impl Default for SpreadsheetStyle {
             prev_base_color:      Color32::from_rgb(120, 120, 180),
             rainbow:              0,
             frequency:            0.2,
-            // frequency1:          0.0,
             matrix_raindrops:     Vec::new(),
             get_cell_bg:          None,
             range_selection_bg:   Color32::from_rgb(100, 100, 160), // Lighter blue
@@ -66,41 +64,44 @@ impl Default for SpreadsheetStyle {
 }
 
 pub struct SpreadsheetApp {
-    pub(crate) sheet:                 Vec<Vec<Cell>>,
-    pub(crate) selected:              Option<(usize, usize)>,
-    pub(crate) formula_input:         String,
-    pub(crate) editing_cell:          bool,
-    pub(crate) style:                 SpreadsheetStyle,
-    pub(crate) status_message:        String,
-    pub(crate) start_row:             usize,
-    pub(crate) start_col:             usize,
-    pub(crate) scroll_to_cell:        String,
-    pub(crate) should_reset_scroll:   bool,
-    pub(crate) focus_on:              usize,
+    pub(crate) sheet: HashMap<u32, Cell>,
+    pub(crate) ranged: HashMap<u32, Vec<(u32, u32)>>,
+    pub(crate) is_range: Vec<bool>,
+    pub(crate) total_rows: usize,
+    pub(crate) total_cols: usize,
+    pub(crate) selected: Option<(usize, usize)>,
+    pub(crate) formula_input: String,
+    pub(crate) editing_cell: bool,
+    pub(crate) style: SpreadsheetStyle,
+    pub(crate) status_message: String,
+    pub(crate) start_row: usize,
+    pub(crate) start_col: usize,
+    pub(crate) scroll_to_cell: String,
+    pub(crate) should_reset_scroll: bool,
+    pub(crate) focus_on: usize,
     pub(crate) request_formula_focus: bool,
-    pub(crate) clipboard:             Option<Cell>,
-    pub(crate) clipboard_formula:     String,
-    pub(crate) undo_stack:            Vec<UndoAction>,
-    pub(crate) redo_stack:            Vec<UndoAction>,
-    pub(crate) max_undo_levels:       usize,
-    pub(crate) show_save_dialog:      bool,
-    pub(crate) save_filename:         String,
-    pub(crate) range_start:           Option<(usize, usize)>,
-    pub(crate) range_end:             Option<(usize, usize)>,
-    pub(crate) is_selecting_range:    bool,
+    pub(crate) clipboard: Option<Cell>,
+    pub(crate) clipboard_formula: String,
+    pub(crate) undo_stack: Vec<UndoAction>,
+    pub(crate) redo_stack: Vec<UndoAction>,
+    pub(crate) max_undo_levels: usize,
+    pub(crate) show_save_dialog: bool,
+    pub(crate) save_filename: String,
+    pub(crate) range_start: Option<(usize, usize)>,
+    pub(crate) range_end: Option<(usize, usize)>,
+    pub(crate) is_selecting_range: bool,
 }
 
 impl SpreadsheetApp {
-    pub fn new(
-        rows: usize,
-        cols: usize,
-        start_row: usize,
-        start_col: usize,
-    ) -> Self {
-        let sheet = vec![vec![Cell { value: Valtype::Int(0), data: CellData::Empty, dependents: HashSet::new() }; cols]; rows];
+    pub fn new(total_rows: usize, total_cols: usize, start_row: usize, start_col: usize) -> Self {
+        let total_cells = total_rows * total_cols;
         Self {
-            sheet,
-            selected: Some((0, 0)),
+            sheet: HashMap::new(),
+            ranged: HashMap::new(),
+            is_range: vec![false; total_cells],
+            total_rows,
+            total_cols,
+            selected: None,
             formula_input: String::new(),
             editing_cell: false,
             style: SpreadsheetStyle::default(),
@@ -115,7 +116,7 @@ impl SpreadsheetApp {
             clipboard_formula: String::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            max_undo_levels: 100,
+            max_undo_levels: 10,
             show_save_dialog: false,
             save_filename: String::new(),
             range_start: None,

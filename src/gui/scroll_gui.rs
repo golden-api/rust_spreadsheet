@@ -62,8 +62,8 @@ impl SpreadsheetApp {
         direction: Direction,
         amount: usize,
     ) {
-        let total_rows = self.sheet.len();
-        let total_cols = self.sheet[0].len();
+        let total_rows = self.total_rows;
+        let total_cols = self.total_cols;
         match direction {
             Direction::Up => w(&mut self.start_row, amount),
             Direction::Down => s(&mut self.start_row, total_rows, amount),
