@@ -1,10 +1,10 @@
 use egui::{Color32, Stroke};
 
 use crate::{
+    Valtype,
     gui::gui_defs::{Direction, SpreadsheetApp, SpreadsheetStyle},
     gui::utils_gui::{col_label, parse_cell_name},
     utils::to_indices,
-    Valtype,
 };
 
 impl SpreadsheetApp {

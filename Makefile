@@ -16,7 +16,7 @@ ext1:
 check: fmt clippy
 
 fmt:
-	@rustfmt --check src/*.rs
+	@cargo fmt --all --check
 
 clippy:
 	@cargo clippy --all-features -- -D warnings

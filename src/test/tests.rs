@@ -6,10 +6,10 @@ use std::time::Instant;
 
 use crate::parser::{detect_formula, eval, update_and_recalc};
 use crate::scrolling::{a, d, s, scroll_to, w};
-use crate::utils::{compute, compute_range, to_indices, EVAL_ERROR};
+use crate::utils::{EVAL_ERROR, compute, compute_range, to_indices};
 use crate::{
-    interactive_mode, parse_dimensions, print_sheet, prompt, Cell, CellData, CellName, Valtype,
-    STATUS, STATUS_CODE,
+    Cell, CellData, CellName, STATUS, STATUS_CODE, Valtype, interactive_mode, parse_dimensions,
+    print_sheet, prompt,
 };
 fn make_sheet(cap: usize) -> HashMap<u32, Cell> {
     HashMap::with_capacity(cap)
@@ -1186,7 +1186,7 @@ fn test_compute_range_stdev_full() {
 
     // Compute STDEV over A1:B2
     let result = compute_range(&sheet, total_cols, 0, 1, 0, 1, 5); // STDEV
-                                                                   // Expected: Values [1, 3, 5, 7], mean = 4, variance = ((1-4)^2 + (3-4)^2 + (5-4)^2 + (7-4)^2)/4 = (9+1+1+9)/4 = 5, sqrt(5) ≈ 2.236, round to 2
+    // Expected: Values [1, 3, 5, 7], mean = 4, variance = ((1-4)^2 + (3-4)^2 + (5-4)^2 + (7-4)^2)/4 = (9+1+1+9)/4 = 5, sqrt(5) ≈ 2.236, round to 2
     assert_eq!(result, 2);
     assert_eq!(unsafe { STATUS_CODE }, 0);
     assert!(!unsafe { EVAL_ERROR });

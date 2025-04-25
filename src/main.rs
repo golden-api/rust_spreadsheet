@@ -188,11 +188,41 @@ impl Cell {
     }
 }
 #[cfg(feature = "autograder")]
+/// A trait for types that can dynamically reserve additional capacity when growing.
+///
+/// This trait is used to implement a capacity reservation strategy for collections, ensuring
+/// efficient growth by pre-allocating memory when the collection is about to exceed its current
+/// capacity. It is particularly useful for optimizing performance in scenarios where frequent
+/// insertions are expected, such as in the autograder's spreadsheet operations
 trait ReserveOnGrow {
+    /// Reserves additional capacity in the collection if it is about to grow beyond its current capacity.
+    ///
+    /// This method checks if adding one more element would exceed the current capacity. If so, it
+    /// reserves additional space, typically by increasing the capacity to the next power of two
+    /// greater than or equal to the new size. This helps reduce the number of reallocations during
+    /// growth, improving performance.
     fn reserve_on_grow(&mut self);
 }
 #[cfg(feature = "autograder")]
 impl ReserveOnGrow for HashMap<u32, Cell> {
+    /// Implements the `ReserveOnGrow` trait for `HashMap<u32, Cell>`.
+    ///
+    /// This implementation ensures that the `HashMap` has enough capacity to accommodate a new
+    /// element without reallocation. If the current length plus one exceeds the capacity, it
+    /// reserves additional space by increasing the capacity to the next power of two.
+    ///
+    /// # Behavior
+    /// - If `len + 1 > capacity`, it calculates the new capacity as the next power of two greater
+    ///   than or equal to `len + 1` and reserves the additional space.
+    /// - If there is already sufficient capacity, no action is taken.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use std::collections::HashMap;
+    ///
+    /// let mut map: HashMap<u32, Cell> = HashMap::new();
+    /// map.reserve_on_grow(); // Ensures capacity for at least one more element
+    /// ```
     fn reserve_on_grow(&mut self) {
         let len = self.len();
         let cap = self.capacity();

@@ -4,7 +4,7 @@
 //! and helper functions for dependency management.
 use std::{collections::HashMap, f64, thread::sleep, time::Duration};
 
-use crate::{Cell, Valtype, STATUS_CODE};
+use crate::{Cell, STATUS_CODE, Valtype};
 
 /// A global flag indicating if an evaluation error occurred.
 pub static mut EVAL_ERROR: bool = false;

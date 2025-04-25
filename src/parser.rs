@@ -7,7 +7,7 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::utils::*;
-use crate::{Cell, CellData, CellName, Valtype, STATUS_CODE};
+use crate::{Cell, CellData, CellName, STATUS_CODE, Valtype};
 
 /// Detects the type of formula and updates the cell's data and value accordingly.
 ///

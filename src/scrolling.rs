@@ -3,7 +3,7 @@
 //! allowing navigation through rows and columns using keyboard-like commands
 //! (e.g., 'w' for up, 's' for down, 'a' for left, 'd' for right) and direct cell targeting.
 
-use crate::{utils::to_indices, STATUS_CODE};
+use crate::{STATUS_CODE, utils::to_indices};
 
 /// Moves the view up by 10 rows if possible.
 ///
