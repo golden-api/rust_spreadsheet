@@ -1,0 +1,170 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{hyperref} % For hyperlinks and references
+\usepackage{tabto}
+
+\title{Rust Spreadsheet: Design and Software Architecture}
+\author{Sourabh Verma, Sankalp Omkar, Eeshan Yadav}
+\date{April 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Design and Software Architecture}
+
+\subsection{Additional Extensions Implemented}
+\label{sec:additional_extensions}
+On top of the proposed extensions, we also implemented many extra extensions which are as follows:
+\\ \\
+1) 3 modes: Cell Selection Mode, Edit Mode, Command Mode (like Vim)
+\\
+\\
+2) 3 ways to edit a cell:\\
+\hspace*{5mm}a) Select a cell and use formula bar\\
+\hspace*{5mm}b) Double click a cell to edit it (edit mode)\\
+\hspace*{5mm}c) Use Command Bar (Commands same as Terminal)
+\\
+\\
+3) 6 methods to scroll:\\ 
+\hspace*{5mm}a) Scroll bars (mentioned in extensions)\\
+\hspace*{5mm}b) scroll wheel of mouse\\
+\hspace*{5mm}c) scroll button\\
+\hspace*{5mm}d) using keyboard arrows (can change cell selection and scroll along with it)\\
+\hspace*{5mm}e) scroll\_to [cell] in command bar\\
+\hspace*{5mm}f) w,a,s,d \texttt{\textless{}amount\textgreater{}} \\
+\\
+4) Inspired from Vim, we made sure that all features of our spreadsheet are accessible from only keyboard too i.e. it is completely keyboard operational.
+\\
+\\
+5) Aside from supporting only CSV format (which stores the values of the cells) we also support FCSV format (which stores the formulae of the cells) and is compatible with excel.
+\\ \\
+6) Cut was added along with Copy, Paste and their shortcuts were also added. \\
+Ctrl+E for Copy\\
+Ctrl+R for Paste\\
+Ctrl+T for Cut\\
+The reason for non standard key bindings is that Ctrl+X, Ctrl+C and Ctrl+V had pre-assigned meaning in egui (the gui which we used)
+\\ \\
+7) Colour Picker was added which can change the colour of the spreadsheet. Many Fun themes were also added such as "rainbow1, rainbow2, matrix1, matrix2, matrix3, love" with animations in all of these themes and "tr" for theme reset!
+\\
+\\
+8) New commands like goto (changes the cell selection) and w,a,s,d<amount> were added which are extension of existing w,a,s,d by scrolling the spreadsheet with <amount> cells in respective direction.
+\subsection{Primary Data Structures}
+\label{sec:data_structures}
+
+\begin{itemize}
+    \item \textbf{Cell:} Stores the value of a cell (which can be an integer, string, or error), the type of the cell (e.g., formula type with references), and a \texttt{HashSet} of all dependent cells.
+    
+    \item \textbf{CellName:} Cell references are not stored as strings (which take 24 bytes) but as compact 8-byte representations.
+    
+    \item \textbf{Spreadsheet:} A \texttt{HashMap<u32, Cell>} with an initial capacity of 1024 entries. The map grows dynamically as more cells are used.
+    
+    \item \textbf{FormulaType:} An \texttt{enum} representing different types of formulas, such as constants, ranges, and others.
+    
+    \item \textbf{Is\_range:} A \texttt{Vec<bool>} that indicates whether each cell is within the range of any other cell.
+    
+    \item \textbf{Ranged:} A data structure that maps a cell to the start and end of any range it depends on. For example, if \texttt{A1 = MAX(B1:Z9)}, then \texttt{A1} is mapped to \texttt{(B1, Z9)} for quick lookup of range membership.
+    
+    \item \textbf{SpreadsheetStyle:} Contains visual properties for the GUI, including cell colors, headers, columns, bars, and font sizes.
+    
+    \item \textbf{SpreadsheetApp:} Acts like a central application state, storing elements such as event listeners, undo/redo stacks, the currently selected cell or range, and various helper structures required by the GUI.
+\end{itemize}
+
+\subsection{Module Interfaces}
+\label{sec:interfaces}
+Describe the interfaces between software modules, ensuring clear communication and separation of concerns.
+\\ \\
+$\rightarrow$ main.rs is the entry point of our program which has 2 features- \\
+\hspace*{5mm}     autograder \\
+\hspace*{5mm}    gui\\ \\
+$\rightarrow$ The autograder part of extension contains 3 modules:\\
+\hspace*{5mm}    parser.rs\\
+\hspace*{5mm}     utils.rs\\
+\hspace*{5mm}     scrolling.rs\\ \\
+$\rightarrow$ The gui files part of extension is kept in a separate folder is src/gui/ and has 5 modules :\\ \\
+\hspace*{5mm}     -gui\_defs.rs \\
+\hspace*{5mm}     -impl\_helpers.rs \\
+\hspace*{5mm}     -render\_gui.rs \\
+\hspace*{5mm}     -scroll\_gui.rs \\
+\hspace*{5mm}     -utils\_gui.rs \\ \\
+$\rightarrow$ The tests are kept in src/test/test.rs module.
+\\
+
+\subsection{Encapsulation Strategies}
+\label{sec:encapsulation}
+Outline approaches for encapsulation, including private APIs, data hiding, and module boundaries.
+\\
+\hspace*{5mm}     $\rightarrow$The enums and struct definitions are kept in gui\_defs.rs. The gui\_defs.rs module thus serves as the authoritative source for data structures, ensuring that all other modules within the gui crate rely on a consistent set of definitions, reducing the risk of inconsistent state or duplication.
+
+
+    $\rightarrow$The fields of struct are kept accessible only within the gui crate.The struct fields are marked pub(in crate::gui), ensuring that only modules within the gui crate can access them directly. This restricts external crates from manipulating the internal state, enforcing encapsulation while allowing internal modules to collaborate efficiently.
+
+
+    
+    $\rightarrow$The modules other than gui\_defs.rs in gui crate are kept private.By designating all modules except gui\_defs.rs as private, the gui crate encapsulates its implementation details (e.g., rendering logic in gui.rs or scrolling mechanics in scrolling.rs), exposing only the necessary abstractions to other crates, which promotes modularity and reduces coupling.
+
+
+    
+    $\rightarrow$The separation of the gui crate, with a public definition layer in gui\_defs.rs and private implementation modules, ensures that the graphical interface remains a self-contained unit. This encapsulation allows changes to the internal implementation (e.g., rendering functions) without affecting dependent crates, enhancing maintainability and reusability.
+    
+\\
+\subsection{Design Justification}
+\label{sec:justification}
+
+The architecture of our Rust-based spreadsheet system is deliberately structured to balance performance, modularity, and ease of development. The following design choices contribute to a robust, maintainable, and extensible system:
+
+\begin{itemize}
+    \item \textbf{Efficient Memory Usage:} The core spreadsheet logic uses a \texttt{HashMap} to store only active cells, significantly reducing memory usage for sparse spreadsheets. This optimization brings down memory consumption from approximately 1.5 GB to 40--50 MB in common use cases.
+
+    \item \textbf{Performance-Optimized Range Handling:} Instead of scanning entire ranges (e.g., \texttt{SUM(B1:ZZZ999)}), we use a \texttt{ranged} map to efficiently track which cells are affected by ranges. This drastically reduces computation time in heavy range-based formulas from multiple seconds to a few milliseconds.
+
+    \item \textbf{GUI Integration with \texttt{egui} and \texttt{eframe}:} The entire graphical interface is implemented using \texttt{egui} and \texttt{eframe}, which are lightweight, fast, and idiomatic Rust GUI libraries. This allows tight integration between frontend and backend logic, faster prototyping, and easy cross-platform builds.
+
+    \item \textbf{Stress Testing Validation:} We performed extensive stress testing on large spreadsheets with complex formulas and dependencies. The system maintained low memory usage and consistently fast response times, validating the effectiveness of our design under real-world workloads.
+
+    \item \textbf{Separation of Concerns and Modularity:} The system separates computational logic (cells, formulas, ranges) from presentation (styles, GUI state) and interaction logic (event handling, undo/redo, selection). This makes the codebase easier to understand, test, and extend.
+
+    \item \textbf{Undo/Redo Functionality:} By maintaining application-level stacks for undo and redo operations, the user experience remains intuitive and forgiving, which is critical in interactive editing environments.
+
+    \item \textbf{Rust Safety Guarantees:} Leveraging Rust’s strong typing, memory safety, and ownership model ensures that the system avoids common bugs like use-after-free, null pointers, or data races, especially important in a multi-component architecture.
+
+    \item \textbf{Scalable and Future-Proof:} The use of enums (e.g., \texttt{FormulaType}) and modular components makes it easy to extend the application with new features, such as custom functions, more visual styles, or collaborative editing.
+
+    \item \textbf{Minimal Overhead by Default:} Because cells default to zero and are only instantiated when needed, the baseline footprint is extremely low, making this system suitable for embedded or constrained environments too.
+\end{itemize}
+
+Together, these design decisions provide a solid foundation for a spreadsheet engine that is efficient, user-friendly, and ready for future enhancements.
+
+\subsection{Design Modifications}
+\label{sec:modifications}
+
+The earlier design was inefficient in terms of both memory usage and computation time. A key bottleneck was the use of a full-size visited array for all cells, which led to significant overhead.
+
+In the revised design, a \texttt{HashMap} with an initial capacity of 1024 is used to store only active cells. A cell is inserted into the map only when it is explicitly used (e.g., writing \texttt{A1 = 1} inserts \texttt{A1} into the map). Unused cells are implicitly treated as zero and are not stored. This optimization significantly reduced memory consumption from approximately 1.5 GB to around 40--50 MB in most practical scenarios. Additionally, this reduction in data size leads to faster iteration times.
+
+For range calculations (e.g., \texttt{A2 = SUM(B1:ZZZ999)}), instead of iterating over the entire cell range from start to end, the system now iterates only over the keys in the \texttt{ranged} \texttt{HashMap}. It checks whether each cell falls within the specified range and includes it in the computation if so. Since most cells are unused (implicitly zero), this approach avoids unnecessary work and dramatically improves performance—from 4--5 seconds down to approximately 0.3 seconds on moderately large but computation-heavy test cases.
+
+
+\subsection{Challenges Faced ad Limitations}
+\label{sec:modifications}
+\subsubsection{Proposed Extensions Not Implemented}
+\label{sec:limitations}
+All but one of the proposed extensions have been implemented! The one which was not implemented is Copy, Paste over a selected range of cells. (It is implemented for single cell).
+Reason being Clipboard was storing only one cell value, doing that to a range will change the code a lot and might have made the code memory ineffecient.
+\subsubsection{Challenges Overcome}
+\label{sec:limitations}
+1) We had proposed using iced for gui but we instead used egui for the same. Iced renders all the cells independently which increased the complexity of the code and also created problems in scrolling as it redraws itself only when a cell is updated, not when scrolled.So, rendering new cells was tough. Egui on the other hand is simpler and has more in-built features and is a lot lighter than iced and redraws itself at 60 fps, thus rendering new cells as and when needed and making dynamic processes such as scrolling easier.
+\\ \\
+2) We initially faced the problem of flickering while changing theme and background. The selected cell has the inverted colour of the background colour which were interchanging rapidly on each cycle of rendering because of variables depending on each other. We solved the issue by cloning the base variable and using it in both of them and hence making the two independent.
+\\ \\
+3) Rendering: Rendering the entire spreadsheet together made the implementation slow and laggy (Egui renders around 60 frames per second). So, instead we rendered 300x500 (cols x rows) cells at a time so that the UI runs smoothly. To access different sections which are not rendering we can easily do so by using scroll\_to or w,a,s,d.
+
+4) Instead of drag and select a range we are just right clicking the first and last cell to select the entire rectangle with the cells as opposite corners of the rectangle. Reason being Drag event required very intricate tracking of the coordinates which was extremely complicated and hence we used this new method which is simple and effective!
+\section{Conclusion}
+% Summarize the design discussion and outline potential next steps or future work.
+Our Rust Spreadsheet is aimed at being user friendly, user interactive and visually appealing with multiple methods for the same feature so that users can use whichever method they want according to their taste! It is also extremely Memory Efficient (Light) and Fast!
+
+\appendix
+% Include any supplementary materials, diagrams, or detailed tables here.
+
+\end{document}
