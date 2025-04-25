@@ -28,8 +28,8 @@ A spreadsheet application written in Rust, featuring both a command-line interfa
 1. **Install Rust**: Ensure you have Rust installed. Follow the [official installation guide](https://www.rust-lang.org/tools/install) if needed.
 2. **Clone the Repository**:
    ```bash
-   git clone https://github.com/golden-api/rust_spreadsheet.git
-   cd rust_spreadsheet/
+   git clone <repository_url>
+   cd <repository_name>
    ```
 3. **Build the Project**:
    - For command-line mode:
@@ -40,10 +40,7 @@ A spreadsheet application written in Rust, featuring both a command-line interfa
      ```bash
      cargo build --release --features gui
      ```
-4. **Run the Project**:
-   ```bash
-    ./target/release/spreadsheet <num_rows> <num_cols>
-     ```
+
 ## Usage
 
 ### Command-Line Mode
@@ -75,11 +72,11 @@ cargo run --release --features gui -- <rows> <cols>
 cargo run --release --features gui -- 10 10
 ```
 **Interaction**:
-- Click to select cells or drag to select ranges.
-- Enter formulas in the top input bar (e.g., `=A1+5`).
-- Use keyboard shortcuts (e.g., arrow keys for navigation, Ctrl+C/Ctrl+V for copy/paste).
-- Save or load spreadsheets via the UI dialog.
-- Apply themes or animations through style settings.
+- Click to select cells or Right Click on first and last to select the range between them.
+- Enter formulas in the top input bar (e.g., `=A1+5` in the command mode else just write A1+5 and enter).
+- Use keyboard shortcuts (arrow keys for navigation, Ctrl+E/Ctrl+T/Ctrl+R for copy/cut/paste,space key on a cell to enter edit-cell mode,Esc key to   switch to command mode or cancel a formula).
+- Save spreadsheets in csv file like an excel sheet with constraint (fcsv <filename>) or like a plain csv file(csv <filename>) in the command mode .
+- Apply themes or animations through style settings(by themes button you may select or also change the pre-defined themes check from help command in cmd mode)
 
 Alternatively, use the Makefile target for GUI mode with maximum dimensions:
 ```bash
@@ -136,3 +133,14 @@ The project includes a Makefile for streamlined development tasks:
 - `make coverage`: Generates test coverage using [cargo-tarpaulin](https://crates.io/crates/cargo-tarpaulin).
 - `make docs`: Generates and opens documentation with all features enabled.
 - `make clean`: Removes build artifacts.
+
+To contribute:
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature-name`).
+3. Commit changes (`git commit -m "Add feature"`).
+4. Push to the branch (`git push origin feature-name`).
+5. Open a pull request.
+
+## License
+
+[Specify the license or link to the LICENSE file]
