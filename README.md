@@ -135,6 +135,8 @@ The project includes a Makefile for streamlined development tasks:
 - `make test`: Runs tests with `autograder` feature, single-threaded.
 - `make coverage`: Generates test coverage using [cargo-tarpaulin](https://crates.io/crates/cargo-tarpaulin).
 - `make docs`: Generates and opens documentation with all features enabled.
+- `make clippy`: Runs cargo clippy --all-features -- -D warnings.
+- `make fmt`: Runs rustfmt --check src/*.rs (that is, in all .rs files)
 - `make clean`: Removes build artifacts.
 
 To contribute:
