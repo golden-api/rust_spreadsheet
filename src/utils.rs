@@ -112,6 +112,8 @@ pub fn sleepy(x: i32) {
 /// let result = compute_range(&sheet, 10, 0, 0, 0, 0, 4); // SUM
 /// assert_eq!(result, 5);
 /// ```
+const THRESHOLD: usize = 4096;
+
 pub fn compute_range(
     sheet: &HashMap<u32, Cell>,
     total_cols: usize,
@@ -121,68 +123,136 @@ pub fn compute_range(
     c_max: usize,
     choice: i32,
 ) -> i32 {
-    let width = (c_max - c_min + 1) as i32;
-    let height = (r_max - r_min + 1) as i32;
+    let width = (c_max - c_min + 1) as usize;
+    let height = (r_max - r_min + 1) as usize;
     let area = width * height;
 
-    // initial accumulator
-    let mut res: i32 = match choice {
-        1 => i32::MIN, // MAX
-        2 => i32::MAX, // MIN
-        _ => 0,        // SUM/AVG/STDEV
-    };
-    let mut variance: f64 = 0.0;
-    // iterate every cell in the rectangle
-    for rr in r_min..=r_max {
-        for cc in c_min..=c_max {
-            let key = (rr * total_cols + cc) as u32;
-            let val = match sheet
-                .get(&key)
-                .map(|c| &c.value)
-                .unwrap_or(&Valtype::Int(0))
-            {
-                Valtype::Int(v) => *v,
-                Valtype::Str(_) => {
-                    unsafe {
-                        EVAL_ERROR = true;
-                    }
-                    continue;
-                }
-            };
-            match choice {
-                1 => res = res.max(val),
-                2 => res = res.min(val),
-                3..=5 => res += val,
-                _ => unsafe {
-                    STATUS_CODE = 2;
-                },
-            }
-        }
-    }
+    // If area is small, do the simple full scan:
+    if area <= THRESHOLD {
+        // --- original version ---
+        let mut res: i32 = match choice {
+            1 => i32::MIN, // MAX
+            2 => i32::MAX, // MIN
+            _ => 0,        // SUM/AVG/STDEV
+        };
+        let mut variance = 0.0;
 
-    match choice {
-        3 => {
-            // AVG
-            res / area
-        }
-        5 => {
-            // STDEV
-            let mean = res as f64 / area as f64;
-            // second pass for variance
-            for rr in r_min..=r_max {
-                for cc in c_min..=c_max {
-                    let key = (rr * total_cols + cc) as u32;
-                    if let Some(Valtype::Int(v)) = sheet.get(&key).map(|c| c.value.clone()) {
-                        variance += (v as f64 - mean).powi(2);
-                    }
+        for rr in r_min..=r_max {
+            for cc in c_min..=c_max {
+                let key = (rr * total_cols + cc) as u32;
+                let val = match sheet
+                    .get(&key)
+                    .map(|c| &c.value)
+                    .unwrap_or(&Valtype::Int(0))
+                {
+                    Valtype::Int(v) => *v,
+                    Valtype::Str(_) => { unsafe { EVAL_ERROR = true; } continue; }
+                };
+                match choice {
+                    1 => res = res.max(val),
+                    2 => res = res.min(val),
+                    3..=5 => res += val,
+                    _ => unsafe { STATUS_CODE = 2; },
                 }
             }
-            variance /= area as f64;
-            variance.sqrt().round() as i32
         }
-        _ => res, // SUM (4) or if choice was 1/2
+
+        match choice {
+            3 => res / (area as i32),                    // AVG
+            5 => {  // STDEV: second-pass
+                let mean = res as f64 / area as f64;
+                for rr in r_min..=r_max {
+                    for cc in c_min..=c_max {
+                        let key = (rr * total_cols + cc) as u32;
+                        if let Some(Valtype::Int(v)) = sheet.get(&key).map(|c| c.value.clone()) {
+                            variance += (v as f64 - mean).powi(2);
+                        } else {
+                            variance += (0.0 - mean).powi(2);
+                        }
+                    }
+                }
+                (variance / area as f64).sqrt().round() as i32
+            }
+            _ => res,
+        }
+    } else {
+        // --- optimized sparse scan ---
+        // Track number of entries seen in-range:
+        let mut count_in = 0usize;
+        // accumulators:
+        let mut max_v = i32::MIN;
+        let mut min_v = i32::MAX;
+        let mut sum = 0i32;  // use i64 to avoid overflow on large areas
+        let mut variance_acc = 0.0;
+
+        // First pass: only look at the non-zero cells we actually stored
+        for (&key, cell) in sheet.iter() {
+            let row = (key as usize) / total_cols;
+            let col = (key as usize) % total_cols;
+            if row < r_min || row > r_max || col < c_min || col > c_max {
+                continue;
+            }
+            let v = match &cell.value {
+                Valtype::Int(v) => *v as i32,
+                Valtype::Str(_) => { unsafe { EVAL_ERROR = true; } continue; }
+            };
+            count_in += 1;
+            sum += v;
+            max_v = max_v.max(v as i32);
+            min_v = min_v.min(v as i32);
+        }
+
+        let zero_count = area.saturating_sub(count_in);
+        match choice {
+            1 => {
+                // MAX: if any zeros were omitted, they could be the max
+                if zero_count > 0 {
+                    max_v = max_v.max(0);
+                }
+                max_v
+            }
+            2 => {
+                // MIN: zeros could be the min if no negatives
+                if zero_count > 0 {
+                    min_v = min_v.min(0);
+                }
+                min_v
+            }
+            4 => {
+                // SUM: zeros don't change sum
+                sum as i32
+            }
+            3 => {
+                // AVG: include zeros
+                sum / (area as i32)
+            }
+            5 => {
+                // STDEV:
+                let mean = sum as f64 / area as f64;
+                // variance contribution from non-zero cells:
+                for (&key, cell) in sheet.iter() {
+                    let row = (key as usize) / total_cols;
+                    let col = (key as usize) % total_cols;
+                    if row < r_min || row > r_max || col < c_min || col > c_max {
+                        continue;
+                    }
+                    if let Valtype::Int(v) = cell.value {
+                        variance_acc += (v as f64 - mean).powi(2);
+                    }
+                }
+                // variance contribution from zeros:
+                variance_acc += (zero_count as f64) *( (0.0 - mean).powi(2));
+
+                (variance_acc / area as f64).sqrt().round() as i32
+            }
+            _ => {
+                unsafe { STATUS_CODE = 2; }
+                0
+            }
+        }
     }
 }
+
 
 /// Checks if a cell index falls within a given range.
 ///
