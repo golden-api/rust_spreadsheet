@@ -23,7 +23,7 @@ clippy:
 
 docs:
 	@cargo doc --open --all-features &
-	@pdflatex report.tex >/dev/null && xdg-open report.pdf
+	@pdflatex -interaction=batchmode report.tex
 
 clean:
 	@cargo clean

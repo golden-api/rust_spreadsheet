@@ -1,7 +1,6 @@
 \documentclass{article}
 \usepackage{graphicx} % Required for inserting images
 \usepackage{hyperref} % For hyperlinks and references
-\usepackage{tabto}
 
 \title{Rust Spreadsheet: Design and Software Architecture}
 \author{Sourabh Verma, Sankalp Omkar, Eeshan Yadav}
@@ -18,37 +17,34 @@
 On top of the proposed extensions, we also implemented many extra extensions which are as follows:
 \\ \\
 1) 3 modes: Cell Selection Mode, Edit Mode, Command Mode (like Vim)
-\\
-\\
+\\ \\
 2) 3 ways to edit a cell:\\
 \hspace*{5mm}a) Select a cell and use formula bar\\
 \hspace*{5mm}b) Double click a cell to edit it (edit mode)\\
 \hspace*{5mm}c) Use Command Bar (Commands same as Terminal)
-\\
-\\
+\\ \\
 3) 6 methods to scroll:\\ 
 \hspace*{5mm}a) Scroll bars (mentioned in extensions)\\
 \hspace*{5mm}b) scroll wheel of mouse\\
 \hspace*{5mm}c) scroll button\\
 \hspace*{5mm}d) using keyboard arrows (can change cell selection and scroll along with it)\\
-\hspace*{5mm}e) scroll\_to [cell] in command bar\\
-\hspace*{5mm}f) w,a,s,d \texttt{\textless{}amount\textgreater{}} \\
-\\
+\hspace*{5mm}e) \texttt{scroll\_to} [cell] in command bar\\
+\hspace*{5mm}f) \texttt{w,a,s,d<amount>}
+\\ \\
 4) Inspired from Vim, we made sure that all features of our spreadsheet are accessible from only keyboard too i.e. it is completely keyboard operational.
-\\
-\\
+\\ \\
 5) Aside from supporting only CSV format (which stores the values of the cells) we also support FCSV format (which stores the formulae of the cells) and is compatible with excel.
 \\ \\
-6) Cut was added along with Copy, Paste and their shortcuts were also added. \\
+6) Cut was added along with Copy, Paste and their shortcuts were also added.\\
 Ctrl+E for Copy\\
 Ctrl+R for Paste\\
 Ctrl+T for Cut\\
-The reason for non standard key bindings is that Ctrl+X, Ctrl+C and Ctrl+V had pre-assigned meaning in egui (the gui which we used)
+The reason for non-standard key bindings is that Ctrl+X, Ctrl+C and Ctrl+V had pre-assigned meaning in \texttt{egui} (the GUI which we used).
 \\ \\
-7) Colour Picker was added which can change the colour of the spreadsheet. Many Fun themes were also added such as "rainbow1, rainbow2, matrix1, matrix2, matrix3, love" with animations in all of these themes and "tr" for theme reset!
-\\
-\\
-8) New commands like goto (changes the cell selection) and w,a,s,d<amount> were added which are extension of existing w,a,s,d by scrolling the spreadsheet with <amount> cells in respective direction.
+7) Colour Picker was added which can change the colour of the spreadsheet. Many fun themes were also added such as "rainbow1, rainbow2, matrix1, matrix2, matrix3, love" with animations in all of these themes and "tr" for theme reset!
+\\ \\
+8) New commands like \texttt{goto} (changes the cell selection) and \texttt{w,a,s,d<amount>} were added which are extension of existing \texttt{w,a,s,d} by scrolling the spreadsheet with \texttt{<amount>} cells in respective direction.
+
 \subsection{Primary Data Structures}
 \label{sec:data_structures}
 
@@ -63,7 +59,7 @@ The reason for non standard key bindings is that Ctrl+X, Ctrl+C and Ctrl+V had p
     
     \item \textbf{Is\_range:} A \texttt{Vec<bool>} that indicates whether each cell is within the range of any other cell.
     
-    \item \textbf{Ranged:} A data structure that maps a cell to the start and end of any range it depends on. For example, if \texttt{A1 = MAX(B1:Z9)}, then \texttt{A1} is mapped to \texttt{(B1, Z9)} for quick lookup of range membership.
+    \item \textbf{Ranged:} A data structure that maps a cell to the start and end of any range it depends on.
     
     \item \textbf{SpreadsheetStyle:} Contains visual properties for the GUI, including cell colors, headers, columns, bars, and font sizes.
     
@@ -72,42 +68,38 @@ The reason for non standard key bindings is that Ctrl+X, Ctrl+C and Ctrl+V had p
 
 \subsection{Module Interfaces}
 \label{sec:interfaces}
-Describe the interfaces between software modules, ensuring clear communication and separation of concerns.
-\\ \\
-$\rightarrow$ main.rs is the entry point of our program which has 2 features- \\
-\hspace*{5mm}     autograder \\
-\hspace*{5mm}    gui\\ \\
+
+$\rightarrow$ \texttt{main.rs} is the entry point of our program which has 2 features:\\
+\hspace*{5mm}autograder\\
+\hspace*{5mm}gui\\
+
 $\rightarrow$ The autograder part of extension contains 3 modules:\\
-\hspace*{5mm}    parser.rs\\
-\hspace*{5mm}     utils.rs\\
-\hspace*{5mm}     scrolling.rs\\ \\
-$\rightarrow$ The gui files part of extension is kept in a separate folder is src/gui/ and has 5 modules :\\ \\
-\hspace*{5mm}     -gui\_defs.rs \\
-\hspace*{5mm}     -impl\_helpers.rs \\
-\hspace*{5mm}     -render\_gui.rs \\
-\hspace*{5mm}     -scroll\_gui.rs \\
-\hspace*{5mm}     -utils\_gui.rs \\ \\
-$\rightarrow$ The tests are kept in src/test/test.rs module.
-\\
+\hspace*{5mm}\texttt{parser.rs}\\
+\hspace*{5mm}\texttt{utils.rs}\\
+\hspace*{5mm}\texttt{scrolling.rs}\\
+
+$\rightarrow$ The GUI-related files are kept in a separate folder \texttt{src/gui/} and have 5 modules:\\
+\hspace*{5mm}- \texttt{gui\_defs.rs}\\
+\hspace*{5mm}- \texttt{impl\_helpers.rs}\\
+\hspace*{5mm}- \texttt{render\_gui.rs}\\
+\hspace*{5mm}- \texttt{scroll\_gui.rs}\\
+\hspace*{5mm}- \texttt{utils\_gui.rs}\\
+
+$\rightarrow$ The tests are kept in \texttt{src/test/test.rs} module.
 
 \subsection{Encapsulation Strategies}
 \label{sec:encapsulation}
-Outline approaches for encapsulation, including private APIs, data hiding, and module boundaries.
-\\
-\hspace*{5mm}     $\rightarrow$The enums and struct definitions are kept in gui\_defs.rs. The gui\_defs.rs module thus serves as the authoritative source for data structures, ensuring that all other modules within the gui crate rely on a consistent set of definitions, reducing the risk of inconsistent state or duplication.
 
-
-    $\rightarrow$The fields of struct are kept accessible only within the gui crate.The struct fields are marked pub(in crate::gui), ensuring that only modules within the gui crate can access them directly. This restricts external crates from manipulating the internal state, enforcing encapsulation while allowing internal modules to collaborate efficiently.
-
-
+\begin{itemize}
+    \item The enums and struct definitions are kept in \texttt{gui\_defs.rs}. This module acts as the central authority for data structure definitions within the GUI.
     
-    $\rightarrow$The modules other than gui\_defs.rs in gui crate are kept private.By designating all modules except gui\_defs.rs as private, the gui crate encapsulates its implementation details (e.g., rendering logic in gui.rs or scrolling mechanics in scrolling.rs), exposing only the necessary abstractions to other crates, which promotes modularity and reduces coupling.
-
-
+    \item Struct fields are accessible only within the GUI crate using \texttt{pub(in crate::gui)}, which prevents external manipulation and enforces encapsulation.
     
-    $\rightarrow$The separation of the gui crate, with a public definition layer in gui\_defs.rs and private implementation modules, ensures that the graphical interface remains a self-contained unit. This encapsulation allows changes to the internal implementation (e.g., rendering functions) without affecting dependent crates, enhancing maintainability and reusability.
+    \item Other modules within the GUI crate are kept private to hide implementation details and reduce coupling.
     
-\\
+    \item This separation of concerns allows for maintainable, self-contained design where internal changes don’t affect public interfaces.
+\end{itemize}
+
 \subsection{Design Justification}
 \label{sec:justification}
 
@@ -144,27 +136,30 @@ In the revised design, a \texttt{HashMap} with an initial capacity of 1024 is us
 
 For range calculations (e.g., \texttt{A2 = SUM(B1:ZZZ999)}), instead of iterating over the entire cell range from start to end, the system now iterates only over the keys in the \texttt{ranged} \texttt{HashMap}. It checks whether each cell falls within the specified range and includes it in the computation if so. Since most cells are unused (implicitly zero), this approach avoids unnecessary work and dramatically improves performance—from 4--5 seconds down to approximately 0.3 seconds on moderately large but computation-heavy test cases.
 
+\subsection{Challenges Faced and Limitations}
+\label{sec:challenges}
 
-\subsection{Challenges Faced ad Limitations}
-\label{sec:modifications}
 \subsubsection{Proposed Extensions Not Implemented}
-\label{sec:limitations}
-All but one of the proposed extensions have been implemented! The one which was not implemented is Copy, Paste over a selected range of cells. (It is implemented for single cell).
-Reason being Clipboard was storing only one cell value, doing that to a range will change the code a lot and might have made the code memory ineffecient.
-\subsubsection{Challenges Overcome}
-\label{sec:limitations}
-1) We had proposed using iced for gui but we instead used egui for the same. Iced renders all the cells independently which increased the complexity of the code and also created problems in scrolling as it redraws itself only when a cell is updated, not when scrolled.So, rendering new cells was tough. Egui on the other hand is simpler and has more in-built features and is a lot lighter than iced and redraws itself at 60 fps, thus rendering new cells as and when needed and making dynamic processes such as scrolling easier.
-\\ \\
-2) We initially faced the problem of flickering while changing theme and background. The selected cell has the inverted colour of the background colour which were interchanging rapidly on each cycle of rendering because of variables depending on each other. We solved the issue by cloning the base variable and using it in both of them and hence making the two independent.
-\\ \\
-3) Rendering: Rendering the entire spreadsheet together made the implementation slow and laggy (Egui renders around 60 frames per second). So, instead we rendered 300x500 (cols x rows) cells at a time so that the UI runs smoothly. To access different sections which are not rendering we can easily do so by using scroll\_to or w,a,s,d.
+\label{sec:limitations_unimplemented}
 
-4) Instead of drag and select a range we are just right clicking the first and last cell to select the entire rectangle with the cells as opposite corners of the rectangle. Reason being Drag event required very intricate tracking of the coordinates which was extremely complicated and hence we used this new method which is simple and effective!
+All but one of the proposed extensions have been implemented. The one that was not implemented is Copy-Paste over a selected range of cells. (It is implemented for a single cell.)
+
+The reason is that the clipboard was storing only one cell value. Extending that to a range would require major changes and may cause inefficiencies.
+
+\subsubsection{Challenges Overcome}
+\label{sec:limitations_overcome}
+1) Initially we proposed using \texttt{iced} for GUI, but switched to \texttt{egui} due to rendering and scrolling issues with \texttt{iced}. \texttt{egui} is lighter and supports dynamic rendering more efficiently.
+
+2) We faced flickering when changing themes because of interdependent variables. We resolved it by cloning the base variable to avoid conflicts.
+
+3) Rendering the entire spreadsheet was inefficient. We now render only a 300x500 cell window at a time for smoother UI performance.
+
+4) Instead of drag-selecting, range selection is done via right-clicking two opposite corners of a rectangle—simpler and avoids complicated coordinate tracking.
+
 \section{Conclusion}
-% Summarize the design discussion and outline potential next steps or future work.
-Our Rust Spreadsheet is aimed at being user friendly, user interactive and visually appealing with multiple methods for the same feature so that users can use whichever method they want according to their taste! It is also extremely Memory Efficient (Light) and Fast!
+Our Rust Spreadsheet is designed to be fast, lightweight, and intuitive. With extensive keyboard support, advanced features, and multiple editing and scrolling modes, it offers a flexible user experience while remaining memory-efficient and performant.
 
 \appendix
-% Include any supplementary materials, diagrams, or detailed tables here.
+% Add any supplementary material here.
 
 \end{document}
