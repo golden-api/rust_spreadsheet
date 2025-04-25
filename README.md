@@ -28,8 +28,8 @@ A spreadsheet application written in Rust, featuring both a command-line interfa
 1. **Install Rust**: Ensure you have Rust installed. Follow the [official installation guide](https://www.rust-lang.org/tools/install) if needed.
 2. **Clone the Repository**:
    ```bash
-   git clone <repository_url>
-   cd <repository_name>
+   git clone https://github.com/golden-api/rust_spreadsheet.git
+   cd rust_spreadsheet/
    ```
 3. **Build the Project**:
    - For command-line mode:
@@ -40,7 +40,10 @@ A spreadsheet application written in Rust, featuring both a command-line interfa
      ```bash
      cargo build --release --features gui
      ```
-
+4. **Run the Project**:
+   ```bash
+    ./target/release/spreadsheet <num_rows> <num_cols>
+     ```
 ## Usage
 
 ### Command-Line Mode
@@ -133,14 +136,3 @@ The project includes a Makefile for streamlined development tasks:
 - `make coverage`: Generates test coverage using [cargo-tarpaulin](https://crates.io/crates/cargo-tarpaulin).
 - `make docs`: Generates and opens documentation with all features enabled.
 - `make clean`: Removes build artifacts.
-
-To contribute:
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature-name`).
-3. Commit changes (`git commit -m "Add feature"`).
-4. Push to the branch (`git push origin feature-name`).
-5. Open a pull request.
-
-## License
-
-[Specify the license or link to the LICENSE file]
