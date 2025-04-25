@@ -2,6 +2,8 @@
 
 A spreadsheet application written in Rust, featuring both a command-line interface and a graphical user interface (GUI). It supports basic spreadsheet functionalities, including cell formulas, range operations, and dependency management, making it suitable for educational or lightweight spreadsheet tasks.
 
+Demo Link: https://drive.google.com/drive/folders/1rl5HcgcCAZOu1DPLIX9PbMlrA5RpWZC1?usp=sharing
+
 ## Features
 
 ### Command-Line Mode
@@ -139,4 +141,4 @@ The project includes a Makefile for streamlined development tasks:
 - `make fmt`: Runs rustfmt --check src/*.rs (that is, in all .rs files)
 - `make clean`: Removes build artifacts.
 
-Demo Link: https://drive.google.com/drive/folders/1rl5HcgcCAZOu1DPLIX9PbMlrA5RpWZC1?usp=sharing
+
