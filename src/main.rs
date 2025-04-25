@@ -184,6 +184,22 @@ impl Cell {
         }
     }
 }
+#[cfg(any(feature = "autograder", feature = "gui"))]
+trait ReserveOnGrow {
+    fn reserve_on_grow(&mut self);
+}
+#[cfg(any(feature = "autograder", feature = "gui"))]
+impl ReserveOnGrow for HashMap<u32, Cell> {
+    fn reserve_on_grow(&mut self) {
+        let len = self.len();
+        let cap = self.capacity();
+        if len + 1 > cap {
+            // bump to the next power of two ≥ len+1
+            let new_cap = (len + 1).next_power_of_two();
+            self.reserve(new_cap - cap);
+        }
+    }
+}
 
 #[cfg(feature = "autograder")]
 /// Prints the spreadsheet grid starting from the given position.
@@ -240,7 +256,7 @@ fn print_sheet(
 ///
 /// # Returns
 /// * `Result<(usize, usize), &'static str>` - A tuple `(rows, cols)` on success, or an error message on failure.
-#[cfg(any(feature = "autograder", feature = "gui"))]
+#[cfg(feature = "autograder")]
 fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     if args.len() == 3 {
         let total_rows = args[1].parse::<usize>().map_err(|_| "Invalid rows")?;
@@ -306,6 +322,7 @@ fn interactive_mode(
                     let mut new_cell = old_cell.clone();
                     parser::detect_formula(&mut new_cell, formula);
                     spreadsheet.insert(idx, new_cell);
+                    spreadsheet.reserve_on_grow();
                     parser::update_and_recalc(
                         spreadsheet,
                         ranged,
