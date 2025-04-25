@@ -77,7 +77,7 @@ impl SpreadsheetApp {
     /// # Arguments
     /// * `direction` - The direction to move (`Up`, `Down`, `Left`, or `Right`).
     /// * `amount` - The number of cells to move in the specified direction.
-    pub fn move_selection_n(&mut self, direction: Direction, amount: usize) {
+    pub(in crate::gui) fn move_selection_n(&mut self, direction: Direction, amount: usize) {
         let total_rows = self.total_rows;
         let total_cols = self.total_cols;
         match direction {

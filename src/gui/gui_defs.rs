@@ -4,7 +4,7 @@ use crate::Cell;
 use crate::HashMap;
 
 /// Represents the direction of movement or scrolling in the spreadsheet interface.
-pub enum Direction {
+pub(in crate::gui) enum Direction {
     Up,
     Down,
     Left,
@@ -32,23 +32,23 @@ pub enum Direction {
 /// * `range_selection_bg` - Background color for range selection.
 /// * `range_selection_text` - Text color for range selection.
 pub struct SpreadsheetStyle {
-    pub(crate) header_bg: Color32,
-    pub(crate) header_text: Color32,
-    pub(crate) cell_bg_even: Color32,
-    pub(crate) cell_bg_odd: Color32,
-    pub(crate) cell_text: Color32,
-    pub(crate) selected_cell_bg: Color32,
-    pub(crate) selected_cell_text: Color32,
-    pub(crate) grid_line: Stroke,
-    pub(crate) cell_size: Vec2,
-    pub(crate) font_size: f32,
-    pub(crate) prev_base_color: Color32,
-    pub(crate) rainbow: u32,
-    pub(crate) frequency: f32,
-    pub(crate) matrix_raindrops: Vec<(usize, usize, f32, usize)>, // (column, row, speed, length)
-    pub(crate) get_cell_bg: Option<Box<dyn Fn(usize, usize) -> Color32>>, // Function to get cell background
-    pub(crate) range_selection_bg: Color32,
-    pub(crate) range_selection_text: Color32,
+    pub(in crate::gui) header_bg: Color32,
+    pub(in crate::gui) header_text: Color32,
+    pub(in crate::gui) cell_bg_even: Color32,
+    pub(in crate::gui) cell_bg_odd: Color32,
+    pub(in crate::gui) cell_text: Color32,
+    pub(in crate::gui) selected_cell_bg: Color32,
+    pub(in crate::gui) selected_cell_text: Color32,
+    pub(in crate::gui) grid_line: Stroke,
+    pub(in crate::gui) cell_size: Vec2,
+    pub(in crate::gui) font_size: f32,
+    pub(in crate::gui) prev_base_color: Color32,
+    pub(in crate::gui) rainbow: u32,
+    pub(in crate::gui) frequency: f32,
+    pub(in crate::gui) matrix_raindrops: Vec<(usize, usize, f32, usize)>, // (column, row, speed, length)
+    pub(in crate::gui) get_cell_bg: Option<Box<dyn Fn(usize, usize) -> Color32>>, // Function to get cell background
+    pub(in crate::gui) range_selection_bg: Color32,
+    pub(in crate::gui) range_selection_text: Color32,
 }
 
 impl Default for SpreadsheetStyle {
@@ -109,32 +109,32 @@ impl Default for SpreadsheetStyle {
 /// * `range_end` - Optional ending point of a range selection.
 /// * `is_selecting_range` - Boolean indicating range selection mode.
 pub struct SpreadsheetApp {
-    pub(crate) sheet: HashMap<u32, Cell>,
-    pub(crate) ranged: HashMap<u32, Vec<(u32, u32)>>,
-    pub(crate) is_range: Vec<bool>,
-    pub(crate) total_rows: usize,
-    pub(crate) total_cols: usize,
-    pub(crate) selected: Option<(usize, usize)>,
-    pub(crate) formula_input: String,
-    pub(crate) editing_cell: bool,
-    pub(crate) style: SpreadsheetStyle,
-    pub(crate) status_message: String,
-    pub(crate) start_row: usize,
-    pub(crate) start_col: usize,
-    pub(crate) scroll_to_cell: String,
-    pub(crate) should_reset_scroll: bool,
-    pub(crate) focus_on: usize,
-    pub(crate) request_formula_focus: bool,
-    pub(crate) clipboard: Option<Cell>,
-    pub(crate) clipboard_formula: String,
-    pub(crate) undo_stack: Vec<UndoAction>,
-    pub(crate) redo_stack: Vec<UndoAction>,
-    pub(crate) max_undo_levels: usize,
-    pub(crate) show_save_dialog: bool,
-    pub(crate) save_filename: String,
-    pub(crate) range_start: Option<(usize, usize)>,
-    pub(crate) range_end: Option<(usize, usize)>,
-    pub(crate) is_selecting_range: bool,
+    pub(in crate::gui) sheet: HashMap<u32, Cell>,
+    pub(in crate::gui) ranged: HashMap<u32, Vec<(u32, u32)>>,
+    pub(in crate::gui) is_range: Vec<bool>,
+    pub(in crate::gui) total_rows: usize,
+    pub(in crate::gui) total_cols: usize,
+    pub(in crate::gui) selected: Option<(usize, usize)>,
+    pub(in crate::gui) formula_input: String,
+    pub(in crate::gui) editing_cell: bool,
+    pub(in crate::gui) style: SpreadsheetStyle,
+    pub(in crate::gui) status_message: String,
+    pub(in crate::gui) start_row: usize,
+    pub(in crate::gui) start_col: usize,
+    pub(in crate::gui) scroll_to_cell: String,
+    pub(in crate::gui) should_reset_scroll: bool,
+    pub(in crate::gui) focus_on: usize,
+    pub(in crate::gui) request_formula_focus: bool,
+    pub(in crate::gui) clipboard: Option<Cell>,
+    pub(in crate::gui) clipboard_formula: String,
+    pub(in crate::gui) undo_stack: Vec<UndoAction>,
+    pub(in crate::gui) redo_stack: Vec<UndoAction>,
+    pub(in crate::gui) max_undo_levels: usize,
+    pub(in crate::gui) show_save_dialog: bool,
+    pub(in crate::gui) save_filename: String,
+    pub(in crate::gui) range_start: Option<(usize, usize)>,
+    pub(in crate::gui) range_end: Option<(usize, usize)>,
+    pub(in crate::gui) is_selecting_range: bool,
 }
 
 impl SpreadsheetApp {
@@ -191,8 +191,8 @@ impl SpreadsheetApp {
 /// * `position` - Tuple of (row, col) indicating the cell position.
 /// * `old_cell` - The previous state of the cell.
 /// * `old_formula` - The previous formula associated with the cell.
-pub struct UndoAction {
-    pub position: (usize, usize), // (row, col)
-    pub old_cell: Cell,
-    pub old_formula: String,
+pub(in crate::gui) struct UndoAction {
+    pub(in crate::gui) position: (usize, usize), // (row, col)
+    pub(in crate::gui) old_cell: Cell,
+    pub(in crate::gui) old_formula: String,
 }
