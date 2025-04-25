@@ -77,6 +77,9 @@ cargo run --release --features gui -- 10 10
 - Use keyboard shortcuts (arrow keys for navigation, Ctrl+E/Ctrl+T/Ctrl+R for copy/cut/paste,space key on a cell to enter edit-cell mode,Esc key to   switch to command mode or cancel a formula).
 - Save spreadsheets in csv file like an excel sheet with constraint (fcsv <filename>) or like a plain csv file(csv <filename>) in the command mode .
 - Apply themes or animations through style settings(by themes button you may select or also change the pre-defined themes check from help command in cmd mode)
+- goto and scroll_to feature also there(a separate scroll_to button also there) goto moves your selection to the specified cell and scroll to takes the screen to there .
+- multi_selection also supported with minimal operations like if I have selected a range of cells and then in the single selected cell I enter formula like MAX() and enter then the range is automaticallly taken in .
+- scrolling can be done by mouse also, with scroll bars too, also in command mode by w<Option(number)>,s,a,d similarly .  
 
 Alternatively, use the Makefile target for GUI mode with maximum dimensions:
 ```bash
