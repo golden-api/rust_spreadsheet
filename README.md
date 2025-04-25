@@ -73,8 +73,8 @@ cargo run --release --features gui -- 10 10
 ```
 **Interaction**:
 - Click to select cells or Right Click on first and last to select the range between them.
-- Enter formulas in the top input bar (e.g., `=A1+5` in the command mode else just write A1+5 and enter).
-- Use keyboard shortcuts (arrow keys for navigation, Ctrl+E/Ctrl+T/Ctrl+R for copy/cut/paste,space key on a cell to enter edit-cell mode,Esc key to   switch to command mode or cancel a formula).
+- Enter formulas in the top input bar (e.g., `=A1+5` in the command mode else just write A1+5 and enter) , also double click a cell to enter edit cell mode similar can be done if I press just space key on a cell.
+- Use keyboard shortcuts (arrow keys for navigation, Ctrl+E/Ctrl+T/Ctrl+R for copy/cut/paste,space key on a cell to enter edit-cell mode,Esc key to switch to command mode or cancel a formula).
 - Save spreadsheets in csv file like an excel sheet with constraint (fcsv <filename>) or like a plain csv file(csv <filename>) in the command mode .
 - Apply themes or animations through style settings(by themes button you may select or also change the pre-defined themes check from help command in cmd mode)
 - goto and scroll_to feature also there(a separate scroll_to button also there) goto moves your selection to the specified cell and scroll to takes the screen to there .
