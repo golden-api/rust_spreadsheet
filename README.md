@@ -21,7 +21,7 @@ A spreadsheet application written in Rust, featuring both a command-line interfa
 - **Clipboard Support**: Copy and paste cell data for efficient editing.
 - **Undo/Redo**: Revert or reapply changes to maintain workflow flexibility.
 - **Customizable Themes**: Apply visual styles, including animations like rainbow effects or Matrix-style raindrops.
-- **File Operations**: Save and load spreadsheets for persistent data management.
+- **File Operations**: Save spreadsheets in csv for persistent data management.
 
 ## Installation
 
@@ -138,14 +138,3 @@ The project includes a Makefile for streamlined development tasks:
 - `make clippy`: Runs cargo clippy --all-features -- -D warnings.
 - `make fmt`: Runs rustfmt --check src/*.rs (that is, in all .rs files)
 - `make clean`: Removes build artifacts.
-
-To contribute:
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature-name`).
-3. Commit changes (`git commit -m "Add feature"`).
-4. Push to the branch (`git push origin feature-name`).
-5. Open a pull request.
-
-## License
-
-[Specify the license or link to the LICENSE file]
