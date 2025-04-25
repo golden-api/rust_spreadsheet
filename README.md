@@ -21,7 +21,7 @@ A spreadsheet application written in Rust, featuring both a command-line interfa
 - **Clipboard Support**: Copy and paste cell data for efficient editing.
 - **Undo/Redo**: Revert or reapply changes to maintain workflow flexibility.
 - **Customizable Themes**: Apply visual styles, including animations like rainbow effects or Matrix-style raindrops.
-- **File Operations**: Save and load spreadsheets for persistent data management.
+- **File Operations**: Save spreadsheets in csv for persistent data management.
 
 ## Installation
 
