@@ -112,7 +112,6 @@ pub fn sleepy(x: i32) {
 /// let result = compute_range(&sheet, 10, 0, 0, 0, 0, 4); // SUM
 /// assert_eq!(result, 5);
 /// ```
-const THRESHOLD: usize = 4096;
 
 pub fn compute_range(
     sheet: &HashMap<u32, Cell>,
@@ -126,9 +125,9 @@ pub fn compute_range(
     let width = (c_max - c_min + 1) as usize;
     let height = (r_max - r_min + 1) as usize;
     let area = width * height;
-
+    let use_hashmap_iter = sheet.len() >= area;
     // If area is small, do the simple full scan:
-    if area <= THRESHOLD {
+    if use_hashmap_iter {
         // --- original version ---
         let mut res: i32 = match choice {
             1 => i32::MIN, // MAX
