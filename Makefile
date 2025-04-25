@@ -22,9 +22,11 @@ clippy:
 	@cargo clippy --all-features -- -D warnings
 
 docs:
-	@cargo doc --open --all-features
+	@cargo doc --open --all-features &
+	@pdflatex report.tex >/dev/null && xdg-open report.pdf
 
 clean:
 	@cargo clean
-
+	@rm -f report.aux report.log report.out report.pdf
+	
 .PHONY: all build test coverage ext1 check fmt clippy clean
