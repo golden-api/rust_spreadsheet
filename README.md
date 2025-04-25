@@ -138,3 +138,5 @@ The project includes a Makefile for streamlined development tasks:
 - `make clippy`: Runs cargo clippy --all-features -- -D warnings.
 - `make fmt`: Runs rustfmt --check src/*.rs (that is, in all .rs files)
 - `make clean`: Removes build artifacts.
+
+Demo Link: https://drive.google.com/drive/folders/1rl5HcgcCAZOu1DPLIX9PbMlrA5RpWZC1?usp=sharing
