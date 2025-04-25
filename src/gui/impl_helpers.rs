@@ -128,8 +128,11 @@ impl SpreadsheetApp {
 
             // Check if the formula is a range function with empty parentheses
             let trimmed_input = self.formula_input.trim().to_uppercase();
-            const RANGE_FUNCTIONS: [&str; 5] = ["MAX", "MIN", "AVG", "STDEV","SUM"];
-            if RANGE_FUNCTIONS.iter().any(|&func| trimmed_input == format!("{}()", func)) {
+            const RANGE_FUNCTIONS: [&str; 5] = ["MAX", "MIN", "AVG", "STDEV", "SUM"];
+            if RANGE_FUNCTIONS
+                .iter()
+                .any(|&func| trimmed_input == format!("{}()", func))
+            {
                 if let (Some(start), Some(end)) = (self.range_start, self.range_end) {
                     // Calculate the range string using min and max to handle any selection order
                     let min_row = start.0.min(end.0);

@@ -19,7 +19,7 @@ fmt:
 	@rustfmt --check src/*.rs
 
 clippy:
-	@cargo clippy --release --all-features
+	@cargo clippy --all-features -- -D warnings
 
 docs:
 	@cargo doc --open --all-features

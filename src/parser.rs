@@ -9,7 +9,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use crate::utils::*;
 use crate::{Cell, CellData, CellName, Valtype, STATUS_CODE};
 
-
 /// Detects the type of formula and updates the cell's data and value accordingly.
 ///
 /// # Arguments

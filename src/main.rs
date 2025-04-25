@@ -4,7 +4,10 @@
 //! The application processes command-line arguments to set up the spreadsheet dimensions and delegates to
 //! either `interactive_mode` or a GUI interface based on configuration.
 #[cfg(any(feature = "autograder", feature = "gui"))]
-use std::{collections::{HashMap,HashSet}, env, process};
+use std::{
+    collections::{HashMap, HashSet},
+    env, process,
+};
 
 #[cfg(feature = "autograder")]
 use std::{
@@ -184,11 +187,11 @@ impl Cell {
         }
     }
 }
-#[cfg(any(feature = "autograder", feature = "gui"))]
+#[cfg(feature = "autograder")]
 trait ReserveOnGrow {
     fn reserve_on_grow(&mut self);
 }
-#[cfg(any(feature = "autograder", feature = "gui"))]
+#[cfg(feature = "autograder")]
 impl ReserveOnGrow for HashMap<u32, Cell> {
     fn reserve_on_grow(&mut self) {
         let len = self.len();
@@ -256,7 +259,7 @@ fn print_sheet(
 ///
 /// # Returns
 /// * `Result<(usize, usize), &'static str>` - A tuple `(rows, cols)` on success, or an error message on failure.
-#[cfg(feature = "autograder")]
+#[cfg(any(feature = "autograder", feature = "gui"))]
 fn parse_dimensions(args: Vec<String>) -> Result<(usize, usize), &'static str> {
     if args.len() == 3 {
         let total_rows = args[1].parse::<usize>().map_err(|_| "Invalid rows")?;

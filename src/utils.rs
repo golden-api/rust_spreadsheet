@@ -9,8 +9,6 @@ use crate::{Cell, Valtype, STATUS_CODE};
 /// A global flag indicating if an evaluation error occurred.
 pub static mut EVAL_ERROR: bool = false;
 
-
-
 /// Converts a cell reference (e.g., "A1") to row and column indices (0-based).
 ///
 /// # Arguments
@@ -112,7 +110,6 @@ pub fn sleepy(x: i32) {
 /// let result = compute_range(&sheet, 10, 0, 0, 0, 0, 4); // SUM
 /// assert_eq!(result, 5);
 /// ```
-
 pub fn compute_range(
     sheet: &HashMap<u32, Cell>,
     total_cols: usize,
@@ -122,8 +119,8 @@ pub fn compute_range(
     c_max: usize,
     choice: i32,
 ) -> i32 {
-    let width = (c_max - c_min + 1) as usize;
-    let height = (r_max - r_min + 1) as usize;
+    let width = c_max - c_min + 1;
+    let height = r_max - r_min + 1;
     let area = width * height;
     let use_hashmap_iter = sheet.len() >= area;
     // If area is small, do the simple full scan:
@@ -145,20 +142,28 @@ pub fn compute_range(
                     .unwrap_or(&Valtype::Int(0))
                 {
                     Valtype::Int(v) => *v,
-                    Valtype::Str(_) => { unsafe { EVAL_ERROR = true; } continue; }
+                    Valtype::Str(_) => {
+                        unsafe {
+                            EVAL_ERROR = true;
+                        }
+                        continue;
+                    }
                 };
                 match choice {
                     1 => res = res.max(val),
                     2 => res = res.min(val),
                     3..=5 => res += val,
-                    _ => unsafe { STATUS_CODE = 2; },
+                    _ => unsafe {
+                        STATUS_CODE = 2;
+                    },
                 }
             }
         }
 
         match choice {
-            3 => res / (area as i32),                    // AVG
-            5 => {  // STDEV: second-pass
+            3 => res / (area as i32), // AVG
+            5 => {
+                // STDEV: second-pass
                 let mean = res as f64 / area as f64;
                 for rr in r_min..=r_max {
                     for cc in c_min..=c_max {
@@ -181,7 +186,7 @@ pub fn compute_range(
         // accumulators:
         let mut max_v = i32::MIN;
         let mut min_v = i32::MAX;
-        let mut sum = 0i32;  // use i64 to avoid overflow on large areas
+        let mut sum = 0i32; // use i64 to avoid overflow on large areas
         let mut variance_acc = 0.0;
 
         // First pass: only look at the non-zero cells we actually stored
@@ -192,13 +197,18 @@ pub fn compute_range(
                 continue;
             }
             let v = match &cell.value {
-                Valtype::Int(v) => *v as i32,
-                Valtype::Str(_) => { unsafe { EVAL_ERROR = true; } continue; }
+                Valtype::Int(v) => *v,
+                Valtype::Str(_) => {
+                    unsafe {
+                        EVAL_ERROR = true;
+                    }
+                    continue;
+                }
             };
             count_in += 1;
             sum += v;
-            max_v = max_v.max(v as i32);
-            min_v = min_v.min(v as i32);
+            max_v = max_v.max(v);
+            min_v = min_v.min(v);
         }
 
         let zero_count = area.saturating_sub(count_in);
@@ -219,7 +229,7 @@ pub fn compute_range(
             }
             4 => {
                 // SUM: zeros don't change sum
-                sum as i32
+                sum
             }
             3 => {
                 // AVG: include zeros
@@ -240,18 +250,19 @@ pub fn compute_range(
                     }
                 }
                 // variance contribution from zeros:
-                variance_acc += (zero_count as f64) *( (0.0 - mean).powi(2));
+                variance_acc += (zero_count as f64) * ((0.0 - mean).powi(2));
 
                 (variance_acc / area as f64).sqrt().round() as i32
             }
             _ => {
-                unsafe { STATUS_CODE = 2; }
+                unsafe {
+                    STATUS_CODE = 2;
+                }
                 0
             }
         }
     }
 }
-
 
 /// Checks if a cell index falls within a given range.
 ///

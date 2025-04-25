@@ -260,7 +260,7 @@ impl SpreadsheetApp {
                 .size(self.style.font_size)
                 .color(self.style.header_text),
         );
-    
+
         // Original color picking logic when no rainbow mode is active
         let mut base_color = self.style.prev_base_color;
         if ui.color_edit_button_srgba(&mut base_color).changed() {
@@ -309,17 +309,17 @@ impl SpreadsheetApp {
         else if self.style.rainbow == 6 {
             let time = ui.ctx().input(|i| i.time);
             let time_f32 = time as f32;
-    
+
             let matrix_bright_green = Color32::from_rgb(0, 255, 70);
             let black = Color32::from_rgb(0, 0, 0);
-    
+
             self.style.cell_bg_even = black;
             self.style.cell_bg_odd = black;
             self.style.cell_text = matrix_bright_green;
             self.style.selected_cell_bg = matrix_bright_green;
             self.style.selected_cell_text = black;
             self.style.grid_line = Stroke::new(1.0, Color32::from_rgb(0, 0, 0));
-    
+
             use rand::Rng;
             if self.style.matrix_raindrops.is_empty() {
                 let columns = 50;
@@ -329,14 +329,16 @@ impl SpreadsheetApp {
                     let row = rng.gen_range(0..100);
                     let speed = rng.gen_range(3.0..8.0);
                     let length = rng.gen_range(5..15);
-                    self.style.matrix_raindrops.push((column, row, speed, length));
+                    self.style
+                        .matrix_raindrops
+                        .push((column, row, speed, length));
                 }
             }
-    
+
             for (_, row, speed, _) in &mut self.style.matrix_raindrops {
                 *row = (*row + (time_f32 * *speed * self.style.frequency / 20.0) as usize) % 200;
             }
-    
+
             let matrix_raindrops = self.style.matrix_raindrops.clone();
             let matrix_bright_green_copy = matrix_bright_green;
             self.style.get_cell_bg = Some(Box::new(move |row, col| {
@@ -356,9 +358,10 @@ impl SpreadsheetApp {
                 }
                 black
             }));
-    
+
             // Semi-transparent green for range selection, pulsing with animation
-            let pulse = ((time_f32 * 1.5 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
+            let pulse =
+                ((time_f32 * 1.5 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
             self.style.range_selection_bg = Color32::from_rgba_unmultiplied(
                 0,
                 (255.0 * pulse) as u8,
@@ -366,12 +369,12 @@ impl SpreadsheetApp {
                 150, // 60% opacity
             );
             self.style.range_selection_text = Color32::from_rgb(20, 20, 20); // Dark for contrast
-    
+
             ui.horizontal(|ui| {
                 ui.label("Matrix Speed:");
                 ui.add(egui::Slider::new(&mut self.style.frequency, 0.05..=0.5).logarithmic(true));
             });
-    
+
             ui.ctx().request_repaint();
             return;
         }
@@ -381,27 +384,24 @@ impl SpreadsheetApp {
             let matrix_green = Color32::from_rgb(0, 255, 0);
             let black = Color32::from_rgb(0, 0, 0);
             let white = Color32::from_rgb(255, 255, 255);
-    
+
             self.style.cell_bg_even = black;
             self.style.cell_bg_odd = black;
             self.style.cell_text = matrix_green;
             self.style.selected_cell_bg = matrix_green;
             self.style.selected_cell_text = white;
             self.style.grid_line = Stroke::new(1.0, Color32::from_rgb(0, 128, 0));
-    
+
             let time = ui.ctx().input(|i| i.time);
             let time_f32 = time as f32;
-            let pulse = ((time_f32 * 1.55 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
-    
+            let pulse =
+                ((time_f32 * 1.55 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
+
             self.style.cell_text = Color32::from_rgb(0, (255.0 * pulse) as u8, 150);
-            self.style.range_selection_bg = Color32::from_rgba_unmultiplied(
-                0,
-                (255.0 * pulse) as u8,
-                0,
-                150,
-            );
+            self.style.range_selection_bg =
+                Color32::from_rgba_unmultiplied(0, (255.0 * pulse) as u8, 0, 150);
             self.style.range_selection_text = Color32::from_rgb(20, 20, 20);
-    
+
             ui.ctx().request_repaint();
             return;
         }
@@ -411,18 +411,19 @@ impl SpreadsheetApp {
             let matrix_green = Color32::from_rgb(0, 255, 0);
             let black = Color32::from_rgb(0, 0, 0);
             let white = Color32::from_rgb(255, 255, 255);
-    
+
             self.style.cell_bg_even = black;
             self.style.cell_bg_odd = black;
             self.style.cell_text = matrix_green;
             self.style.selected_cell_bg = matrix_green;
             self.style.selected_cell_text = white;
             self.style.grid_line = Stroke::new(1.0, Color32::from_rgb(0, 0, 0));
-    
+
             let time = ui.ctx().input(|i| i.time);
             let time_f32 = time as f32;
-            let pulse = ((time_f32 * 1.5 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
-    
+            let pulse =
+                ((time_f32 * 1.5 * self.style.frequency / 0.2).sin() * 0.3 + 1.0).clamp(0.7, 1.3);
+
             self.style.cell_text = Color32::from_rgb(0, (255.0 * pulse) as u8, 0);
             // Semi-transparent pulsing green for range selection
             self.style.range_selection_bg = Color32::from_rgba_unmultiplied(
@@ -432,7 +433,7 @@ impl SpreadsheetApp {
                 150, // 60% opacity
             );
             self.style.range_selection_text = Color32::from_rgb(20, 20, 20);
-    
+
             ui.ctx().request_repaint();
             return;
         }
@@ -444,7 +445,7 @@ impl SpreadsheetApp {
             let cream = Color32::from_rgb(255, 248, 231);
             let burgundy = Color32::from_rgb(128, 0, 32);
             let light_gold = Color32::from_rgb(250, 214, 165);
-    
+
             self.style.cell_bg_even = soft_pink;
             self.style.cell_bg_odd = Color32::from_rgb(255, 218, 224);
             self.style.selected_cell_bg = deep_pink;
@@ -459,7 +460,7 @@ impl SpreadsheetApp {
                     180,
                 ),
             );
-    
+
             let time = ui.ctx().input(|i| i.time);
             let time_f32 = time as f32;
             let beat = (time_f32 % 4.0) * 1.5;
@@ -472,7 +473,7 @@ impl SpreadsheetApp {
             } else {
                 1.3
             };
-    
+
             self.style.selected_cell_bg = Color32::from_rgb(
                 (deep_pink.r() as f32 * pulse) as u8,
                 (deep_pink.g() as f32 * pulse) as u8,
@@ -486,7 +487,7 @@ impl SpreadsheetApp {
                 160, // 63% opacity
             );
             self.style.range_selection_text = cream;
-    
+
             ui.ctx().request_repaint();
             return;
         }
@@ -496,13 +497,13 @@ impl SpreadsheetApp {
             let time_f32 = time as f32;
             self.style.get_cell_bg = None;
             let frequency: f32 = self.style.frequency;
-    
+
             fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
                 let h = h % 360.0;
                 let c = v * s;
                 let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
                 let m = v - c;
-    
+
                 let (r, g, b) = if h < 60.0 {
                     (c, x, 0.0)
                 } else if h < 120.0 {
@@ -516,25 +517,25 @@ impl SpreadsheetApp {
                 } else {
                     (c, 0.0, x)
                 };
-    
+
                 let r = ((r + m) * 255.0) as u8;
                 let g = ((g + m) * 255.0) as u8;
                 let b = ((b + m) * 255.0) as u8;
-    
+
                 (r, g, b)
             }
-    
+
             let hue = (time_f32 * frequency * 100.0) % 360.0;
             let (r, g, b) = hsv_to_rgb(hue, 0.9, 0.9);
             let base_color = Color32::from_rgb(r, g, b);
-    
+
             fn adjust_brightness(color: Color32, factor: f32) -> Color32 {
                 let r = (color.r() as f32 * factor).clamp(0.0, 255.0) as u8;
                 let g = (color.g() as f32 * factor).clamp(0.0, 255.0) as u8;
                 let b = (color.b() as f32 * factor).clamp(0.0, 255.0) as u8;
                 Color32::from_rgb(r, g, b)
             }
-    
+
             fn contrast_color(bg: Color32) -> Color32 {
                 let r = bg.r() as f32;
                 let g = bg.g() as f32;
@@ -546,14 +547,14 @@ impl SpreadsheetApp {
                     Color32::from_rgb(0, 0, 0)
                 }
             }
-    
+
             fn invert(bg: Color32) -> Color32 {
                 let r = (255.0 - (bg.r() as f32)) as u8;
                 let g = (255.0 - (bg.g() as f32)) as u8;
                 let b = (255.0 - (bg.b() as f32)) as u8;
                 Color32::from_rgb(r, g, b)
             }
-    
+
             self.style.selected_cell_bg = invert(base_color);
             self.style.cell_bg_even = adjust_brightness(base_color, 0.8);
             self.style.cell_bg_odd = adjust_brightness(base_color, 1.2);
@@ -563,7 +564,7 @@ impl SpreadsheetApp {
             // Semi-transparent cycling color for range selection
             self.style.range_selection_bg = Color32::from_rgba_unmultiplied(r, g, b, 160); // 63% opacity
             self.style.range_selection_text = contrast_color(base_color);
-    
+
             ui.ctx().request_repaint();
         }
         // Rainbow1 mode
@@ -572,29 +573,42 @@ impl SpreadsheetApp {
             let time = ui.ctx().input(|i| i.time);
             let time_f32 = time as f32;
             let frequency: f32 = self.style.frequency;
-    
+
             let red = ((std::f32::consts::PI * frequency * time_f32).sin() * 0.5 + 0.5) * 255.0;
-            let green = ((std::f32::consts::PI * frequency * time_f32 + 2.0 * std::f32::consts::PI / 3.0)
-                .sin() * 0.5 + 0.5) * 255.0;
-            let blue = ((std::f32::consts::PI * frequency * time_f32 + 4.0 * std::f32::consts::PI / 3.0)
-                .sin() * 0.5 + 0.5) * 255.0;
+            let green = ((std::f32::consts::PI * frequency * time_f32
+                + 2.0 * std::f32::consts::PI / 3.0)
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
+            let blue = ((std::f32::consts::PI * frequency * time_f32
+                + 4.0 * std::f32::consts::PI / 3.0)
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
             let primary_color = Color32::from_rgb(red as u8, green as u8, blue as u8);
-    
+
             let phase_shift: f32 = std::f32::consts::PI / 2.0;
-            let red2 = ((std::f32::consts::PI * frequency * time_f32 + phase_shift).sin() * 0.5 + 0.5)
+            let red2 = ((std::f32::consts::PI * frequency * time_f32 + phase_shift).sin() * 0.5
+                + 0.5)
                 * 255.0;
             let green2 = ((std::f32::consts::PI * frequency * time_f32
                 + 2.0 * std::f32::consts::PI / 3.0
                 + phase_shift)
-                .sin() * 0.5
-                + 0.5) * 255.0;
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
             let blue2 = ((std::f32::consts::PI * frequency * time_f32
                 + 4.0 * std::f32::consts::PI / 3.0
                 + phase_shift)
-                .sin() * 0.5
-                + 0.5) * 255.0;
+                .sin()
+                * 0.5
+                + 0.5)
+                * 255.0;
             let secondary_color = Color32::from_rgb(red2 as u8, green2 as u8, blue2 as u8);
-    
+
             fn contrast_color(bg: Color32) -> Color32 {
                 let r = bg.r() as f32;
                 let g = bg.g() as f32;
@@ -606,7 +620,7 @@ impl SpreadsheetApp {
                     Color32::from_rgb(0, 0, 0)
                 }
             }
-    
+
             self.style.cell_bg_even = primary_color;
             self.style.cell_bg_odd = secondary_color;
             self.style.selected_cell_bg = Color32::from_rgb(
@@ -633,7 +647,7 @@ impl SpreadsheetApp {
                 160, // 63% opacity
             );
             self.style.range_selection_text = contrast_color(primary_color);
-    
+
             ui.ctx().request_repaint();
             return;
         }
@@ -754,7 +768,7 @@ impl SpreadsheetApp {
             } else {
                 "0".to_string()
             };
-    
+
             let bg_color = if is_selected {
                 self.style.selected_cell_bg
             } else if is_in_range {
@@ -766,7 +780,7 @@ impl SpreadsheetApp {
             } else {
                 self.style.cell_bg_odd
             };
-    
+
             let text_color = if is_selected {
                 self.style.selected_cell_text
             } else if is_in_range {
@@ -774,7 +788,7 @@ impl SpreadsheetApp {
             } else {
                 self.style.cell_text
             };
-    
+
             ui.put(
                 rect,
                 egui::Button::new(
@@ -785,13 +799,13 @@ impl SpreadsheetApp {
                 .fill(bg_color)
                 .stroke(self.style.grid_line),
             );
-    
+
             let response = ui.interact(
                 rect,
                 ui.make_persistent_id((row, col)),
                 egui::Sense::click(),
             );
-    
+
             if response.clicked_by(egui::PointerButton::Primary) {
                 self.is_selecting_range = false;
                 self.range_end = None;
@@ -807,7 +821,8 @@ impl SpreadsheetApp {
                 if !self.is_selecting_range {
                     self.range_start = Some((row, col));
                     self.is_selecting_range = true;
-                    self.status_message = format!("Range selection started at {}{}", col_label(col), row + 1);
+                    self.status_message =
+                        format!("Range selection started at {}{}", col_label(col), row + 1);
                 } else {
                     self.range_end = Some((row, col));
                     self.is_selecting_range = false;

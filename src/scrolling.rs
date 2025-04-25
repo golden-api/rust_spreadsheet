@@ -5,8 +5,6 @@
 
 use crate::{utils::to_indices, STATUS_CODE};
 
-
-
 /// Moves the view up by 10 rows if possible.
 ///
 /// # Arguments
